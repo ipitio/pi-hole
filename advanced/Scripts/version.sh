@@ -105,7 +105,7 @@ getRemoteVersion(){
 
         return 0
     fi
-    
+
     if [[ "$daemon" == "AdminLTE" ]]; then
         owner="arevindh"
     fi
