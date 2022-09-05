@@ -502,94 +502,78 @@ SetWebUILayout() {
     addOrEditKeyValPair "${setupVars}" "WEBUIBOXEDLAYOUT" "${args[2]}"
 }
 
-
-ClearSpeedtestData(){
+ClearSpeedtestData() {
     mv $speedtestdb $speedtestdb"_old"
     cp /var/www/html/admin/scripts/pi-hole/speedtest/speedtest.db $speedtestdb
 }
 
-ChageSpeedTestSchedule(){
-  if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
-      if [ "${args[2]}" -ge 0 -a "${args[2]}" -le 24 ]; then
-          change_setting "SPEEDTESTSCHEDULE" "${args[2]}"
-          SetCronTab ${args[2]}
-      fi
-  fi
-}
-
-SpeedtestServer(){
-  if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
-      change_setting "SPEEDTEST_SERVER" "${args[2]}"
-          # SetCronTab ${args[2]}
-  else
-      # Autoselect for invalid data
-      change_setting "SPEEDTEST_SERVER" ""
-  fi
-
-}
-
-
-RunSpeedtestNow(){
-  mkdir -p /tmp/speedtest
-  lockfile="/tmp/speedtest/lock"
-  if [ -f $speedtestdb ]
-  then
-      echo ""
-  else
-      cp /var/www/html/admin/scripts/pi-hole/speedtest/speedtest.db $speedtestdb
-      sleep 2
-  fi
-  if [ -f "$lockfile" ]
-  then
-  	echo "Speedtest is already in progress, is something went wrong delete this file - "$lockfile
-  else
-    touch $lockfile
-    if [[ "${args[2]}" == "-n" ]]; then
-        speedtest-cli
-    else
-      echo "Testing Speed"
-      result=`$speedtestfile`
-      echo $result
-      rm $lockfile
+ChageSpeedTestSchedule() {
+    if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
+        if [ "${args[2]}" -ge 0 -a "${args[2]}" -le 24 ]; then
+            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
+            SetCronTab ${args[2]}
+        fi
     fi
-  fi
-}
-
-SpeedtestMode(){
-  if [[ "${args[2]}" ]]; then
-      change_setting "SPEEDTEST_MODE" "${args[2]}"
-  else
-      # Autoselect for invalid data
-      change_setting "SPEEDTEST_MODE" "python"
-  fi
-
 }
 
 
-SetCronTab()
-{
-  # Remove OLD
-  crontab -l > crontab.tmp || true
 
-  if [[ "$1" == "0" ]]; then
-      sed -i '/speedtest/d' crontab.tmp
-      crontab crontab.tmp && rm -f crontab.tmp
-  else
-      sed -i '/speedtest/d' crontab.tmp
-
-      mode=$(sed -n -e '/SPEEDTEST_MODE/ s/.*\= *//p' $setupVars)
-
-      if [[ "$mode" =~ "official" ]]; then
-        speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh"
-      else
-        speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh"
-      fi
-
-      newtab="0 */"${1}" * * * sudo \""${speedtest_file}"\"  > /dev/null 2>&1"
-      printf '%s\n' "$newtab" >>crontab.tmp
-      crontab crontab.tmp && rm -f crontab.tmp
-  fi
+SpeedtestServer() {
+    if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
+        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" "${args[2]}"
+    else
+        # Autoselect for invalid data
+        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" ""
+    fi
 }
+
+RunSpeedtestNow() {
+    /var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh
+}
+
+SpeedtestMode() {
+    if [[ "${args[2]}" ]]; then
+        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_MODE" "${args[2]}"
+    else
+        # Autoselect for invalid data
+        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_MODE" ""
+    fi
+
+}
+
+function UpdateSpeedTestRange() {
+    if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
+        if [ "${args[2]}" -ge 0 -a "${args[2]}" -le 30 ]; then
+            addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_DAYS" "${args[2]}"
+        fi
+    fi
+}
+
+SetCronTab() {
+    # Remove OLD
+    crontab -l >crontab.tmp || true
+
+    if [[ "$1" == "0" ]]; then
+        sed -i '/speedtest/d' crontab.tmp
+        crontab crontab.tmp && rm -f crontab.tmp
+    else
+        sed -i '/speedtest/d' crontab.tmp
+
+        mode=$(sed -n -e '/SPEEDTEST_MODE/ s/.*\= *//p' $setupVars)
+
+        if [[ "$mode" =~ "official" ]]; then
+            speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh"
+        else
+            speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh"
+        fi
+
+        newtab="0 */"${1}" * * * sudo \""${speedtest_file}"\"  > /dev/null 2>&1"
+        printf '%s\n' "$newtab" >>crontab.tmp
+        crontab crontab.tmp && rm -f crontab.tmp
+    fi
+}
+
+
 SetWebUITheme() {
     addOrEditKeyValPair "${setupVars}" "WEBTHEME" "${args[2]}"
 }
@@ -632,33 +616,6 @@ CustomizeAdLists() {
     else
         echo "Invalid Url"
         return 1
-    fi
-}
-
-function UpdateSpeedTestRange(){
-  if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
-      if [ "${args[2]}" -ge 0 -a "${args[2]}" -le 30 ]; then
-          change_setting "SPEEDTEST_CHART_DAYS" "${args[2]}"
-      fi
-  fi
-}
-
-SetPrivacyMode() {
-    if [[ "${args[2]}" == "true" ]]; then
-        change_setting "API_PRIVACY_MODE" "true"
-    else
-        change_setting "API_PRIVACY_MODE" "false"
-    fi
-}
-
-ResolutionSettings() {
-    typ="${args[2]}"
-    state="${args[3]}"
-
-    if [[ "${typ}" == "forward" ]]; then
-        change_setting "API_GET_UPSTREAM_DNS_HOSTNAME" "${state}"
-    elif [[ "${typ}" == "clients" ]]; then
-        change_setting "API_GET_CLIENT_HOSTNAME" "${state}"
     fi
 }
 
@@ -947,7 +904,7 @@ main() {
         "-s" | "speedtest"    ) ChageSpeedTestSchedule;;
         "-sd"                 ) UpdateSpeedTestRange;;
         "-sn"                 ) RunSpeedtestNow;;
-	    "-sm"                 ) SpeedtestMode;;
+        "-sm"                 ) SpeedtestMode;;
         "-sc"                 ) ClearSpeedtestData;;
         "-ss"                 ) SpeedtestServer;;
         "addcustomdns"        ) AddCustomDNSAddress;;
@@ -957,8 +914,10 @@ main() {
         "ratelimit"           ) SetRateLimit;;
         *                     ) helpFunc;;
     esac
+
     shift
-        if [[ $# = 0 ]]; then
+
+    if [[ $# = 0 ]]; then
         helpFunc
     fi
 }
