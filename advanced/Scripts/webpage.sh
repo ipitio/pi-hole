@@ -547,6 +547,8 @@ UpdateSpeedTestRange() {
 UpdateSpeedTestChartType() {
     if [[ "${args[2]}" =~ ^(bar|line)$ ]]; then
         addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_TYPE" "${args[2]}"
+    else
+        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_TYPE" "line"
     fi
 }
 
