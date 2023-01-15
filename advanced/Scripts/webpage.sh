@@ -502,7 +502,7 @@ ClearSpeedtestData() {
     cp /var/www/html/admin/scripts/pi-hole/speedtest/speedtest.db $speedtestdb
 }
 
-ChageSpeedTestSchedule() {
+ChangeSpeedTestSchedule() {
     if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
         if [ "${args[2]}" -ge 0 -a "${args[2]}" -le 24 ]; then
             addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
@@ -536,11 +536,17 @@ SpeedtestMode() {
 
 }
 
-function UpdateSpeedTestRange() {
+UpdateSpeedTestRange() {
     if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
         if [ "${args[2]}" -ge 0 -a "${args[2]}" -le 30 ]; then
             addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_DAYS" "${args[2]}"
         fi
+    fi
+}
+
+UpdateSpeedTestChartType() {
+    if [[ "${args[2]}" =~ ^(bar|line)$ ]]; then
+        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_TYPE" "${args[2]}"
     fi
 }
 
@@ -912,12 +918,13 @@ main() {
         "audit"               ) addAudit "$@";;
         "clearaudit"          ) clearAudit;;
         "-l" | "privacylevel" ) SetPrivacyLevel;;
-        "-s" | "speedtest"    ) ChageSpeedTestSchedule;;
+        "-s" | "speedtest"    ) ChangeSpeedTestSchedule;;
         "-sd"                 ) UpdateSpeedTestRange;;
         "-sn"                 ) RunSpeedtestNow;;
         "-sm"                 ) SpeedtestMode;;
         "-sc"                 ) ClearSpeedtestData;;
         "-ss"                 ) SpeedtestServer;;
+        "-st"                 ) UpdateSpeedTestChartType;;
         "addcustomdns"        ) AddCustomDNSAddress;;
         "removecustomdns"     ) RemoveCustomDNSAddress;;
         "addcustomcname"      ) AddCustomCNAMERecord;;
