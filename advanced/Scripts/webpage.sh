@@ -506,7 +506,7 @@ ChangeSpeedTestSchedule() {
     if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
         if [ "${args[2]}" -ge 0 -a "${args[2]}" -le 24 ]; then
             addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
-            SetCronTab ${args[2]}
+            SetService ${args[2]}
         fi
     fi
 }
@@ -552,13 +552,14 @@ UpdateSpeedTestChartType() {
     fi
 }
 
-SetCronTab() {
+SetService() {
     # Remove OLD
     crontab -l >crontab.tmp || true
+    sed -i '/speedtest/d' crontab.tmp
+    crontab crontab.tmp && rm -f crontab.tmp
 
     if [[ "$1" == "0" ]]; then
-        sed -i '/speedtest/d' crontab.tmp
-        crontab crontab.tmp && rm -f crontab.tmp
+        systemctl disable --now pihole-speedtest.timer &> /dev/null
     else
         sed -i '/speedtest/d' crontab.tmp
 
@@ -569,10 +570,35 @@ SetCronTab() {
         else
             speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh"
         fi
+        
+        # create a systemd timer to run the service
+        # create a systemd service to run the speedtest
+        cat > /etc/systemd/system/pihole-speedtest.service << EOL
+[Unit]
+Description=Pi-hole Speedtest
+After=network.target
 
-        newtab="0 */"${1}" * * * sudo \""${speedtest_file}"\"  > /dev/null 2>&1"
-        printf '%s\n' "$newtab" >>crontab.tmp
-        crontab crontab.tmp && rm -f crontab.tmp
+[Service]
+Type=oneshot
+ExecStart=$speedtest_file
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+        cat > /etc/systemd/system/pihole-speedtest.timer << EOL
+[Unit]
+Description=Pi-hole Speedtest Timer
+
+[Timer]
+OnCalendar=*-*-* *:$1:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOL
+
+        systemctl enable --now pihole-speedtest.timer &> /dev/null
     fi
 }
 
