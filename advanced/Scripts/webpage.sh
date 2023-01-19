@@ -591,14 +591,16 @@ EOL
 Description=Pi-hole Speedtest Timer
 
 [Timer]
-OnCalendar=*-*-* *:$1:00
+OnCalendar=*-*-* $1:00:00
 Persistent=true
 
 [Install]
 WantedBy=timers.target
 EOL
 
-        systemctl enable --now pihole-speedtest.timer &> /dev/null
+        systemctl daemon-reload
+        systemctl reenable pihole-speedtest.timer &> /dev/null
+        systemctl restart pihole-speedtest.timer
     fi
 }
 
