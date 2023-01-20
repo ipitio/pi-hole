@@ -56,6 +56,7 @@ Options:
   -sm		                      Speedtest Mode
   -sc                             Clear speedtest data
   -ss                             Set custom server
+  -st                             Set default speedtest chart type (line, bar)
   -l, privacylevel                Set privacy level (0 = lowest, 3 = highest)
   -t, teleporter                  Backup configuration as an archive
   -t, teleporter myname.tar.gz    Backup configuration to archive with name myname.tar.gz as specified"
@@ -567,7 +568,7 @@ SetService() {
             speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh"
         fi
         
-        cat > /etc/systemd/system/pihole-speedtest.service << EOL
+        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOL
 [Unit]
 Description=Pi-hole Speedtest
 After=network.target
@@ -578,9 +579,8 @@ ExecStart=$speedtest_file
 
 [Install]
 WantedBy=multi-user.target
-EOL
-
-        cat > /etc/systemd/system/pihole-speedtest.timer << EOL
+EOL'
+        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOL
 [Unit]
 Description=Pi-hole Speedtest Timer
 
@@ -590,7 +590,7 @@ Persistent=true
 
 [Install]
 WantedBy=timers.target
-EOL
+EOL'
 
         systemctl daemon-reload
         systemctl reenable pihole-speedtest.timer &> /dev/null
