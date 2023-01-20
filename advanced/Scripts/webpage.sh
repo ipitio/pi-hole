@@ -568,7 +568,7 @@ SetService() {
             speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh"
         fi
         
-        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << \EOF
+        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
 Description=Pi-hole Speedtest
 After=network.target
@@ -580,7 +580,7 @@ ExecStart='"$speedtest_file"'
 [Install]
 WantedBy=multi-user.target
 EOF'
-        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << \EOF
+        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
 [Unit]
 Description=Pi-hole Speedtest Timer
 
