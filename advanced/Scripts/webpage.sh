@@ -575,7 +575,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart="$speedtest_file"
+ExecStart='"$speedtest_file"'
 
 [Install]
 WantedBy=multi-user.target
@@ -585,7 +585,7 @@ EOF'
 Description=Pi-hole Speedtest Timer
 
 [Timer]
-OnCalendar=*-*-* "$1":00:00
+OnCalendar=*-*-* '"$1"':00:00
 Persistent=true
 
 [Install]
