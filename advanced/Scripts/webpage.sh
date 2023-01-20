@@ -563,9 +563,9 @@ SetService() {
         systemctl disable --now pihole-speedtest.timer &> /dev/null
     else
         mode=$(sed -n -e '/SPEEDTEST_MODE/ s/.*\= *//p' $setupVars)
-        speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh"
+        speedtest_file='/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh'
         if [[ "$mode" =~ "official" ]]; then
-            speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh"
+            speedtest_file='/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh'
         fi
         
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
