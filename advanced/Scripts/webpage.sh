@@ -561,18 +561,12 @@ SetService() {
     if [[ "$1" == "0" ]]; then
         systemctl disable --now pihole-speedtest.timer &> /dev/null
     else
-        sed -i '/speedtest/d' crontab.tmp
-
         mode=$(sed -n -e '/SPEEDTEST_MODE/ s/.*\= *//p' $setupVars)
-
+        speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh"
         if [[ "$mode" =~ "official" ]]; then
             speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh"
-        else
-            speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh"
         fi
         
-        # create a systemd timer to run the service
-        # create a systemd service to run the speedtest
         cat > /etc/systemd/system/pihole-speedtest.service << EOL
 [Unit]
 Description=Pi-hole Speedtest
