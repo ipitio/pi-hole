@@ -568,7 +568,7 @@ SetService() {
             speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh"
         fi
         
-        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOL
+        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << \EOF
 [Unit]
 Description=Pi-hole Speedtest
 After=network.target
@@ -579,8 +579,8 @@ ExecStart="$speedtest_file"
 
 [Install]
 WantedBy=multi-user.target
-EOL'
-        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOL
+EOF'
+        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << \EOF
 [Unit]
 Description=Pi-hole Speedtest Timer
 
@@ -590,7 +590,7 @@ Persistent=true
 
 [Install]
 WantedBy=timers.target
-EOL'
+EOF'
 
         systemctl daemon-reload
         systemctl reenable pihole-speedtest.timer &> /dev/null
