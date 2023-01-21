@@ -607,7 +607,7 @@ UpdateSpeedTest() {
     then
         apt-get install screen -y
     fi
-    screen -S pimod -dm bash -c "curl -sSL https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | bash -s -- up ${args[2]}"
+    screen -S pimod -dm bash -c "curl -sSL https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | tac | tac | sudo bash -s -- up ${args[2]}"
 }
 
 UninstallSpeedTest() {
@@ -615,7 +615,7 @@ UninstallSpeedTest() {
     then
         apt-get install screen -y
     fi
-    screen -S pimod -dm bash -c "curl -sSL https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | bash -s -- un"
+    screen -S pimod -dm bash -c "curl -sSL https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | tac | tac | sudo bash -s -- un"
 }
 
 SetWebUITheme() {
