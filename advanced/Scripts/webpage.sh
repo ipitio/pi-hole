@@ -606,6 +606,7 @@ UpdateSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
+    tmux kill-session -t pimod &> /dev/null
     tmux new-session -d -s pimod
     tmux send-keys -t pimod "curl -sSL https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | tac | tac | bash -s -- up ${args[2]}" Enter
 }
@@ -614,6 +615,7 @@ UninstallSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
+    tmux kill-session -t pimod &> /dev/null
     tmux new-session -d -s pimod
     tmux send-keys -t pimod "curl -sSL https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | tac | tac | bash -s -- un" Enter
 }
