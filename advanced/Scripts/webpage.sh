@@ -51,8 +51,8 @@ Options:
   -h, --help                      Show this help dialog
   -i, interface                   Specify dnsmasq's interface listening behavior
   -s, speedtest                   Set speedtest intevel , user 0 to disable Speedtests use -sn to prevent logging to results list
-  -up [un]                        Update Pi-hole and update or uninstall the Mod
-  -un [up]                        Uninstall Speedtest Mod and optionally update Pi-hole
+  -up [un]                        Update Pi-hole and the Mod (or uninstall the Mod)
+  -un                             Uninstall Speedtest Mod without updating Pi-hole (requires original Pi-hole backup)
   -sd                             Set speedtest display range
   -sn                             Run speedtest now
   -sm		                      Speedtest Mode
@@ -601,11 +601,19 @@ EOF'
 }
 
 UpdateSpeedTest() {
-    curl -sSL https://github.com/arevindh/pihole-speedtest/raw/master/update.sh | bash ${args[2]}
+    if ! command -v screen &> /dev/null
+    then
+        apt-get install screen -y
+    fi
+    screen -S pimod -dm bash -c "curl -sSL https://github.com/arevindh/pihole-speedtest/raw/master/mod.sh | bash -s -- up ${args[2]}"
 }
 
 UninstallSpeedTest() {
-    curl -sSL https://github.com/arevindh/pihole-speedtest/raw/master/update.sh | bash ${args[2]}
+    if ! command -v screen &> /dev/null
+    then
+        apt-get install screen -y
+    fi
+    screen -S pimod -dm bash -c "curl -sSL https://github.com/arevindh/pihole-speedtest/raw/master/mod.sh | bash -s -- un"
 }
 
 SetWebUITheme() {
