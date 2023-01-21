@@ -52,7 +52,7 @@ Options:
   -i, interface                   Specify dnsmasq's interface listening behavior
   -s, speedtest                   Set speedtest intevel , user 0 to disable Speedtests use -sn to prevent logging to results list
   -up [un]                        Update Pi-hole and the Mod (or uninstall the Mod)
-  -un                             Uninstall Speedtest Mod without updating Pi-hole (requires original Pi-hole backup)
+  -un                             Uninstall Speedtest Mod without updating Pi-hole
   -sd                             Set speedtest display range
   -sn                             Run speedtest now
   -sm		                      Speedtest Mode
