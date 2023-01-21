@@ -603,19 +603,17 @@ EOF'
 }
 
 UpdateSpeedTest() {
-    if ! command -v screen &> /dev/null
-    then
-        apt-get install screen -y
+    if ! command -v tmux &> /dev/null; then
+        apt-get install tmux -y
     fi
-    screen -S pimod -dm bash -c "curl -sSL https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | tac | tac | sudo bash -s -- up ${args[2]}"
+    tmux new-session -d -s pimod "curl -sSL https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | tac | tac | bash -s -- up ${args[2]}"
 }
 
 UninstallSpeedTest() {
-    if ! command -v screen &> /dev/null
-    then
-        apt-get install screen -y
+    if ! command -v tmux &> /dev/null; then
+        apt-get install tmux -y
     fi
-    screen -S pimod -dm bash -c "curl -sSL https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | tac | tac | sudo bash -s -- un"
+    tmux new-session -d -s pimod "curl -sSL https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | tac | tac | bash -s -- un"
 }
 
 SetWebUITheme() {
