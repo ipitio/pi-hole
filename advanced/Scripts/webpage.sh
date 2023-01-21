@@ -608,7 +608,7 @@ UpdateSpeedTest() {
     fi
     tmux kill-session -t pimod &> /dev/null
     tmux new-session -d -s pimod
-    tmux send-keys -t pimod "curl -sSL https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | tac | tac | bash -s -- up ${args[2]}" Enter
+    tmux send-keys -t pimod "curl -sSLN https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | bash -s -- up ${args[2]}" Enter
 }
 
 UninstallSpeedTest() {
@@ -617,7 +617,7 @@ UninstallSpeedTest() {
     fi
     tmux kill-session -t pimod &> /dev/null
     tmux new-session -d -s pimod
-    tmux send-keys -t pimod "curl -sSL https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | tac | tac | bash -s -- un" Enter
+    tmux send-keys -t pimod "curl -sSLN https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | bash -s -- un" Enter
 }
 
 SetWebUITheme() {
