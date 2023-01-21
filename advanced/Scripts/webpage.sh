@@ -617,7 +617,9 @@ UninstallSpeedTest() {
     fi
     tmux kill-session -t pimod &> /dev/null
     tmux new-session -d -s pimod
+    echo "Uninstalling Pi-hole Speedtest" > /tmp/pimod.log
     tmux send-keys -t pimod "curl -sSLN https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | sudo bash -s -- un" Enter
+    echo "Sent command" >> /tmp/pimod.log
 }
 
 SetWebUITheme() {
