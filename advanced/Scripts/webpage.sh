@@ -579,7 +579,7 @@ After=network.target
 User=root
 CPUQuota=20%
 Restart=always
-RestartSec=$(($1*3600))
+RestartSec='$(($1*3600))'
 ExecStart='$speedtest_file'
 
 [Install]
