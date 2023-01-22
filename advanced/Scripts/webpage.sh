@@ -50,9 +50,10 @@ Options:
   -k, kelvin                      Set Kelvin as preferred temperature unit
   -h, --help                      Show this help dialog
   -i, interface                   Specify dnsmasq's interface listening behavior
-  -s, speedtest                   Set speedtest intevel , user 0 to disable Speedtests use -sn to prevent logging to results list
-  -up [un] [db]                   Update Pi-hole and (or uninstall) the Mod (and flush the database)
+  -s, speedtest                   Set speedtest interval, user 0 to disable Speedtests, use -sn to prevent logging to results list
+  -up [un] [db]                   Update Pi-hole (and | but uninstall) the Mod (and flush the database)
   -un [db]                        Uninstall Speedtest Mod without updating Pi-hole (and delete the database)
+  -db                             Flush the database
   -sd                             Set speedtest display range
   -sn                             Run speedtest now
   -sm		                      Speedtest Mode
@@ -962,6 +963,7 @@ main() {
         "-s" | "speedtest"    ) ChangeSpeedTestSchedule;;
         "-up"                 ) UpdateSpeedTest;;
         "-un"                 ) UninstallSpeedTest;;
+        "-db"                 ) ClearSpeedtestData;;
         "-sd"                 ) UpdateSpeedTestRange;;
         "-sn"                 ) RunSpeedtestNow;;
         "-sm"                 ) SpeedtestMode;;
