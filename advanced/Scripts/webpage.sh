@@ -605,7 +605,10 @@ EOF'
 }
 
 SpeedTestTest() {
-    cat /var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh | sudo bash &
+    if ! command -v tmux &> /dev/null; then
+        apt-get install tmux -y
+    fi
+    tmux new-session -d -s pimod "cat /var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh | sudo bash"
 }
 
 UpdateSpeedTest() {
