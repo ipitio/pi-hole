@@ -51,8 +51,8 @@ Options:
   -h, --help                      Show this help dialog
   -i, interface                   Specify dnsmasq's interface listening behavior
   -s, speedtest                   Set speedtest intevel , user 0 to disable Speedtests use -sn to prevent logging to results list
-  -up [un]                        Update Pi-hole and the Mod (or uninstall the Mod)
-  -un                             Uninstall Speedtest Mod without updating Pi-hole
+  -up [un] [db]                   Update Pi-hole and (or uninstall) the Mod (and flush the database)
+  -un [db]                        Uninstall Speedtest Mod without updating Pi-hole (and delete the database)
   -sd                             Set speedtest display range
   -sn                             Run speedtest now
   -sm		                      Speedtest Mode
@@ -606,18 +606,14 @@ UpdateSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    tmux kill-session -t pimod &> /dev/null
-    tmux new-session -d -s pimod
-    tmux send-keys -t pimod "curl -sSLN https://github.com/arevindh/pihole-speedtest/raw/master/mod.sh | bash -s -- up ${args[2]}" Enter
+    tmux new-session -d -s pimod "curl -sSLN https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | sudo bash -s -- up ${args[2]}"
 }
 
 UninstallSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    tmux kill-session -t pimod &> /dev/null
-    tmux new-session -d -s pimod
-    tmux send-keys -t pimod "curl -sSLN https://github.com/arevindh/pihole-speedtest/raw/master/mod.sh | bash -s -- un" Enter
+    tmux new-session -d -s pimod "curl -sSLN https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | sudo bash -s -- un"
 }
 
 SetWebUITheme() {
