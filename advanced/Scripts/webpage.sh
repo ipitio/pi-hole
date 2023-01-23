@@ -591,7 +591,7 @@ EOF'
 Description=Pi-hole Speedtest Timer
 
 [Timer]
-OnCalendar=*-*-* '$1':00:00
+OnCalendar=00/'$1':00
 Persistent=true
 
 [Install]
