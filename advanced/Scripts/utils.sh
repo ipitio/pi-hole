@@ -31,9 +31,12 @@ addOrEditKeyValPair() {
   local key="${2}"
   local value="${3}"
 
+  # touch file to prevent grep error if file does not exist yet
+  touch "${file}"
+
   if grep -q "^${key}=" "${file}"; then
-      # Key already exists in file, modify the value
-      sed -i "/^${key}=/c\\${key}=${value}" "${file}"
+    # Key already exists in file, modify the value
+    sed -i "/^${key}=/c\\${key}=${value}" "${file}"
   else
     # Key does not already exist, add it and it's value
     echo "${key}=${value}" >> "${file}"
@@ -51,9 +54,12 @@ addKey(){
   local file="${1}"
   local key="${2}"
 
+  # touch file to prevent grep error if file does not exist yet
+  touch "${file}"
+
   if ! grep -q "^${key}" "${file}"; then
-      # Key does not exist, add it.
-      echo "${key}" >> "${file}"
+    # Key does not exist, add it.
+    echo "${key}" >> "${file}"
   fi
 }
 
@@ -70,47 +76,27 @@ removeKey() {
   sed -i "/^${key}/d" "${file}"
 }
 
-#######################
-# returns path of FTL's port file
-#######################
-getFTLAPIPortFile() {
-    local FTLCONFFILE="/etc/pihole/pihole-FTL.conf"
-    local DEFAULT_PORT_FILE="/run/pihole-FTL.port"
-    local FTL_APIPORT_FILE
-
-    if [ -s "${FTLCONFFILE}" ]; then
-        # if PORTFILE is not set in pihole-FTL.conf, use the default path
-        FTL_APIPORT_FILE="$({ grep '^PORTFILE=' "${FTLCONFFILE}" || echo "${DEFAULT_PORT_FILE}"; } | cut -d'=' -f2-)"
-    else
-        # if there is no pihole-FTL.conf, use the default path
-        FTL_APIPORT_FILE="${DEFAULT_PORT_FILE}"
-    fi
-
-      echo "${FTL_APIPORT_FILE}"
-}
-
 
 #######################
-# returns FTL's current telnet API port based on the content of the pihole-FTL.port file
-#
-# Takes one argument: path to pihole-FTL.port
-# Example getFTLAPIPort "/run/pihole-FTL.port"
-#######################
+# returns FTL's current telnet API port based on the setting in /etc/pihole-FTL.conf
+########################
 getFTLAPIPort(){
-    local PORTFILE="${1}"
+    local FTLCONFFILE="/etc/pihole/pihole-FTL.conf"
     local DEFAULT_FTL_PORT=4711
     local ftl_api_port
 
-    if [ -s "$PORTFILE" ]; then
-        # -s: FILE exists and has a size greater than zero
-        ftl_api_port=$(cat "${PORTFILE}")
-        # Exploit prevention: unset the variable if there is malicious content
-        # Verify that the value read from the file is numeric
-        expr "$ftl_api_port" : "[^[:digit:]]" > /dev/null && unset ftl_api_port
+    if [ -s "$FTLCONFFILE" ]; then
+        # if FTLPORT is not set in pihole-FTL.conf, use the default port
+        ftl_api_port="$({ grep '^FTLPORT=' "${FTLCONFFILE}" || echo "${DEFAULT_FTL_PORT}"; } | cut -d'=' -f2-)"
+        # Exploit prevention: set the port to the default port if there is malicious (non-numeric)
+        # content set in pihole-FTL.conf
+        expr "${ftl_api_port}" : "[^[:digit:]]" > /dev/null && ftl_api_port="${DEFAULT_FTL_PORT}"
+    else
+        # if there is no pihole-FTL.conf, use the default port
+        ftl_api_port="${DEFAULT_FTL_PORT}"
     fi
 
-    # echo the port found in the portfile or default to the default port
-    echo "${ftl_api_port:=$DEFAULT_FTL_PORT}"
+    echo "${ftl_api_port}"
 }
 
 #######################

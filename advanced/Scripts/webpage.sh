@@ -401,13 +401,8 @@ ProcessDHCPSettings() {
         if [[ "${DHCP_LEASETIME}" == "0" ]]; then
             leasetime="infinite"
         elif [[ "${DHCP_LEASETIME}" == "" ]]; then
-            leasetime="24"
-            addOrEditKeyValPair "${setupVars}" "DHCP_LEASETIME" "${leasetime}"
-        elif [[ "${DHCP_LEASETIME}" == "24h" ]]; then
-            #Installation is affected by known bug, introduced in a previous version.
-            #This will automatically clean up setupVars.conf and remove the unnecessary "h"
-            leasetime="24"
-            addOrEditKeyValPair "${setupVars}" "DHCP_LEASETIME" "${leasetime}"
+            leasetime="24h"
+            addOrEditKeyValPair "${setupVars}" "DHCP_LEASETIME" "24"
         else
             leasetime="${DHCP_LEASETIME}h"
         fi
@@ -712,6 +707,14 @@ checkDomain()
     echo "${validDomain}"
 }
 
+escapeDots()
+{
+    # SC suggest bashism ${variable//search/replace}
+    # shellcheck disable=SC2001
+    escaped=$(echo "$1" | sed 's/\./\\./g')
+    echo "${escaped}"
+}
+
 addAudit()
 {
     shift # skip "-a"
@@ -787,6 +790,7 @@ RemoveCustomDNSAddress() {
     validHost="$(checkDomain "${host}")"
     if [[ -n "${validHost}" ]]; then
         if valid_ip "${ip}" || valid_ip6 "${ip}" ; then
+            validHost=$(escapeDots "${validHost}")
             sed -i "/^${ip} ${validHost}$/Id" "${dnscustomfile}"
         else
             echo -e "  ${CROSS} Invalid IP has been passed"
@@ -814,7 +818,12 @@ AddCustomCNAMERecord() {
     if [[ -n "${validDomain}" ]]; then
         validTarget="$(checkDomain "${target}")"
         if [[ -n "${validTarget}" ]]; then
-            echo "cname=${validDomain},${validTarget}" >> "${dnscustomcnamefile}"
+            if [ "${validDomain}" = "${validTarget}" ]; then
+                echo "  ${CROSS} Domain and target are the same. This would cause a DNS loop."
+                exit 1
+            else
+                echo "cname=${validDomain},${validTarget}" >> "${dnscustomcnamefile}"
+            fi
         else
             echo "  ${CROSS} Invalid Target Passed!"
             exit 1
@@ -840,7 +849,9 @@ RemoveCustomCNAMERecord() {
     if [[ -n "${validDomain}" ]]; then
         validTarget="$(checkDomain "${target}")"
         if [[ -n "${validTarget}" ]]; then
-            sed -i "/cname=${validDomain},${validTarget}$/Id" "${dnscustomcnamefile}"
+            validDomain=$(escapeDots "${validDomain}")
+            validTarget=$(escapeDots "${validTarget}")
+            sed -i "/^cname=${validDomain},${validTarget}$/Id" "${dnscustomcnamefile}"
         else
             echo "  ${CROSS} Invalid Target Passed!"
             exit 1

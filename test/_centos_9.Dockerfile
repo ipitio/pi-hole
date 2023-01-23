@@ -1,5 +1,5 @@
-FROM fedora:34
-RUN dnf install -y git
+FROM quay.io/centos/centos:stream9
+RUN yum install -y --allowerasing curl git initscripts
 
 ENV GITDIR /etc/.pihole
 ENV SCRIPTDIR /opt/pihole

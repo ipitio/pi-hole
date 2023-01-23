@@ -23,6 +23,9 @@ source "${colfile}"
 utilsfile="${PI_HOLE_SCRIPT_DIR}/utils.sh"
 source "${utilsfile}"
 
+versionsfile="/etc/pihole/versions"
+source "${versionsfile}"
+
 webpageFunc() {
   source "${PI_HOLE_SCRIPT_DIR}/webpage.sh"
   main "$@"
@@ -63,14 +66,22 @@ arpFunc() {
 }
 
 updatePiholeFunc() {
-  shift
-  "${PI_HOLE_SCRIPT_DIR}"/update.sh "$@"
-  exit 0
+  if [ -n "${DOCKER_VERSION}" ]; then
+    unsupportedFunc
+  else
+    shift
+    "${PI_HOLE_SCRIPT_DIR}"/update.sh "$@"
+    exit 0
+  fi
 }
 
 reconfigurePiholeFunc() {
-  /etc/.pihole/automated\ install/basic-install.sh --reconfigure
-  exit 0;
+  if [ -n "${DOCKER_VERSION}" ]; then
+    unsupportedFunc
+  else
+    /etc/.pihole/automated\ install/basic-install.sh --reconfigure
+    exit 0;
+  fi
 }
 
 updateGravityFunc() {
@@ -91,8 +102,12 @@ chronometerFunc() {
 
 
 uninstallFunc() {
-  "${PI_HOLE_SCRIPT_DIR}"/uninstall.sh
-  exit 0
+  if [ -n "${DOCKER_VERSION}" ]; then
+    unsupportedFunc
+  else
+    "${PI_HOLE_SCRIPT_DIR}"/uninstall.sh
+    exit 0
+  fi
 }
 
 versionFunc() {
@@ -303,14 +318,13 @@ analyze_ports() {
 
 statusFunc() {
     # Determine if there is pihole-FTL service is listening
-    local pid port ftl_api_port ftl_pid_file ftl_apiport_file
+    local pid port ftl_api_port ftl_pid_file
 
     ftl_pid_file="$(getFTLPIDFile)"
 
     pid="$(getFTLPID ${ftl_pid_file})"
 
-    ftl_apiport_file="${getFTLAPIPortFile}"
-    ftl_api_port="$(getFTLAPIPort ${ftl_apiport_file})"
+    ftl_api_port="$(getFTLAPIPort)"
     if [[ "$pid" -eq "-1" ]]; then
         case "${1}" in
             "web") echo "-1";;
@@ -427,6 +441,11 @@ tricorderFunc() {
 
 updateCheckFunc() {
   "${PI_HOLE_SCRIPT_DIR}"/updatecheck.sh "$@"
+  exit 0
+}
+
+unsupportedFunc(){
+  echo "Function not supported in Docker images"
   exit 0
 }
 
@@ -554,7 +573,7 @@ case "${1}" in
   "restartdns"                  ) restartDNS "$2";;
   "-a" | "admin"                ) webpageFunc "$@";;
   "checkout"                    ) piholeCheckoutFunc "$@";;
-  "updatechecker"               ) updateCheckFunc "$@";;
+  "updatechecker"               ) shift; updateCheckFunc "$@";;
   "arpflush"                    ) arpFunc "$@";;
   "-t" | "tail"                 ) tailFunc "$2";;
 esac
