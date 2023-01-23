@@ -61,7 +61,6 @@ Options:
   -sc                             Clear speedtest data
   -ss                             Set custom server
   -st                             Set default speedtest chart type (line, bar)
-  test                            Test the speedtest script
   -l, privacylevel                Set privacy level (0 = lowest, 3 = highest)
   -t, teleporter                  Backup configuration as an archive
   -t, teleporter myname.tar.gz    Backup configuration to archive with name myname.tar.gz as specified"
@@ -528,10 +527,6 @@ SpeedtestServer() {
     fi
 }
 
-RunSpeedtestNow() {
-    /var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh
-}
-
 SpeedtestMode() {
     if [[ "${args[2]}" ]]; then
         addOrEditKeyValPair "${setupVars}" "SPEEDTEST_MODE" "${args[2]}"
@@ -605,7 +600,7 @@ EOF'
     fi
 }
 
-SpeedTestTest() {
+RunSpeedtestNow() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
@@ -987,7 +982,6 @@ main() {
         "-sc"                 ) ClearSpeedtestData;;
         "-ss"                 ) SpeedtestServer;;
         "-st"                 ) UpdateSpeedTestChartType;;
-        "test"                ) SpeedTestTest;;
         "addcustomdns"        ) AddCustomDNSAddress;;
         "removecustomdns"     ) RemoveCustomDNSAddress;;
         "addcustomcname"      ) AddCustomCNAMERecord;;
