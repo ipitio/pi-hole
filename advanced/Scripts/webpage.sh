@@ -51,6 +51,7 @@ Options:
   -h, --help                      Show this help dialog
   -i, interface                   Specify dnsmasq's interface listening behavior
   -s, speedtest                   Set speedtest interval, user 0 to disable Speedtests, use -sn to prevent logging to results list
+  -in                             Reinstall Speedtest Mod
   -up [un] [db]                   Update Pi-hole (and | but uninstall) the Mod (and flush the database)
   -un [db]                        Uninstall Speedtest Mod without updating Pi-hole (and delete the database)
   -db                             Flush the database
@@ -611,6 +612,13 @@ SpeedTestTest() {
     tmux new-session -d -s pimod "cat /var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh | sudo bash"
 }
 
+ReinstallSpeedTest() {
+    if ! command -v tmux &> /dev/null; then
+        apt-get install tmux -y
+    fi
+    tmux new-session -d -s pimod "curl -sSLN https://github.com/arevindh/pihole-speedtest/raw/master/mod.sh | sudo bash"
+}
+
 UpdateSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
@@ -969,6 +977,7 @@ main() {
         "clearaudit"          ) clearAudit;;
         "-l" | "privacylevel" ) SetPrivacyLevel;;
         "-s" | "speedtest"    ) ChangeSpeedTestSchedule;;
+        "-in"                 ) ReinstallSpeedTest;;
         "-up"                 ) UpdateSpeedTest;;
         "-un"                 ) UninstallSpeedTest;;
         "-db"                 ) ClearSpeedtestData;;
