@@ -503,7 +503,7 @@ SetWebUILayout() {
 }
 
 ClearSpeedtestData() {
-    mv $speedtestdb $speedtestdb"_old"
+    mv $speedtestdb $speedtestdb.old
     cp /var/www/html/admin/scripts/pi-hole/speedtest/speedtest.db $speedtestdb
 }
 
