@@ -568,10 +568,7 @@ SetService() {
             speedtest_file='/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh'
         fi
 
-        freq="00/$1:00"
-        if [[ "$1" == "24" ]]; then
-            freq="00:00"
-        fi
+        freq=$([ "$1" == "24" ] && echo "00:00" || echo "00/$1:00")
         
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
