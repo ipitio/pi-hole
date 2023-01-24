@@ -567,6 +567,11 @@ SetService() {
         if [[ "$mode" =~ "official" ]]; then
             speedtest_file='/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh'
         fi
+
+        freq="00/$1:00"
+        if [[ "$1" == "24" ]]; then
+            freq="00:00"
+        fi
         
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
@@ -587,7 +592,7 @@ EOF'
 Description=Pi-hole Speedtest Timer
 
 [Timer]
-OnCalendar=00/'$1':00
+OnCalendar='$freq'
 Persistent=true
 
 [Install]
