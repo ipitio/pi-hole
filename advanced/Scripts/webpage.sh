@@ -516,8 +516,6 @@ ChangeSpeedTestSchedule() {
     fi
 }
 
-
-
 SpeedtestServer() {
     if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
         addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" "${args[2]}"
@@ -567,8 +565,6 @@ SetService() {
         if [[ "$mode" =~ "official" ]]; then
             speedtest_file='/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh'
         fi
-
-        freq=$([ "$1" < "24" ] && echo "00/$1:00" || [ "$1" == "24" ] && echo "daily" || echo "daily,$(($1/24)):$((($1%24)*60))")
         
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
@@ -584,6 +580,7 @@ ExecStart='$speedtest_file'
 [Install]
 WantedBy=multi-user.target
 EOF'
+        freq=$([ "$1" -lt "24" ] && echo "00/$1:00" || [ "$1" -eq "24" ] && echo "daily" || echo "daily,$(($1/24)):$((($1%24)*60))")
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
 [Unit]
 Description=Pi-hole Speedtest Timer
