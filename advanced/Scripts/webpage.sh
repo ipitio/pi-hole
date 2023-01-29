@@ -551,7 +551,7 @@ UpdateSpeedTestChartType() {
     fi
 }
 
-speedtestscript="curl -sSLN https://github.com/ipitio/pihole-speedtest/raw/ipitio/speedtest.sh | sudo bash || echo \"No Internet\" && sudo sqlite3 /etc/pihole/speedtest.db \"insert into speedtest values (NULL, '$(date +"%Y-%m-%d %H:%M:%S")', '$(date +"%Y-%m-%d %H:%M:%S")', 'No Internet', '-', '-', 0, 0, 0, 0, '#');\""
+speedtestscript="curl -sSLN https://github.com/ipitio/pihole-speedtest/raw/ipitio/speedtest.sh | sudo bash || { echo \"No Internet\" && sudo sqlite3 /etc/pihole/speedtest.db \"insert into speedtest values (NULL, '$(date +"%Y-%m-%d %H:%M:%S")', '$(date +"%Y-%m-%d %H:%M:%S")', 'No Internet', '-', '-', 0, 0, 0, 0, '#');\" ; }"
 
 SetService() {
     # Remove OLD
