@@ -503,7 +503,7 @@ SetWebUILayout() {
 }
 
 ClearSpeedtestData() {
-    mv $speedtestdb $speedtestdb"_old"
+    mv $speedtestdb $speedtestdb.old
     cp /var/www/html/admin/scripts/pi-hole/speedtest/speedtest.db $speedtestdb
 }
 
@@ -560,12 +560,7 @@ SetService() {
     if [[ "$1" == "0" ]]; then
         systemctl disable --now pihole-speedtest.timer &> /dev/null
     else
-        mode=$(sed -n -e '/SPEEDTEST_MODE/ s/.*\= *//p' $setupVars)
-        speedtest_file='/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh'
-        if [[ "$mode" =~ "official" ]]; then
-            speedtest_file='/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh'
-        fi
-        
+        speedtestfile="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh"
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
 Description=Pi-hole Speedtest
@@ -575,7 +570,7 @@ After=network.target
 User=root
 CPUQuota=20%
 Type=oneshot
-ExecStart='$speedtest_file'
+ExecStart='$speedtestfile'
 
 [Install]
 WantedBy=multi-user.target
@@ -592,7 +587,6 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 EOF'
-
         systemctl daemon-reload
         systemctl reenable pihole-speedtest.timer &> /dev/null
         systemctl restart pihole-speedtest.timer
@@ -603,7 +597,8 @@ RunSpeedtestNow() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    tmux new-session -d -s pimod "cat /var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh | sudo bash"
+    speedtestscript="curl -sSLN https://github.com/arevindh/pihole-speedtest/raw/master/speedtest.sh | sudo bash || { echo \"No Internet\" && sudo sqlite3 /etc/pihole/speedtest.db \"insert into speedtest values (NULL, '$(date +"%Y-%m-%d %H:%M:%S")', '$(date +"%Y-%m-%d %H:%M:%S")', 'No Internet', '-', '-', 0, 0, 0, 0, '#');\" ; }"
+    tmux new-session -d -s pimod "eval $speedtestscript"
 }
 
 ReinstallSpeedTest() {
@@ -624,7 +619,8 @@ UninstallSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    tmux new-session -d -s pimod "curl -sSLN https://github.com/arevindh/pihole-speedtest/raw/master/mod.sh | sudo bash -s -- un ${args[2]}"
+    uninstallfile="/var/www/html/admin/scripts/pi-hole/speedtest/uninstall.sh"
+    tmux new-session -d -s pimod "cat $uninstallfile | sudo bash -s -- ${args[2]}"
 }
 
 SetWebUITheme() {
