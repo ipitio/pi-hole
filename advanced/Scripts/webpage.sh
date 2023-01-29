@@ -560,7 +560,7 @@ SetService() {
     if [[ "$1" == "0" ]]; then
         systemctl disable --now pihole-speedtest.timer &> /dev/null
     else
-        speedtestfile="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh"
+        speedtestfile='/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh'
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
 Description=Pi-hole Speedtest
