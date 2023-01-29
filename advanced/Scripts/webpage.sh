@@ -596,8 +596,7 @@ RunSpeedtestNow() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    speedtestscript="curl -sSLN https://github.com/arevindh/pihole-speedtest/raw/master/speedtest.sh | sudo bash || { echo \"No Internet\" && sudo sqlite3 /etc/pihole/speedtest.db \"insert into speedtest values (NULL, '$(date +"%Y-%m-%d %H:%M:%S")', '$(date +"%Y-%m-%d %H:%M:%S")', 'No Internet', '-', '-', 0, 0, 0, 0, '#');\" ; }"
-    tmux new-session -d -s pimod "eval $speedtestscript"
+    tmux new-session -d -s pimod "cat /var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh | sudo bash"
 }
 
 ReinstallSpeedTest() {
