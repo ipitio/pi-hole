@@ -556,12 +556,10 @@ SetService() {
     crontab -l >crontab.tmp || true
     sed -i '/speedtest/d' crontab.tmp
     crontab crontab.tmp && rm -f crontab.tmp
-    echo "Cronjob removed" >> /tmp/pihole_debug.log
+    
     if [[ "$1" == "0" ]]; then
         systemctl disable --now pihole-speedtest.timer &> /dev/null
     else
-        echo "Enabling systemd timer" >> /tmp/pihole_debug.log
-        speedtestfile='/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh'
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
 Description=Pi-hole Speedtest
@@ -571,12 +569,11 @@ After=network.target
 User=root
 CPUQuota=20%
 Type=oneshot
-ExecStart='$speedtestfile'
+ExecStart=/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh
 
 [Install]
 WantedBy=multi-user.target
 EOF'
-        echo "Created systemd service" >> /tmp/pihole_debug.log
         freq=$([ "$1" -lt "24" ] && echo "00/$1:00" || [ "$1" -eq "24" ] && echo "daily" || echo "daily,$(($1/24)):$((($1%24)*60))")
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
 [Unit]
@@ -589,7 +586,6 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 EOF'
-        echo "Created systemd timer" >> /tmp/pihole_debug.log
         systemctl daemon-reload
         systemctl reenable pihole-speedtest.timer &> /dev/null
         systemctl restart pihole-speedtest.timer
