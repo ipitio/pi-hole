@@ -569,7 +569,7 @@ After=network.target
 User=root
 CPUQuota=20%
 Type=oneshot
-ExecStart=/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh
+ExecStart=/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh
 
 [Install]
 WantedBy=multi-user.target
@@ -596,7 +596,7 @@ RunSpeedtestNow() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    tmux new-session -d -s pimod "cat /var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh | sudo bash"
+    tmux new-session -d -s pimod "cat /var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh | sudo bash"
 }
 
 ReinstallSpeedTest() {
