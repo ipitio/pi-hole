@@ -556,7 +556,7 @@ SetService() {
     crontab -l >crontab.tmp || true
     sed -i '/speedtest/d' crontab.tmp
     crontab crontab.tmp && rm -f crontab.tmp
-
+    echo "Cronjob removed" >> /tmp/pihole_debug.log
     if [[ "$1" == "0" ]]; then
         systemctl disable --now pihole-speedtest.timer &> /dev/null
     else
