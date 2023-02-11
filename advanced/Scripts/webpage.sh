@@ -50,12 +50,17 @@ Options:
   -k, kelvin                      Set Kelvin as preferred temperature unit
   -h, --help                      Show this help dialog
   -i, interface                   Specify dnsmasq's interface listening behavior
-  -s, speedtest                   Set speedtest intevel , user 0 to disable Speedtests use -sn to prevent logging to results list
+  -s, speedtest                   Set speedtest interval, user 0 to disable Speedtests, use -sn to prevent logging to results list
+  -in                             Reinstall Speedtest Mod
+  -up [un] [db]                   Update Pi-hole (and | but uninstall) the Mod (and flush the database)
+  -un [db]                        Uninstall Speedtest Mod without updating Pi-hole (and delete the database)
+  -db                             Flush the database
   -sd                             Set speedtest display range
   -sn                             Run speedtest now
   -sm		                      Speedtest Mode
   -sc                             Clear speedtest data
   -ss                             Set custom server
+  -st                             Set default speedtest chart type (line, bar)
   -l, privacylevel                Set privacy level (0 = lowest, 3 = highest)
   -t, teleporter                  Backup configuration as an archive
   -t, teleporter myname.tar.gz    Backup configuration to archive with name myname.tar.gz as specified"
@@ -498,20 +503,18 @@ SetWebUILayout() {
 }
 
 ClearSpeedtestData() {
-    mv $speedtestdb $speedtestdb"_old"
+    mv $speedtestdb $speedtestdb.old
     cp /var/www/html/admin/scripts/pi-hole/speedtest/speedtest.db $speedtestdb
 }
 
-ChageSpeedTestSchedule() {
+ChangeSpeedTestSchedule() {
     if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
         if [ "${args[2]}" -ge 0 -a "${args[2]}" -le 24 ]; then
             addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
-            SetCronTab ${args[2]}
+            SetService ${args[2]}
         fi
     fi
 }
-
-
 
 SpeedtestServer() {
     if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
@@ -520,10 +523,6 @@ SpeedtestServer() {
         # Autoselect for invalid data
         addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" ""
     fi
-}
-
-RunSpeedtestNow() {
-    /var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh
 }
 
 SpeedtestMode() {
@@ -536,7 +535,7 @@ SpeedtestMode() {
 
 }
 
-function UpdateSpeedTestRange() {
+UpdateSpeedTestRange() {
     if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
         if [ "${args[2]}" -ge 0 -a "${args[2]}" -le 30 ]; then
             addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_DAYS" "${args[2]}"
@@ -544,30 +543,82 @@ function UpdateSpeedTestRange() {
     fi
 }
 
-SetCronTab() {
-    # Remove OLD
-    crontab -l >crontab.tmp || true
-
-    if [[ "$1" == "0" ]]; then
-        sed -i '/speedtest/d' crontab.tmp
-        crontab crontab.tmp && rm -f crontab.tmp
+UpdateSpeedTestChartType() {
+    if [[ "${args[2]}" =~ ^(bar|line)$ ]]; then
+        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_TYPE" "${args[2]}"
     else
-        sed -i '/speedtest/d' crontab.tmp
-
-        mode=$(sed -n -e '/SPEEDTEST_MODE/ s/.*\= *//p' $setupVars)
-
-        if [[ "$mode" =~ "official" ]]; then
-            speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh"
-        else
-            speedtest_file="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh"
-        fi
-
-        newtab="0 */"${1}" * * * sudo \""${speedtest_file}"\"  > /dev/null 2>&1"
-        printf '%s\n' "$newtab" >>crontab.tmp
-        crontab crontab.tmp && rm -f crontab.tmp
+        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_TYPE" "line"
     fi
 }
 
+SetService() {
+    # Remove OLD
+    crontab -l >crontab.tmp || true
+    sed -i '/speedtest/d' crontab.tmp
+    crontab crontab.tmp && rm -f crontab.tmp
+    if [[ "$1" == "0" ]]; then
+        systemctl disable --now pihole-speedtest.timer &> /dev/null
+    else
+        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
+[Unit]
+Description=Pi-hole Speedtest
+After=network.target
+
+[Service]
+User=root
+CPUQuota=20%
+Type=oneshot
+ExecStart=/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF'
+        freq=$([ "$1" -lt "24" ] && echo "00/$1:00" || [ "$1" -eq "24" ] && echo "daily" || echo "daily,$(($1/24)):$((($1%24)*60))")
+        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
+[Unit]
+Description=Pi-hole Speedtest Timer
+
+[Timer]
+OnCalendar='$freq'
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF'
+        systemctl daemon-reload
+        systemctl reenable pihole-speedtest.timer &> /dev/null
+        systemctl restart pihole-speedtest.timer
+    fi
+}
+
+RunSpeedtestNow() {
+    if ! command -v tmux &> /dev/null; then
+        apt-get install tmux -y
+    fi
+    tmux new-session -d -s pimod "cat /var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh | sudo bash"
+}
+
+ReinstallSpeedTest() {
+    if ! command -v tmux &> /dev/null; then
+        apt-get install tmux -y
+    fi
+    tmux new-session -d -s pimod "curl -sSLN https://github.com/arevindh/pihole-speedtest/raw/master/mod.sh | sudo bash"
+}
+
+UpdateSpeedTest() {
+    if ! command -v tmux &> /dev/null; then
+        apt-get install tmux -y
+    fi
+    tmux new-session -d -s pimod "curl -sSLN https://github.com/arevindh/pihole-speedtest/raw/master/mod.sh | sudo bash -s -- up ${args[2]} ${args[3]}"
+}
+
+UninstallSpeedTest() {
+    if ! command -v tmux &> /dev/null; then
+        apt-get install tmux -y
+    fi
+    uninstallfile="/var/www/html/admin/scripts/pi-hole/speedtest/uninstall.sh"
+    tmux new-session -d -s pimod "cat $uninstallfile | sudo bash -s -- ${args[2]}"
+}
 
 SetWebUITheme() {
     addOrEditKeyValPair "${setupVars}" "WEBTHEME" "${args[2]}"
@@ -912,12 +963,17 @@ main() {
         "audit"               ) addAudit "$@";;
         "clearaudit"          ) clearAudit;;
         "-l" | "privacylevel" ) SetPrivacyLevel;;
-        "-s" | "speedtest"    ) ChageSpeedTestSchedule;;
+        "-s" | "speedtest"    ) ChangeSpeedTestSchedule;;
+        "-in"                 ) ReinstallSpeedTest;;
+        "-up"                 ) UpdateSpeedTest;;
+        "-un"                 ) UninstallSpeedTest;;
+        "-db"                 ) ClearSpeedtestData;;
         "-sd"                 ) UpdateSpeedTestRange;;
         "-sn"                 ) RunSpeedtestNow;;
         "-sm"                 ) SpeedtestMode;;
         "-sc"                 ) ClearSpeedtestData;;
         "-ss"                 ) SpeedtestServer;;
+        "-st"                 ) UpdateSpeedTestChartType;;
         "addcustomdns"        ) AddCustomDNSAddress;;
         "removecustomdns"     ) RemoveCustomDNSAddress;;
         "addcustomcname"      ) AddCustomCNAMERecord;;
