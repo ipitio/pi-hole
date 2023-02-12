@@ -556,11 +556,9 @@ SetService() {
     crontab -l >crontab.tmp || true
     sed -i '/speedtest/d' crontab.tmp
     crontab crontab.tmp && rm -f crontab.tmp
-
     if [[ "$1" == "0" ]]; then
         systemctl disable --now pihole-speedtest.timer &> /dev/null
     else
-        speedtestfile='/var/www/html/admin/scripts/pi-hole/speedtest/speedtest-official.sh'
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
 Description=Pi-hole Speedtest
@@ -570,7 +568,7 @@ After=network.target
 User=root
 CPUQuota=20%
 Type=oneshot
-ExecStart='$speedtestfile'
+ExecStart=/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh
 
 [Install]
 WantedBy=multi-user.target
@@ -597,8 +595,7 @@ RunSpeedtestNow() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    speedtestscript="curl -sSLN https://github.com/arevindh/pihole-speedtest/raw/master/speedtest.sh | sudo bash || { echo \"No Internet\" && sudo sqlite3 /etc/pihole/speedtest.db \"insert into speedtest values (NULL, '$(date +"%Y-%m-%d %H:%M:%S")', '$(date +"%Y-%m-%d %H:%M:%S")', 'No Internet', '-', '-', 0, 0, 0, 0, '#');\" ; }"
-    tmux new-session -d -s pimod "eval $speedtestscript"
+    tmux new-session -d -s pimod "cat /var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh | sudo bash"
 }
 
 ReinstallSpeedTest() {
