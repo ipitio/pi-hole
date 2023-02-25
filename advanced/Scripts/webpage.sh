@@ -566,7 +566,6 @@ After=network.target
 
 [Service]
 User=root
-CPUQuota=20%
 Type=oneshot
 ExecStart=/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh
 
