@@ -577,12 +577,12 @@ EOF'
 [Unit]
 Description=Pi-hole Speedtest Timer
 
-[Timer]
-OnCalendar='$freq'
-Persistent=true
-
 [Install]
 WantedBy=timers.target
+
+[Timer]
+Persistent=true
+OnCalendar='$freq'
 EOF'
         systemctl daemon-reload
         systemctl reenable pihole-speedtest.timer &> /dev/null
