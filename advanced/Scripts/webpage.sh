@@ -545,9 +545,18 @@ SetWebUILayout() {
     addOrEditKeyValPair "${setupVars}" "WEBUIBOXEDLAYOUT" "${args[2]}"
 }
 
+hashFile() {
+    md5sum "$1" | cut -d ' ' -f 1
+}
+
 ClearSpeedtestData() {
-    mv -f $speedtestdb $speedtestdb.old
-    cp /var/www/html/admin/scripts/pi-hole/speedtest/speedtest.db $speedtestdb
+    init_db=/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.db
+    if [[ -f $speedtestdb.old ]] && [[ $(hashFile $init_db) == $(hashFile $speedtestdb) ]]; then
+        mv -f $speedtestdb.old $speedtestdb
+    else
+        mv -f $speedtestdb $speedtestdb.old
+        cp $init_db $speedtestdb
+    fi
 }
 
 ChangeSpeedTestSchedule() {
