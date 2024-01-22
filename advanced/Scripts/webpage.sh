@@ -54,7 +54,7 @@ Options:
   -i, interface                   Specify dnsmasq's interface listening behavior
   -s, speedtest                   Set speedtest interval, user 0 to disable Speedtests, use -sn to prevent logging to results list
   -in                             Reinstall Speedtest Mod
-  -up [un] [db]                   Update Pi-hole (and | but uninstall) the Mod (and flush the database)
+  -up [un] [db]                   Update Pi-hole and (uninstall) the Mod (and flush the database)
   -un [db]                        Uninstall Speedtest Mod without updating Pi-hole (and delete the database)
   -db                             Flush the database
   -sd                             Set speedtest display range
@@ -545,9 +545,18 @@ SetWebUILayout() {
     addOrEditKeyValPair "${setupVars}" "WEBUIBOXEDLAYOUT" "${args[2]}"
 }
 
+hashFile() {
+    md5sum "$1" | cut -d ' ' -f 1
+}
+
 ClearSpeedtestData() {
-    mv $speedtestdb $speedtestdb.old
-    cp /var/www/html/admin/scripts/pi-hole/speedtest/speedtest.db $speedtestdb
+    init_db=/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.db
+    if [[ -f $speedtestdb.old ]] && [[ $(hashFile $init_db) == $(hashFile $speedtestdb) ]]; then
+        mv -f $speedtestdb.old $speedtestdb
+    else
+        mv -f $speedtestdb $speedtestdb.old
+        cp $init_db $speedtestdb
+    fi
 }
 
 ChangeSpeedTestSchedule() {
