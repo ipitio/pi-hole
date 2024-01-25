@@ -613,7 +613,11 @@ generate_systemd_calendar() {
     local freq_entries=()
 
     if (( hours < 24 )); then
-        freq_entries+=("*-*-* */$hours:00:00")
+        local current_hour=0
+        while (( current_hour < 24 )); do
+            freq_entries+=("*-*-* $(printf "%02d:00:00" $current_hour)")
+            ((current_hour += hours))
+        done
     elif (( hours == 24 )); then
         freq_entries+=("*-*-* 00:00:00")
     elif (( hours > 0 )); then
