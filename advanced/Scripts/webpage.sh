@@ -567,6 +567,8 @@ ChangeSpeedTestSchedule() {
         if [[ -z "${SPEEDTESTSCHEDULE}" ]]; then
             addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0"
         fi
+        # get updated value
+        SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
         SetService ${SPEEDTESTSCHEDULE}
     fi
 }
