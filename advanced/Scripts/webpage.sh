@@ -560,11 +560,14 @@ ClearSpeedtestData() {
 }
 
 ChangeSpeedTestSchedule() {
-    if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
-        if [ "${args[2]}" -ge 0 -a "${args[2]}" -le 24 ]; then
-            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
-            SetService ${args[2]}
+    if [[ "${args[2]}" =~ ^[0-9]+$ ]] && [ "${args[2]}" -ge 0 -a "${args[2]}" -le 24 ]; then
+        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
+        SetService ${args[2]}
+    else
+        if [[ -z "${SPEEDTESTSCHEDULE}" ]]; then
+            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0"
         fi
+        SetService ${SPEEDTESTSCHEDULE}
     fi
 }
 
