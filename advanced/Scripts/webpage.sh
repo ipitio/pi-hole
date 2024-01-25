@@ -645,6 +645,13 @@ EOF'
     fi
 }
 
+UnsetService() {
+    systemctl disable --now pihole-speedtest.timer &> /dev/null
+    rm -f /etc/systemd/system/pihole-speedtest.service
+    rm -f /etc/systemd/system/pihole-speedtest.timer
+    systemctl daemon-reload
+}
+
 RunSpeedtestNow() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
@@ -1027,6 +1034,7 @@ main() {
         "-sc"                 ) ClearSpeedtestData;;
         "-ss"                 ) SpeedtestServer;;
         "-st"                 ) UpdateSpeedTestChartType;;
+        "-su"                 ) UnsetService;;
         "addcustomdns"        ) AddCustomDNSAddress;;
         "removecustomdns"     ) RemoveCustomDNSAddress;;
         "addcustomcname"      ) AddCustomCNAMERecord;;
