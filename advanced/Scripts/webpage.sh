@@ -610,33 +610,27 @@ UpdateSpeedTestChartType() {
 
 generate_systemd_calendar() {
     local hours=$1
-    local freq_entries=()
-
-    if (( hours < 24 )); then
-        local current_hour=0
-        while (( current_hour < 24 )); do
-            freq_entries+=("$(printf "*-*-* %02d:00:00" $current_hour)")
-            ((current_hour += hours))
-        done
+    if (( hours < 24 && 24 % hours == 0 )); then
+        echo "*-*-* */$hours:00:00"
     elif (( hours == 24 )); then
-        freq_entries+=("*-*-* 00:00:00")
+        echo "*-*-* 00:00:00"
     elif (( hours > 0 )); then
         local total_minutes=$((hours * 60))
         local current_minute=0
+        local freq_entries=()
         while (( current_minute < 1440 )); do # 1440 minutes in a day
             local hour=$((current_minute / 60))
             local minute=$((current_minute % 60))
-            freq_entries+=("$(printf "*-*-* %02d:%02d:00" $hour $minute)")
+            freq_entries+=("*-*-* $(printf "%02d:%02d:00" $hour $minute)")
             ((current_minute += total_minutes))
         done
+        # Join the entries with a newline character
+        local IFS=$'\n'
+        echo "${freq_entries[*]}"
     else
         echo "Error: Invalid number of hours"
         exit 1
     fi
-
-    # Join the entries with a newline character
-    local IFS=$'\n'
-    echo "${freq_entries[*]}"
 }
 
 SetService() {
