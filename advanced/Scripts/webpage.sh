@@ -655,7 +655,7 @@ SetService() {
     sed -i '/speedtest/d' crontab.tmp
     crontab crontab.tmp && rm -f crontab.tmp
     if [[ "$1" == "0" ]]; then
-        systemctl disable --now pihole-speedtest.timer &> /dev/null
+        UnsetService
     else
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
