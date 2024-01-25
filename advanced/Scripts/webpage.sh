@@ -608,6 +608,33 @@ UpdateSpeedTestChartType() {
     fi
 }
 
+generate_systemd_calendar() {
+    local hours=$1
+    local freq_entries=()
+
+    if (( hours < 24 )); then
+        freq_entries+=("*-*-* */$hours:00:00")
+    elif (( hours == 24 )); then
+        freq_entries+=("*-*-* 00:00:00")
+    elif (( hours > 0 )); then
+        local total_minutes=$((hours * 60))
+        local current_minute=0
+        while (( current_minute < 1440 )); do # 1440 minutes in a day
+            local hour=$((current_minute / 60))
+            local minute=$((current_minute % 60))
+            freq_entries+=("*-*-* $(printf "%02d:%02d:00" $hour $minute)")
+            ((current_minute += total_minutes))
+        done
+    else
+        echo "Error: Invalid number of hours"
+        exit 1
+    fi
+
+    # Join the entries with a newline character
+    local IFS=$'\n'
+    echo "${freq_entries[*]}"
+}
+
 SetService() {
     # Remove OLD
     crontab -l >crontab.tmp || true
@@ -629,15 +656,7 @@ ExecStart=/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh
 [Install]
 WantedBy=multi-user.target
 EOF'
-        if (( $1 < 24 )); then
-            freq="00/$1:00"
-        elif (( $1 == 24 )); then
-            freq="daily"
-        else
-            hours=$(( $1 / 24 ))
-            minutes=$(( ($1 % 24) * 60 ))
-            freq="daily,$hours:$minutes"
-        fi
+        freq=$(generate_systemd_calendar "$1")
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
 [Unit]
 Description=Pi-hole Speedtest Timer
@@ -647,7 +666,8 @@ WantedBy=timers.target
 
 [Timer]
 Persistent=true
-OnCalendar='$freq'
+$(for time in $freq; do echo "OnCalendar=$time"; done)
+
 EOF'
         systemctl daemon-reload
         systemctl reenable pihole-speedtest.timer &> /dev/null
