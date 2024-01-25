@@ -616,15 +616,14 @@ generate_systemd_calendar() {
         echo "Error: Invalid number of hours"
         exit 1
     elif (( hours == 24 )); then
+        # For exactly 24 hours, it's daily at midnight
         freq_entries+=("*-*-* 00:00:00")
     elif (( hours < 24 )); then
-        # For schedules that divide evenly into 24 hours
-        if (( 24 % hours == 0 )); then
-            for (( hour=0; hour<24; hour+=hours )); do
-                freq_entries+=("*-*-* $(printf "%02d:00:00" $hour)")
-            done
+        # For hourly schedules, generate an entry for each hour
+        if (( hours == 1 )); then
+            freq_entries+=("*:00:00")
         else
-            # For schedules that don't divide evenly, list specific times
+            # For other schedules less than 24 hours but not hourly, list specific times
             local total_minutes=$((hours * 60))
             local current_minute=0
             while (( current_minute < 1440 )); do # 1440 minutes in a day
@@ -635,13 +634,14 @@ generate_systemd_calendar() {
             done
         fi
     else
+        # For schedules more than 24 hours, calculate days and times
         local days=$(( hours / 24 ))
         local remaining_hours=$(( hours % 24 ))
         if (( remaining_hours == 0 )); then
             # If it's multiple of 24 hours
             freq_entries+=("*-*-1/$days 00:00:00")
         else
-            # If it's not a multiple of 24
+            # If it's more than 24 hours but not a multiple of 24
             local day=1
             while (( day <= days )); do
                 freq_entries+=("*-*-$(printf "%02d" $day) 00:00:00")
