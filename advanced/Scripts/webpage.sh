@@ -627,7 +627,15 @@ ExecStart=/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh
 [Install]
 WantedBy=multi-user.target
 EOF'
-        freq=$([ "$1" -lt "24" ] && echo "00/$1:00" || [ "$1" -eq "24" ] && echo "daily" || echo "daily,$(($1/24)):$((($1%24)*60))")
+        if (( $1 < 24 )); then
+            freq="00/$1:00"
+        elif (( $1 == 24 )); then
+            freq="daily"
+        else
+            hours=$(( $1 / 24 ))
+            minutes=$(( ($1 % 24) * 60 ))
+            freq="daily,$hours:$minutes"
+        fi
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
 [Unit]
 Description=Pi-hole Speedtest Timer
