@@ -666,9 +666,10 @@ WantedBy=timers.target
 
 [Timer]
 Persistent=true
-$(for time in $freq; do echo "OnCalendar=$time"; done)
-
 EOF'
+        for time in $freq; do
+            sudo bash -c "echo 'OnCalendar=$time' >> /etc/systemd/system/pihole-speedtest.timer"
+        done
         systemctl daemon-reload
         systemctl reenable pihole-speedtest.timer &> /dev/null
         systemctl restart pihole-speedtest.timer
