@@ -615,7 +615,7 @@ generate_systemd_calendar() {
     if (( hours < 24 )); then
         local current_hour=0
         while (( current_hour < 24 )); do
-            freq_entries+=("*-*-* $(printf "%02d:00:00" $current_hour)")
+            freq_entries+=("$(printf "*-*-* %02d:00:00" $current_hour)")
             ((current_hour += hours))
         done
     elif (( hours == 24 )); then
@@ -626,7 +626,7 @@ generate_systemd_calendar() {
         while (( current_minute < 1440 )); do # 1440 minutes in a day
             local hour=$((current_minute / 60))
             local minute=$((current_minute % 60))
-            freq_entries+=("*-*-* $(printf "%02d:%02d:00" $hour $minute)")
+            freq_entries+=("$(printf "*-*-* %02d:%02d:00" $hour $minute)")
             ((current_minute += total_minutes))
         done
     else
