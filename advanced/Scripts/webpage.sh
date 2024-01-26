@@ -52,17 +52,18 @@ Options:
   -k, kelvin                      Set Kelvin as preferred temperature unit
   -h, --help                      Show this help dialog
   -i, interface                   Specify dnsmasq's interface listening behavior
-  -s, speedtest                   Set speedtest interval, user 0 to disable Speedtests, use -sn to prevent logging to results list
+  -s, speedtest                   Set speedtest interval, add 0 to disable
   -in                             (Re)install Latest Speedtest Mod and only Mod
   -up [un] [db]                   (Re)install Latest Pi-hole and (uninstall) the Mod (and flush/restore the database)
   -un [db]                        Uninstall Speedtest Mod without updating Pi-hole (and delete/restore the database)
-  -db                             Flush the database
+  -db                             Flush or restore the Speedtest Mod database
   -sd                             Set speedtest display range
   -sn                             Run speedtest now
-  -sm		                      Speedtest Mode
+  -sm		                      Speedtest Mode (deprecated)
   -sc                             Clear speedtest data
   -ss                             Set custom server
   -st                             Set default speedtest chart type (line, bar)
+  -su                             Stop future scheduled speedtests
   -l, privacylevel                Set privacy level (0 = lowest, 3 = highest)
   -t, teleporter                  Backup configuration as an archive
   -t, teleporter myname.tar.gz    Backup configuration to archive with name myname.tar.gz as specified"
@@ -665,9 +666,9 @@ generate_systemd_calendar() {
         fi
         if (( $(echo "$remaining_hours > 0" | bc -l) )); then
             local remaining_minutes=$(echo "($remaining_hours - ($remaining_hours / 1)) * 60" | bc)
-            local remaining_hours_int=${remaining_hours%.*}
-            local remaining_minutes_int=${remaining_minutes%.*}
-            freq_entries+=("*-*-* $(printf "%02d:%02d:00" $remaining_hours_int $remaining_minutes_int)")
+            remaining_hours=${remaining_hours%.*}
+            remaining_minutes=${remaining_minutes%.*}
+            freq_entries+=("*-*-* $(printf "%02d:%02d:00" $remaining_hours $remaining_minutes)")
         fi
     fi
 
