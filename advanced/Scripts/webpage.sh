@@ -628,39 +628,42 @@ UpdateSpeedTestChartType() {
 }
 
 generate_systemd_calendar() {
-    local hours=$1
+    local total_seconds=$(bc <<< "scale=2; $1 * 3600")  # Convert hours to seconds
     local freq_entries=()
 
-    if (( hours <= 0 )); then
-        echo "Error: Invalid number of hours" >&2
+    # Check if total_seconds is a valid number
+    if ! [[ $total_seconds =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+        echo "Error: Invalid interval" >&2
         return 1
-    elif (( hours == 1 )); then
+    fi
+
+    # Check for non-positive intervals
+    if (( $(bc <<< "$total_seconds <= 0") )); then
+        echo "Error: Interval must be greater than 0" >&2
+        return 1
+    fi
+
+    # Convert total_seconds to an integer for comparison and modulo operations
+    local total_seconds_int=${total_seconds%.*}
+
+    if (( total_seconds_int == 3600 )); then
+        # Every 1 hour
         freq_entries+=("*-*-* *:00:00")
-    elif (( hours <= 24 )); then
-        if (( 24 % hours == 0 )); then
-            freq_entries+=("*-*-* 00/$hours:00:00")
-        else
-            # For schedules less than 24 hours that don't divide evenly, list specific times
-            local total_minutes=$((hours * 60))
-            local current_minute=0
-            while (( current_minute < 1440 )); do # 1440 minutes in a day
-                local hour=$((current_minute / 60))
-                local minute=$((current_minute % 60))
-                freq_entries+=("*-*-* $(printf "%02d:%02d:00" $hour $minute)")
-                ((current_minute += total_minutes))
-            done
-        fi
+    elif (( 86400 % total_seconds_int == 0 )); then
+        # For schedules that divide evenly into 24 hours (in seconds)
+        local hour_interval=$((total_seconds_int / 3600))
+        freq_entries+=("*-*-* 00/$hour_interval:00:00")
     else
-        # For schedules more than 24 hours
-        local full_days=$((hours / 24))
-        local remaining_hours=$((hours % 24))
-        if (( remaining_hours == 0 )); then
-            freq_entries+=("*-*-1/$full_days 00:00:00")
-        else
-            # If there are remaining hours, schedule every full_days days and an additional day
-            freq_entries+=("*-*-1/$full_days 00:00:00")
-            freq_entries+=("*-*-$(printf "%02d" $((full_days + 1))) $(printf "%02d:00:00" $remaining_hours)")
-        fi
+        # For other schedules, list specific times including seconds
+        local current_second=0
+        while (( current_second < 86400 )); do # 86400 seconds in a day
+            local hour=$((current_second / 3600))
+            local minute=$(((current_second % 3600) / 60))
+            local second=$((current_second % 60))
+            freq_entries+=("*-*-* $(printf "%02d:%02d:%02d" $hour $minute $second)")
+            current_second=$(bc <<< "$current_second + $total_seconds")
+            current_second=${current_second%.*}  # Convert to integer for comparison
+        done
     fi
 
     # Join the entries with a newline character
