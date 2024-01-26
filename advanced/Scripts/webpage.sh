@@ -580,6 +580,7 @@ ClearSpeedtestData() {
 }
 
 ChangeSpeedTestSchedule() {
+    args[2]=${args[2]%\.}
     if [[ "${args[2]-}" =~ ^([0-9]+(\.[0-9]+)?|\.[0-9]+)$ ]]; then
         if (( $(echo "${args[2]} >= 0" | bc -l) )); then
             addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
