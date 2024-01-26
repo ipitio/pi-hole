@@ -545,18 +545,37 @@ SetWebUILayout() {
     addOrEditKeyValPair "${setupVars}" "WEBUIBOXEDLAYOUT" "${args[2]}"
 }
 
-hashFile() {
-    md5sum "$1" | cut -d ' ' -f 1
+isEmpty() {
+	db=$1
+	if [ -f $db ]; then
+		if ! sqlite3 "$db" "select * from $db_table limit 1;" >/dev/null 2>&1 || [ -z "$(sqlite3 "$db" "select * from $db_table limit 1;")" ]; then
+			return 0
+		fi
+	fi
+	return 1
 }
 
 ClearSpeedtestData() {
-    init_db=/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.db
-    if [[ -f $speedtestdb.old ]] && [[ $(hashFile $init_db) == $(hashFile $speedtestdb) ]]; then
+    if [[ -f $speedtestdb.old ]] && isEmpty $speedtestdb; then
         mv -f $speedtestdb.old $speedtestdb
-    else
+    elif [[ -f $speedtestdb ]]; then
         mv -f $speedtestdb $speedtestdb.old
-        cp $init_db $speedtestdb
     fi
+    db_table="speedtest"
+    create_table="create table if not exists $db_table (
+        id integer primary key autoincrement,
+        start_time integer,
+        stop_time text,
+        from_server text,
+        from_ip text,
+        server text,
+        server_dist real,
+        server_ping real,
+        download real,
+        upload real,
+        share_url text
+    );"
+    sqlite3 $speedtestdb "$create_table"
 }
 
 ChangeSpeedTestSchedule() {
