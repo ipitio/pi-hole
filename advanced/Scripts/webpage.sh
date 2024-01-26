@@ -638,6 +638,7 @@ generate_systemd_calendar() {
 
     if (( $(echo "$total_seconds < 60" | bc -l) )); then # less than a minute
         total_seconds=60
+        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0.017"
     fi
     if (( $(echo "$total_seconds >= 60 && $total_seconds < 3600" | bc -l) )); then # less than an hour
         local minute_interval=$(echo "$total_seconds / 60" | bc)
