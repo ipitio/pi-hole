@@ -579,16 +579,18 @@ ClearSpeedtestData() {
 }
 
 ChangeSpeedTestSchedule() {
-    if [[ "${args[2]}" =~ ^[0-9]+$ ]] && [ "${args[2]}" -ge 0 -a "${args[2]}" -le 24 ]; then
-        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
-        SetService ${args[2]}
+    if [[ "${args[2]-}" =~ ^([0-9]+(\.[0-9]+)?|\.[0-9]+)$ ]]; then
+        if (( $(echo "${args[2]} >= 0" | bc -l) )); then
+            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
+            SetService "${args[2]}"
+        fi
     else
         SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
         if [[ -z "${SPEEDTESTSCHEDULE}" ]]; then
             addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0"
         fi
         SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-        SetService ${SPEEDTESTSCHEDULE}
+        SetService "${SPEEDTESTSCHEDULE}"
     fi
 }
 
@@ -628,45 +630,47 @@ UpdateSpeedTestChartType() {
 }
 
 generate_systemd_calendar() {
-    local total_seconds=$(bc <<< "scale=2; $1 * 3600")  # Convert hours to seconds
+    local interval_hours="$1"
+    local total_seconds=$(echo "$interval_hours * 3600" | bc)
     local freq_entries=()
 
-    # Check if total_seconds is a valid number
-    if ! [[ $total_seconds =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-        echo "Error: Invalid interval" >&2
-        return 1
+    if (( $(echo "$total_seconds < 60" | bc -l) )); then # less than a minute
+        total_seconds=60
     fi
-
-    # Check for non-positive intervals
-    if (( $(bc <<< "$total_seconds <= 0") )); then
-        echo "Error: Interval must be greater than 0" >&2
-        return 1
-    fi
-
-    # Convert total_seconds to an integer for comparison and modulo operations
-    local total_seconds_int=${total_seconds%.*}
-
-    if (( total_seconds_int == 3600 )); then
-        # Every 1 hour
+    if (( $(echo "$total_seconds >= 60 && $total_seconds < 3600" | bc -l) )); then # less than an hour
+        local minute_interval=$(echo "$total_seconds / 60" | bc)
+        freq_entries+=("*-*-* *:00/$minute_interval:00")
+    elif (( $(echo "$total_seconds == 3600" | bc -l) )); then # exactly an hour
         freq_entries+=("*-*-* *:00:00")
-    elif (( 86400 % total_seconds_int == 0 )); then
-        # For schedules that divide evenly into 24 hours (in seconds)
-        local hour_interval=$((total_seconds_int / 3600))
-        freq_entries+=("*-*-* 00/$hour_interval:00:00")
-    else
-        # For other schedules, list specific times including seconds
-        local current_second=0
-        while (( current_second < 86400 )); do # 86400 seconds in a day
-            local hour=$((current_second / 3600))
-            local minute=$(((current_second % 3600) / 60))
-            local second=$((current_second % 60))
-            freq_entries+=("*-*-* $(printf "%02d:%02d:%02d" $hour $minute $second)")
-            current_second=$(bc <<< "$current_second + $total_seconds")
-            current_second=${current_second%.*}  # Convert to integer for comparison
-        done
+    elif (( $(echo "$total_seconds < 86400" | bc -l) )); then # less than a day
+        if (( $(echo "3600 % $total_seconds == 0" | bc -l) )); then # divides evenly into an hour
+            local hour_interval=$(echo "$total_seconds / 3600" | bc)
+            freq_entries+=("*-*-* 00/$hour_interval:00:00")
+        else # does not divide evenly into an hour
+            local current_second=0
+            while (( $(echo "$current_second < 86400" | bc -l) )); do
+                local hour=$(echo "$current_second / 3600" | bc)
+                local minute=$(echo "($current_second % 3600) / 60" | bc)
+                hour=${hour%.*}
+                minute=${minute%.*}
+                freq_entries+=("*-*-* $(printf "%02d:%02d:00" $hour $minute)")
+                current_second=$(echo "$current_second + $total_seconds" | bc)
+            done
+        fi
+    else # more than a day
+        local full_days=$(echo "$interval_hours / 24" | bc)
+        local remaining_hours=$(echo "$interval_hours - ($full_days * 24)" | bc)
+        if (( $(echo "$full_days > 0" | bc -l) )); then
+            freq_entries+=("*-*-1/$(printf "%02.0f" $full_days)")
+        fi
+        if (( $(echo "$remaining_hours > 0" | bc -l) )); then
+            local remaining_minutes=$(echo "($remaining_hours - ($remaining_hours / 1)) * 60" | bc)
+            local remaining_hours_int=${remaining_hours%.*}
+            local remaining_minutes_int=${remaining_minutes%.*}
+            freq_entries+=("*-*-* $(printf "%02d:%02d:00" $remaining_hours_int $remaining_minutes_int)")
+        fi
     fi
 
-    # Join the entries with a newline character
     local IFS=$'\n'
     echo "${freq_entries[*]}"
 }
@@ -679,6 +683,7 @@ SetService() {
     if [[ "$1" == "0" ]]; then
         UnsetService
     else
+        freq=$(generate_systemd_calendar "$1")
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
 Description=Pi-hole Speedtest
@@ -692,7 +697,6 @@ ExecStart=/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh
 [Install]
 WantedBy=multi-user.target
 EOF'
-        freq=$(generate_systemd_calendar "$1")
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
 [Unit]
 Description=Pi-hole Speedtest Timer
