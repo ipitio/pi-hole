@@ -666,7 +666,7 @@ generate_systemd_calendar() {
         if (( $(echo "$full_days > 0" | bc -l) )); then
             freq_entries+=("*-*-1/$(printf "%02.0f" $full_days)")
         fi
-        if (( $(echo "$remaining_hours > 0" | bc -l) )); then
+        if (( $(echo "$remaining_hours > 0" | bc -l) )); then # partial day
             local remaining_minutes=$(echo "($remaining_hours - ($remaining_hours / 1)) * 60" | bc)
             remaining_hours=${remaining_hours%.*}
             remaining_minutes=${remaining_minutes%.*}
