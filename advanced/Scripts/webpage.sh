@@ -616,8 +616,8 @@ SpeedtestMode() {
 }
 
 UpdateSpeedTestRange() {
-    if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
-        if [[ "${args[2]}" -ge 0 ]]; then
+    if [[ "${args[2]}" =~ ^-?[0-9]+$ ]]; then
+        if [[ "${args[2]}" -ge -1 ]]; then
             addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_DAYS" "${args[2]}"
         fi
     fi
