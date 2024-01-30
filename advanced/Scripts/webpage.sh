@@ -721,9 +721,6 @@ EOF'
 
 UnsetService() {
     systemctl disable --now pihole-speedtest.timer &> /dev/null
-    rm -f /etc/systemd/system/pihole-speedtest.service
-    rm -f /etc/systemd/system/pihole-speedtest.timer
-    systemctl daemon-reload
 }
 
 RunSpeedtestNow() {
