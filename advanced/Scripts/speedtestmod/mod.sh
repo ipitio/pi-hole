@@ -82,7 +82,9 @@ download() {
         git reset --hard origin/$branch
     fi
 
-    git -c advice.detachedHead=false checkout $latestTag
+    if [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag)" ]; then
+        git -c advice.detachedHead=false checkout $latestTag
+    fi
     cd ..
 }
 
