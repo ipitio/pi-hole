@@ -546,91 +546,6 @@ SetWebUILayout() {
     addOrEditKeyValPair "${setupVars}" "WEBUIBOXEDLAYOUT" "${args[2]}"
 }
 
-isEmpty() {
-	db=$1
-	if [ -f $db ]; then
-		if ! sqlite3 "$db" "select * from $db_table limit 1;" >/dev/null 2>&1 || [ -z "$(sqlite3 "$db" "select * from $db_table limit 1;")" ]; then
-			return 0
-		fi
-	fi
-	return 1
-}
-
-ClearSpeedtestData() {
-    if [[ -f $speedtestdb.old ]] && isEmpty $speedtestdb; then
-        mv -f $speedtestdb.old $speedtestdb
-    elif [[ -f $speedtestdb ]]; then
-        mv -f $speedtestdb $speedtestdb.old
-    fi
-    db_table="speedtest"
-    create_table="create table if not exists $db_table (
-        id integer primary key autoincrement,
-        start_time integer,
-        stop_time text,
-        from_server text,
-        from_ip text,
-        server text,
-        server_dist real,
-        server_ping real,
-        download real,
-        upload real,
-        share_url text
-    );"
-    sqlite3 $speedtestdb "$create_table"
-}
-
-ChangeSpeedTestSchedule() {
-    args[2]=${args[2]%\.}
-    if [[ "${args[2]-}" =~ ^([0-9]+(\.[0-9]+)?|\.[0-9]+)$ ]]; then
-        if (( $(echo "${args[2]} >= 0" | bc -l) )); then
-            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
-            SetService "${args[2]}"
-        fi
-    else
-        SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-        if [[ -z "${SPEEDTESTSCHEDULE}" ]]; then
-            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0"
-        fi
-        SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-        SetService "${SPEEDTESTSCHEDULE}"
-    fi
-}
-
-SpeedtestServer() {
-    if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
-        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" "${args[2]}"
-    else
-        # Autoselect for invalid data
-        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" ""
-    fi
-}
-
-SpeedtestMode() {
-    if [[ "${args[2]}" ]]; then
-        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_MODE" "${args[2]}"
-    else
-        # Autoselect for invalid data
-        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_MODE" ""
-    fi
-
-}
-
-UpdateSpeedTestRange() {
-    if [[ "${args[2]}" =~ ^-?[0-9]+$ ]]; then
-        if [[ "${args[2]}" -ge -1 ]]; then
-            addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_DAYS" "${args[2]}"
-        fi
-    fi
-}
-
-UpdateSpeedTestChartType() {
-    if [[ "${args[2]}" =~ ^(bar|line)$ ]]; then
-        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_TYPE" "${args[2]}"
-    else
-        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_TYPE" "line"
-    fi
-}
-
 generate_systemd_calendar() {
     local interval_hours="$1"
     local total_seconds=$(echo "$interval_hours * 3600" | bc)
@@ -723,33 +638,86 @@ UnsetService() {
     systemctl disable --now pihole-speedtest.timer &> /dev/null
 }
 
+ChangeSpeedTestSchedule() {
+    args[2]=${args[2]%\.}
+    if [[ "${args[2]-}" =~ ^([0-9]+(\.[0-9]+)?|\.[0-9]+)$ ]]; then
+        if (( $(echo "${args[2]} >= 0" | bc -l) )); then
+            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
+            SetService "${args[2]}"
+        fi
+    else
+        SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
+        if [[ -z "${SPEEDTESTSCHEDULE}" ]]; then
+            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0"
+        fi
+        SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
+        SetService "${SPEEDTESTSCHEDULE}"
+    fi
+}
+
+UpdateSpeedTestRange() {
+    if [[ "${args[2]}" =~ ^-?[0-9]+$ ]]; then
+        if [[ "${args[2]}" -ge -1 ]]; then
+            addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_DAYS" "${args[2]}"
+        fi
+    fi
+}
+
+UpdateSpeedTestChartType() {
+    if [[ "${args[2]}" =~ ^(bar|line)$ ]]; then
+        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_TYPE" "${args[2]}"
+    else
+        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_TYPE" "line"
+    fi
+}
+
+SpeedtestServer() {
+    if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
+        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" "${args[2]}"
+    else
+        # Autoselect for invalid data
+        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" ""
+    fi
+}
+
 RunSpeedtestNow() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    tmux new-session -d -s pimod "cat /var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh | sudo bash"
+    testscript="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh"
+    tmux new-session -d -s pimod "cat $testscript | sudo bash"
 }
 
 ReinstallSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    tmux new-session -d -s pimod "curl -sSLN https://github.com/arevindh/pihole-speedtest/raw/master/mod.sh | sudo bash"
+    modscript="/var/www/html/admin/scripts/pi-hole/speedtest/mod.sh"
+    tmux new-session -d -s pimod "cat $modscript | sudo bash"
 }
 
 UpdateSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    tmux new-session -d -s pimod "curl -sSLN https://github.com/arevindh/pihole-speedtest/raw/master/mod.sh | sudo bash -s -- up ${args[2]} ${args[3]}"
+    modscript="/var/www/html/admin/scripts/pi-hole/speedtest/mod.sh"
+    tmux new-session -d -s pimod "cat $modscript | sudo bash -s -- up ${args[2]} ${args[3]}"
 }
 
 UninstallSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    uninstallfile="/var/www/html/admin/scripts/pi-hole/speedtest/uninstall.sh"
-    tmux new-session -d -s pimod "cat $uninstallfile | sudo bash -s -- ${args[2]}"
+    modscript="/var/www/html/admin/scripts/pi-hole/speedtest/mod.sh"
+    tmux new-session -d -s pimod "cat $modscript | sudo bash -s -- un ${args[2]}"
+}
+
+ClearSpeedtestData() {
+    if ! command -v tmux &> /dev/null; then
+        apt-get install tmux -y
+    fi
+    modscript="/var/www/html/admin/scripts/pi-hole/speedtest/mod.sh"
+    tmux new-session -d -s pimod "cat $modscript | sudo bash -s -- db"
 }
 
 SetWebUITheme() {
@@ -1101,7 +1069,6 @@ main() {
         "-db"                 ) ClearSpeedtestData;;
         "-sd"                 ) UpdateSpeedTestRange;;
         "-sn"                 ) RunSpeedtestNow;;
-        "-sm"                 ) SpeedtestMode;;
         "-sc"                 ) ClearSpeedtestData;;
         "-ss"                 ) SpeedtestServer;;
         "-st"                 ) UpdateSpeedTestChartType;;
