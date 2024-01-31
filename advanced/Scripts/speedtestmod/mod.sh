@@ -177,7 +177,7 @@ install() {
     fi
 
     download /opt mod_pihole https://github.com/ipitio/pi-hole "" ipitio
-    download /var/www/html admin https://github.com/ipitio/AdminLTE web
+    download $admin_dir admin https://github.com/ipitio/AdminLTE web
     if [ -f $curr_wp ]; then
         if ! cat $curr_wp | grep -q SpeedTest; then
             cp -a $curr_wp $org_wp
@@ -208,7 +208,7 @@ uninstall() {
         fi
 
         pihole -a -su
-        download /var/www/html admin https://github.com/pi-hole/AdminLTE web
+        download $admin_dir admin https://github.com/pi-hole/AdminLTE web
         if [ ! -f $last_wp ]; then
             cp -a $curr_wp $last_wp
         fi
@@ -238,6 +238,8 @@ purge() {
 
 update() {
     echo "Updating Pi-hole..."
+    setTags $admin_dir/admin
+    git -c advice.detachedHead=false checkout $latestTag
     PIHOLE_SKIP_OS_CHECK=true sudo -E pihole -up
     if [ "${1-}" == "un" ]; then
         purge
