@@ -36,8 +36,13 @@ setTags() {
     local path=${1-}
     local name=${2-}
     local branch=${3-master}
+    local url=${4-}
     if [ ! -z "$path" ]; then
         cd "$path"
+        if [ ! -z "$url" ]; then
+            git remote -v | grep -q "origin" && git remote remove origin
+            git remote add origin $url
+        fi
         git fetch origin $branch:refs/remotes/origin/$branch -q
         git fetch --tags -f -q
         latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
@@ -67,7 +72,7 @@ download() {
             fi
         fi
     else # replace
-        setTags $dest "" $branch
+        setTags $dest "" $branch $urla
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
                 git config --global --add safe.directory "$dest"
