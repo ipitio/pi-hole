@@ -38,7 +38,8 @@ setTags() {
     local branch=${3-master}
     if [ ! -z "$path" ]; then
         cd "$path"
-        git fetch origin "+refs/heads/*:refs/remotes/origin/*" -q
+        git fetch origin $branch:refs/remotes/origin/$branch -q
+        git remote set-head origin $branch
         git checkout $branch -q
         git fetch --tags -f -q
         latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
