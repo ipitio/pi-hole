@@ -169,7 +169,7 @@ install() {
         ln -s /usr/bin/speedtest /usr/local/bin/speedtest
     fi
 
-    download /opt mod_pihole https://github.com/ipitio/pi-hole
+    download /opt mod_pihole https://github.com/ipitio/pi-hole "" ipitio
     download /var/www/html admin https://github.com/ipitio/AdminLTE web
     if [ -f $curr_wp ]; then
         if ! cat $curr_wp | grep -q SpeedTest; then
