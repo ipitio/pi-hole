@@ -35,7 +35,7 @@ help() {
 setTags() {
     local path=${1-}
     local name=${2-}
-    local branch=${3-master}
+    local branch="${3-master}"
     local url=${4-}
     if [ ! -z "$path" ]; then
         cd "$path"
@@ -58,7 +58,7 @@ download() {
     local name=$2
     local url=$3
     local src=${4-}
-    local branch=${5-master}
+    local branch="${5-master}"
     local dest=$path/$name
     if [ ! -d $dest ]; then # replicate
         cd "$path"
@@ -72,11 +72,12 @@ download() {
             fi
         fi
     else # replace
+        cd "$dest"
+        git config --global --add safe.directory "$dest"
+        git remote -v | grep -q "old" || git remote rename origin old
         setTags $dest "" $branch $url
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
-                git config --global --add safe.directory "$dest"
-                git remote -v | grep -q "old" || git remote rename origin old
                 git remote -v | grep -q "origin" && git remote remove origin
                 git remote add origin $url
             else
@@ -215,6 +216,7 @@ uninstall() {
         cp -a $org_wp $curr_wp
         chmod +x $curr_wp
         rm -rf /opt/mod_pihole
+        rm -f /opt/pihole/speedtestmod
     fi
 
     manageHistory ${1-}
@@ -238,8 +240,6 @@ purge() {
 
 update() {
     echo "Updating Pi-hole..."
-    setTags $admin_dir/admin "" master https://github.com/pi-hole/AdminLTE
-    git -c advice.detachedHead=false checkout $latestTag
     PIHOLE_SKIP_OS_CHECK=true sudo -E pihole -up
     if [ "${1-}" == "un" ]; then
         purge
