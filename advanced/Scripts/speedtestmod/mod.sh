@@ -66,6 +66,7 @@ download() {
             fi
         fi
     else # replace
+        git checkout $branch -q
         setTags $dest
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
