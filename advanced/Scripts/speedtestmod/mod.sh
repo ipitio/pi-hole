@@ -87,9 +87,9 @@ download() {
             git fetch origin -q
         fi
         git reset --hard origin/$branch
-        git clean -ffdx
         git checkout -B $branch
         git branch -u origin/$branch
+        git clean -ffdx
     fi
 
     #if [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag)" ]; then
