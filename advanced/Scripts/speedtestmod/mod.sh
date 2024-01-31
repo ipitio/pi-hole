@@ -88,6 +88,7 @@ download() {
         fi
         git reset --hard origin/$branch
         git clean -ffdx
+        git checkout -B $branch
         git branch -u origin/$branch
     fi
 
