@@ -39,8 +39,6 @@ setTags() {
     if [ ! -z "$path" ]; then
         cd "$path"
         git fetch origin $branch:refs/remotes/origin/$branch -q
-        git remote set-head origin $branch
-        git checkout $branch -q
         git fetch --tags -f -q
         latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
     fi
