@@ -35,9 +35,11 @@ help() {
 setTags() {
     local path=${1-}
     local name=${2-}
+    local branch=${3-master}
     if [ ! -z "$path" ]; then
         cd "$path"
-        git fetch origin -q
+        git fetch origin $branch:refs/remotes/origin/$branch -q
+        git checkout $branch -q
         git fetch --tags -f -q
         latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
     fi
@@ -66,7 +68,6 @@ download() {
             fi
         fi
     else # replace
-        git checkout $branch -q
         setTags $dest
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
