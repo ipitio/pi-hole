@@ -80,7 +80,7 @@ download() {
             if [ "$url" != "old" ]; then
                 git remote -v | grep -q "origin" && git remote remove origin
                 git remote add origin $url
-            else
+            elif [ -d .git/refs/remotes/old ]; then
                 git remote remove origin
                 git remote rename old origin
             fi
