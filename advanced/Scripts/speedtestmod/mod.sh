@@ -82,9 +82,9 @@ download() {
         git reset --hard origin/$branch
     fi
 
-    if [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag)" ]; then
-        git -c advice.detachedHead=false checkout $latestTag
-    fi
+    #if [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag)" ]; then
+    #    git -c advice.detachedHead=false checkout $latestTag
+    #fi
     cd ..
 }
 
@@ -169,8 +169,8 @@ install() {
         ln -s /usr/bin/speedtest /usr/local/bin/speedtest
     fi
 
-    download /opt mod_pihole https://github.com/arevindh/pi-hole
-    download /var/www/html admin https://github.com/arevindh/AdminLTE web
+    download /opt mod_pihole https://github.com/ipitio/pi-hole
+    download /var/www/html admin https://github.com/ipitio/AdminLTE web
     if [ -f $curr_wp ]; then
         if ! cat $curr_wp | grep -q SpeedTest; then
             cp -a $curr_wp $org_wp
