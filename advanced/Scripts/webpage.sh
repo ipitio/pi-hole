@@ -19,11 +19,12 @@ readonly FTLconf="/etc/pihole/pihole-FTL.conf"
 readonly dhcpstaticconfig="/etc/dnsmasq.d/04-pihole-static-dhcp.conf"
 readonly dnscustomfile="/etc/pihole/custom.list"
 readonly dnscustomcnamefile="/etc/dnsmasq.d/05-pihole-custom-cname.conf"
-readonly speedtestfile="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh"
-readonly speedtestdb="/etc/pihole/speedtest.db"
-
 readonly gravityDBfile="/etc/pihole/gravity.db"
 
+# speedtest mod
+readonly speedtestmod="/opt/pihole/speedtestmod/mod.sh"
+readonly speedtestfile="/opt/pihole/speedtestmod/speedtest.sh"
+readonly speedtestdb="/etc/pihole/speedtest.db"
 
 readonly setupVars="/etc/pihole/setupVars.conf"
 readonly PI_HOLE_BIN_DIR="/usr/local/bin"
@@ -610,7 +611,7 @@ After=network.target
 [Service]
 User=root
 Type=oneshot
-ExecStart=/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh
+ExecStart=/opt/pihole/speedtestmod/speedtest.sh
 
 [Install]
 WantedBy=multi-user.target
@@ -684,40 +685,35 @@ RunSpeedtestNow() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    testscript="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh"
-    tmux new-session -d -s pimod "cat $testscript | sudo bash"
+    tmux new-session -d -s pimod "cat $speedtestfile | sudo bash"
 }
 
 ReinstallSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    modscript="/var/www/html/admin/scripts/pi-hole/speedtest/mod.sh"
-    tmux new-session -d -s pimod "cat $modscript | sudo bash"
+    tmux new-session -d -s pimod "cat $speedtestmod | sudo bash"
 }
 
 UpdateSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    modscript="/var/www/html/admin/scripts/pi-hole/speedtest/mod.sh"
-    tmux new-session -d -s pimod "cat $modscript | sudo bash -s -- up ${args[2]} ${args[3]}"
+    tmux new-session -d -s pimod "cat $speedtestmod | sudo bash -s -- up ${args[2]} ${args[3]}"
 }
 
 UninstallSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    modscript="/var/www/html/admin/scripts/pi-hole/speedtest/mod.sh"
-    tmux new-session -d -s pimod "cat $modscript | sudo bash -s -- un ${args[2]}"
+    tmux new-session -d -s pimod "cat $speedtestmod | sudo bash -s -- un ${args[2]}"
 }
 
 ClearSpeedtestData() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    modscript="/var/www/html/admin/scripts/pi-hole/speedtest/mod.sh"
-    tmux new-session -d -s pimod "cat $modscript | sudo bash -s -- db"
+    tmux new-session -d -s pimod "cat $speedtestmod | sudo bash -s -- db"
 }
 
 SetWebUITheme() {
