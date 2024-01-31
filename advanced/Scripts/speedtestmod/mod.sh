@@ -238,7 +238,7 @@ purge() {
 
 update() {
     echo "Updating Pi-hole..."
-    setTags $admin_dir/admin
+    setTags $admin_dir/admin "" master https://github.com/pi-hole/AdminLTE
     git -c advice.detachedHead=false checkout $latestTag
     PIHOLE_SKIP_OS_CHECK=true sudo -E pihole -up
     if [ "${1-}" == "un" ]; then
