@@ -205,6 +205,7 @@ uninstall() {
         fi
         cp -a $org_wp $curr_wp
         chmod +x $curr_wp
+        rm -rf /opt/mod_pihole
     fi
 
     manageHistory ${1-}
@@ -212,7 +213,6 @@ uninstall() {
 
 purge() {
     rm -rf "$admin_dir"*_admin
-    rm -rf /opt/mod_pihole
     if [ -f /etc/systemd/system/pihole-speedtest.timer ]; then
         rm -f /etc/systemd/system/pihole-speedtest.service
         rm -f /etc/systemd/system/pihole-speedtest.timer
