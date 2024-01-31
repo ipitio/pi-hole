@@ -72,7 +72,7 @@ download() {
             fi
         fi
     else # replace
-        setTags $dest "" $branch $urla
+        setTags $dest "" $branch $url
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
                 git config --global --add safe.directory "$dest"
