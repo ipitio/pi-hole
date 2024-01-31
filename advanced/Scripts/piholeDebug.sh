@@ -230,10 +230,8 @@ initialize_debug() {
 
 # This is a function for visually displaying the current test that is being run.
 # Accepts one variable: the name of what is being diagnosed
-# Colors do not show in the dasboard, but the icons do: [i], [✓], and [✗]
 echo_current_diagnostic() {
     # Colors are used for visually distinguishing each test in the output
-    # These colors do not show in the GUI, but the formatting will
     log_write "\\n${COL_PURPLE}*** [ DIAGNOSING ]:${COL_NC} ${1}"
 }
 
@@ -451,7 +449,7 @@ os_check() {
 }
 
 diagnose_operating_system() {
-    # error message in a variable so we can easily modify it later (or re-use it)
+    # error message in a variable so we can easily modify it later (or reuse it)
     local error_msg="Distribution unknown -- most likely you are on an unsupported platform and may run into issues."
     # Display the current test that is running
     echo_current_diagnostic "Operating system"
@@ -863,11 +861,15 @@ dig_at() {
         local record_type="A"
     fi
 
-    # Find a random blocked url that has not been whitelisted.
+    # Find a random blocked url that has not been whitelisted and is not ABP style.
     # This helps emulate queries to different domains that a user might query
     # It will also give extra assurance that Pi-hole is correctly resolving and blocking domains
     local random_url
-    random_url=$(pihole-FTL sqlite3 "${PIHOLE_GRAVITY_DB_FILE}" "SELECT domain FROM vw_gravity ORDER BY RANDOM() LIMIT 1")
+    random_url=$(pihole-FTL sqlite3 -ni "${PIHOLE_GRAVITY_DB_FILE}" "SELECT domain FROM vw_gravity WHERE domain not like '||%^' ORDER BY RANDOM() LIMIT 1")
+    # Fallback if no non-ABP style domains were found
+    if [ -z "${random_url}" ]; then
+        random_url="flurry.com"
+    fi
 
     # Next we need to check if Pi-hole can resolve a domain when the query is sent to it's IP address
     # This better emulates how clients will interact with Pi-hole as opposed to above where Pi-hole is
@@ -1224,7 +1226,7 @@ show_db_entries() {
     IFS=$'\r\n'
     local entries=()
     mapfile -t entries < <(\
-        pihole-FTL sqlite3 "${PIHOLE_GRAVITY_DB_FILE}" \
+        pihole-FTL sqlite3 -ni "${PIHOLE_GRAVITY_DB_FILE}" \
             -cmd ".headers on" \
             -cmd ".mode column" \
             -cmd ".width ${widths}" \
@@ -1249,7 +1251,7 @@ show_FTL_db_entries() {
     IFS=$'\r\n'
     local entries=()
     mapfile -t entries < <(\
-        pihole-FTL sqlite3 "${PIHOLE_FTL_DB_FILE}" \
+        pihole-FTL sqlite3 -ni "${PIHOLE_FTL_DB_FILE}" \
             -cmd ".headers on" \
             -cmd ".mode column" \
             -cmd ".width ${widths}" \
@@ -1315,7 +1317,7 @@ analyze_gravity_list() {
     fi
 
     show_db_entries "Info table" "SELECT property,value FROM info" "20 40"
-    gravity_updated_raw="$(pihole-FTL sqlite3 "${PIHOLE_GRAVITY_DB_FILE}" "SELECT value FROM info where property = 'updated'")"
+    gravity_updated_raw="$(pihole-FTL sqlite3 -ni "${PIHOLE_GRAVITY_DB_FILE}" "SELECT value FROM info where property = 'updated'")"
     gravity_updated="$(date -d @"${gravity_updated_raw}")"
     log_write "   Last gravity run finished at: ${COL_CYAN}${gravity_updated}${COL_NC}"
     log_write ""
@@ -1323,7 +1325,7 @@ analyze_gravity_list() {
     OLD_IFS="$IFS"
     IFS=$'\r\n'
     local gravity_sample=()
-    mapfile -t gravity_sample < <(pihole-FTL sqlite3 "${PIHOLE_GRAVITY_DB_FILE}" "SELECT domain FROM vw_gravity LIMIT 10")
+    mapfile -t gravity_sample < <(pihole-FTL sqlite3 -ni "${PIHOLE_GRAVITY_DB_FILE}" "SELECT domain FROM vw_gravity LIMIT 10")
     log_write "   ${COL_CYAN}----- First 10 Gravity Domains -----${COL_NC}"
 
     for line in "${gravity_sample[@]}"; do
@@ -1355,7 +1357,7 @@ database_integrity_check(){
 
       log_write "${INFO} Checking foreign key constraints of ${database} ... (this can take several minutes)"
       unset result
-      result="$(pihole-FTL sqlite3 "${database}" -cmd ".headers on" -cmd ".mode column" "PRAGMA foreign_key_check" 2>&1 & spinner)"
+      result="$(pihole-FTL sqlite3 -ni "${database}" -cmd ".headers on" -cmd ".mode column" "PRAGMA foreign_key_check" 2>&1 & spinner)"
       if [[ -z ${result} ]]; then
         log_write "${TICK} No foreign key errors in ${database}"
       else
@@ -1501,7 +1503,7 @@ upload_to_tricorder() {
     # If no token was generated
     else
         # Show an error and some help instructions
-        # Skip this if being called from web interface and autmatic mode was not chosen (users opt-out to upload)
+        # Skip this if being called from web interface and automatic mode was not chosen (users opt-out to upload)
         if [[ "${WEBCALL}" ]] && [[ ! "${AUTOMATED}" ]]; then
             :
         else

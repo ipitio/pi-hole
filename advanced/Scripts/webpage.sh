@@ -19,17 +19,20 @@ readonly FTLconf="/etc/pihole/pihole-FTL.conf"
 readonly dhcpstaticconfig="/etc/dnsmasq.d/04-pihole-static-dhcp.conf"
 readonly dnscustomfile="/etc/pihole/custom.list"
 readonly dnscustomcnamefile="/etc/dnsmasq.d/05-pihole-custom-cname.conf"
-readonly speedtestfile="/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh"
-readonly speedtestdb="/etc/pihole/speedtest.db"
-
 readonly gravityDBfile="/etc/pihole/gravity.db"
 
-# Source install script for ${setupVars}, ${PI_HOLE_BIN_DIR} and valid_ip()
-readonly PI_HOLE_FILES_DIR="/etc/.pihole"
-# shellcheck disable=SC2034  # used in basic-install to source the script without running it
-SKIP_INSTALL="true"
-source "${PI_HOLE_FILES_DIR}/automated install/basic-install.sh"
+# speedtest mod
+readonly speedtestmod="/opt/pihole/speedtestmod/mod.sh"
+readonly speedtestfile="/opt/pihole/speedtestmod/speedtest.sh"
+readonly speedtestdb="/etc/pihole/speedtest.db"
 
+readonly setupVars="/etc/pihole/setupVars.conf"
+readonly PI_HOLE_BIN_DIR="/usr/local/bin"
+
+# Root of the web server
+readonly webroot="/var/www/html"
+
+# Source utils script
 utilsfile="/opt/pihole/utils.sh"
 source "${utilsfile}"
 
@@ -50,17 +53,18 @@ Options:
   -k, kelvin                      Set Kelvin as preferred temperature unit
   -h, --help                      Show this help dialog
   -i, interface                   Specify dnsmasq's interface listening behavior
-  -s, speedtest                   Set speedtest interval, user 0 to disable Speedtests, use -sn to prevent logging to results list
-  -in                             Reinstall Speedtest Mod
-  -up [un] [db]                   Update Pi-hole (and | but uninstall) the Mod (and flush the database)
-  -un [db]                        Uninstall Speedtest Mod without updating Pi-hole (and delete the database)
-  -db                             Flush the database
+  -s, speedtest                   Set speedtest interval, add 0 to disable
+  -in                             (Re)install Latest Speedtest Mod and only Mod
+  -up [un] [db]                   (Re)install Latest Pi-hole and (uninstall) the Mod (and flush/restore the database)
+  -un [db]                        Uninstall Speedtest Mod without updating Pi-hole (and delete/restore the database)
+  -db                             Flush or restore the Speedtest Mod database
   -sd                             Set speedtest display range
   -sn                             Run speedtest now
-  -sm		                      Speedtest Mode
+  -sm		                      Speedtest Mode (deprecated)
   -sc                             Clear speedtest data
   -ss                             Set custom server
   -st                             Set default speedtest chart type (line, bar)
+  -su                             Stop future scheduled speedtests
   -l, privacylevel                Set privacy level (0 = lowest, 3 = highest)
   -t, teleporter                  Backup configuration as an archive
   -t, teleporter myname.tar.gz    Backup configuration to archive with name myname.tar.gz as specified"
@@ -109,6 +113,47 @@ HashPassword() {
     return=$(echo -n "${1}" | sha256sum | sed 's/\s.*$//')
     return=$(echo -n "${return}" | sha256sum | sed 's/\s.*$//')
     echo "${return}"
+}
+
+# Check an IP address to see if it is a valid one
+valid_ip() {
+    # Local, named variables
+    local ip=${1}
+    local stat=1
+
+    # Regex matching one IPv4 component, i.e. an integer from 0 to 255.
+    # See https://tools.ietf.org/html/rfc1340
+    local ipv4elem="(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]?|0)";
+    # Regex matching an optional port (starting with '#') range of 1-65536
+    local portelem="(#(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))?";
+    # Build a full IPv4 regex from the above subexpressions
+    local regex="^${ipv4elem}\\.${ipv4elem}\\.${ipv4elem}\\.${ipv4elem}${portelem}$"
+
+    # Evaluate the regex, and return the result
+    [[ $ip =~ ${regex} ]]
+
+    stat=$?
+    return "${stat}"
+}
+
+valid_ip6() {
+    local ip=${1}
+    local stat=1
+
+    # Regex matching one IPv6 element, i.e. a hex value from 0000 to FFFF
+    local ipv6elem="[0-9a-fA-F]{1,4}"
+    # Regex matching an IPv6 CIDR, i.e. 1 to 128
+    local v6cidr="(\\/([1-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])){0,1}"
+    # Regex matching an optional port (starting with '#') range of 1-65536
+    local portelem="(#(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))?";
+    # Build a full IPv6 regex from the above subexpressions
+    local regex="^(((${ipv6elem}))*((:${ipv6elem}))*::((${ipv6elem}))*((:${ipv6elem}))*|((${ipv6elem}))((:${ipv6elem})){7})${v6cidr}${portelem}$"
+
+    # Evaluate the regex, and return the result
+    [[ ${ip} =~ ${regex} ]]
+
+    stat=$?
+    return "${stat}"
 }
 
 SetWebPassword() {
@@ -318,7 +363,7 @@ SetDNSServers() {
     IFS=',' read -r -a array <<< "${args[2]}"
     for index in "${!array[@]}"
     do
-        # Replace possible "\#" by "#". This fixes AdminLTE#1427
+        # Replace possible "\#" by "#". This fixes web#1427
         local ip
         ip="${array[index]//\\#/#}"
 
@@ -502,42 +547,118 @@ SetWebUILayout() {
     addOrEditKeyValPair "${setupVars}" "WEBUIBOXEDLAYOUT" "${args[2]}"
 }
 
-ClearSpeedtestData() {
-    mv $speedtestdb $speedtestdb.old
-    cp /var/www/html/admin/scripts/pi-hole/speedtest/speedtest.db $speedtestdb
+generate_systemd_calendar() {
+    local interval_hours="$1"
+    local total_seconds=$(echo "$interval_hours * 3600" | bc)
+    local freq_entries=()
+
+    if (( $(echo "$total_seconds < 60" | bc -l) )); then # less than a minute
+        total_seconds=60
+        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0.017"
+    fi
+    if (( $(echo "$total_seconds >= 60 && $total_seconds < 3600" | bc -l) )); then # less than an hour
+        local minute_interval=$(echo "$total_seconds / 60" | bc)
+        freq_entries+=("*-*-* *:00/$minute_interval:00")
+    elif (( $(echo "$total_seconds == 3600" | bc -l) )); then # exactly an hour
+        freq_entries+=("*-*-* *:00:00")
+    elif (( $(echo "$total_seconds < 86400" | bc -l) )); then # less than a day
+        if (( $(echo "3600 % $total_seconds == 0" | bc -l) )); then # divides evenly into an hour
+            local hour_interval=$(echo "$total_seconds / 3600" | bc)
+            freq_entries+=("*-*-* 00/$hour_interval:00:00")
+        else # does not divide evenly into an hour
+            local current_second=0
+            while (( $(echo "$current_second < 86400" | bc -l) )); do
+                local hour=$(echo "$current_second / 3600" | bc)
+                local minute=$(echo "($current_second % 3600) / 60" | bc)
+                hour=${hour%.*}
+                minute=${minute%.*}
+                freq_entries+=("*-*-* $(printf "%02d:%02d:00" $hour $minute)")
+                current_second=$(echo "$current_second + $total_seconds" | bc)
+            done
+        fi
+    else # more than a day
+        local full_days=$(echo "$interval_hours / 24" | bc)
+        local remaining_hours=$(echo "$interval_hours - ($full_days * 24)" | bc)
+        if (( $(echo "$full_days > 0" | bc -l) )); then
+            freq_entries+=("*-*-1/$(printf "%02.0f" $full_days)")
+        fi
+        if (( $(echo "$remaining_hours > 0" | bc -l) )); then # partial day
+            local remaining_minutes=$(echo "($remaining_hours - ($remaining_hours / 1)) * 60" | bc)
+            remaining_hours=${remaining_hours%.*}
+            remaining_minutes=${remaining_minutes%.*}
+            freq_entries+=("*-*-* $(printf "%02d:%02d:00" $remaining_hours $remaining_minutes)")
+        fi
+    fi
+
+    local IFS=$'\n'
+    echo "${freq_entries[*]}"
+}
+
+SetService() {
+    # Remove OLD
+    crontab -l >crontab.tmp || true
+    sed -i '/speedtest/d' crontab.tmp
+    crontab crontab.tmp && rm -f crontab.tmp
+    if [[ "$1" == "0" ]]; then
+        UnsetService
+    else
+        freq=$(generate_systemd_calendar "$1")
+        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
+[Unit]
+Description=Pi-hole Speedtest
+After=network.target
+
+[Service]
+User=root
+Type=oneshot
+ExecStart=/opt/pihole/speedtestmod/speedtest.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF'
+        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
+[Unit]
+Description=Pi-hole Speedtest Timer
+
+[Install]
+WantedBy=timers.target
+
+[Timer]
+Persistent=true
+EOF'
+        while IFS= read -r line; do
+            sudo bash -c "echo 'OnCalendar=$line' >> /etc/systemd/system/pihole-speedtest.timer"
+        done <<< "$freq"
+        systemctl daemon-reload
+        systemctl reenable pihole-speedtest.timer &> /dev/null
+        systemctl restart pihole-speedtest.timer
+    fi
+}
+
+UnsetService() {
+    systemctl disable --now pihole-speedtest.timer &> /dev/null
 }
 
 ChangeSpeedTestSchedule() {
-    if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
-        if [ "${args[2]}" -ge 0 -a "${args[2]}" -le 24 ]; then
+    args[2]=${args[2]%\.}
+    if [[ "${args[2]-}" =~ ^([0-9]+(\.[0-9]+)?|\.[0-9]+)$ ]]; then
+        if (( $(echo "${args[2]} >= 0" | bc -l) )); then
             addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
-            SetService ${args[2]}
+            SetService "${args[2]}"
         fi
-    fi
-}
-
-SpeedtestServer() {
-    if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
-        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" "${args[2]}"
     else
-        # Autoselect for invalid data
-        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" ""
+        SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
+        if [[ -z "${SPEEDTESTSCHEDULE}" ]]; then
+            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0"
+        fi
+        SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
+        SetService "${SPEEDTESTSCHEDULE}"
     fi
-}
-
-SpeedtestMode() {
-    if [[ "${args[2]}" ]]; then
-        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_MODE" "${args[2]}"
-    else
-        # Autoselect for invalid data
-        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_MODE" ""
-    fi
-
 }
 
 UpdateSpeedTestRange() {
-    if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
-        if [ "${args[2]}" -ge 0 -a "${args[2]}" -le 30 ]; then
+    if [[ "${args[2]}" =~ ^-?[0-9]+$ ]]; then
+        if [[ "${args[2]}" -ge -1 ]]; then
             addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_DAYS" "${args[2]}"
         fi
     fi
@@ -551,42 +672,12 @@ UpdateSpeedTestChartType() {
     fi
 }
 
-SetService() {
-    # Remove OLD
-    crontab -l >crontab.tmp || true
-    sed -i '/speedtest/d' crontab.tmp
-    crontab crontab.tmp && rm -f crontab.tmp
-    if [[ "$1" == "0" ]]; then
-        systemctl disable --now pihole-speedtest.timer &> /dev/null
+SpeedtestServer() {
+    if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
+        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" "${args[2]}"
     else
-        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
-[Unit]
-Description=Pi-hole Speedtest
-After=network.target
-
-[Service]
-User=root
-Type=oneshot
-ExecStart=/var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh
-
-[Install]
-WantedBy=multi-user.target
-EOF'
-        freq=$([ "$1" -lt "24" ] && echo "00/$1:00" || [ "$1" -eq "24" ] && echo "daily" || echo "daily,$(($1/24)):$((($1%24)*60))")
-        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
-[Unit]
-Description=Pi-hole Speedtest Timer
-
-[Install]
-WantedBy=timers.target
-
-[Timer]
-Persistent=true
-OnCalendar='$freq'
-EOF'
-        systemctl daemon-reload
-        systemctl reenable pihole-speedtest.timer &> /dev/null
-        systemctl restart pihole-speedtest.timer
+        # Autoselect for invalid data
+        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" ""
     fi
 }
 
@@ -594,29 +685,35 @@ RunSpeedtestNow() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    tmux new-session -d -s pimod "cat /var/www/html/admin/scripts/pi-hole/speedtest/speedtest.sh | sudo bash"
+    tmux new-session -d -s pimod "cat $speedtestfile | sudo bash"
 }
 
 ReinstallSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    tmux new-session -d -s pimod "curl -sSLN https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | sudo bash"
+    tmux new-session -d -s pimod "cat $speedtestmod | sudo bash"
 }
 
 UpdateSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    tmux new-session -d -s pimod "curl -sSLN https://github.com/ipitio/pihole-speedtest/raw/ipitio/mod.sh | sudo bash -s -- up ${args[2]} ${args[3]}"
+    tmux new-session -d -s pimod "cat $speedtestmod | sudo bash -s -- up ${args[2]} ${args[3]}"
 }
 
 UninstallSpeedTest() {
     if ! command -v tmux &> /dev/null; then
         apt-get install tmux -y
     fi
-    uninstallfile="/var/www/html/admin/scripts/pi-hole/speedtest/uninstall.sh"
-    tmux new-session -d -s pimod "cat $uninstallfile | sudo bash -s -- ${args[2]}"
+    tmux new-session -d -s pimod "cat $speedtestmod | sudo bash -s -- un ${args[2]}"
+}
+
+ClearSpeedtestData() {
+    if ! command -v tmux &> /dev/null; then
+        apt-get install tmux -y
+    fi
+    tmux new-session -d -s pimod "cat $speedtestmod | sudo bash -s -- db"
 }
 
 SetWebUITheme() {
@@ -647,13 +744,13 @@ CustomizeAdLists() {
 
     if CheckUrl "${address}"; then
         if [[ "${args[2]}" == "enable" ]]; then
-            pihole-FTL sqlite3 "${gravityDBfile}" "UPDATE adlist SET enabled = 1 WHERE address = '${address}'"
+            pihole-FTL sqlite3 -ni "${gravityDBfile}" "UPDATE adlist SET enabled = 1 WHERE address = '${address}'"
         elif [[ "${args[2]}" == "disable" ]]; then
-            pihole-FTL sqlite3 "${gravityDBfile}" "UPDATE adlist SET enabled = 0 WHERE address = '${address}'"
+            pihole-FTL sqlite3 -ni "${gravityDBfile}" "UPDATE adlist SET enabled = 0 WHERE address = '${address}'"
         elif [[ "${args[2]}" == "add" ]]; then
-            pihole-FTL sqlite3 "${gravityDBfile}" "INSERT OR IGNORE INTO adlist (address, comment) VALUES ('${address}', '${comment}')"
+            pihole-FTL sqlite3 -ni "${gravityDBfile}" "INSERT OR IGNORE INTO adlist (address, comment) VALUES ('${address}', '${comment}')"
         elif [[ "${args[2]}" == "del" ]]; then
-            pihole-FTL sqlite3 "${gravityDBfile}" "DELETE FROM adlist WHERE address = '${address}'"
+            pihole-FTL sqlite3 -ni "${gravityDBfile}" "DELETE FROM adlist WHERE address = '${address}'"
         else
             echo "Not permitted"
             return 1
@@ -743,7 +840,6 @@ Teleporter() {
         host="${host//./_}"
         filename="pi-hole-${host:-noname}-teleporter_${datetimestamp}.tar.gz"
     fi
-    # webroot is sourced from basic-install above
     php "${webroot}/admin/scripts/pi-hole/php/teleporter.php" > "${filename}"
 }
 
@@ -752,7 +848,7 @@ checkDomain()
     local domain validDomain
     # Convert to lowercase
     domain="${1,,}"
-    validDomain=$(grep -P "^((-|_)*[a-z\\d]((-|_)*[a-z\\d])*(-|_)*)(\\.(-|_)*([a-z\\d]((-|_)*[a-z\\d])*))*$" <<< "${domain}") # Valid chars check
+    validDomain=$(grep -P "^((-|_)*[a-z0-9]((-|_)*[a-z0-9])*(-|_)*)(\\.(-|_)*([a-z0-9]((-|_)*[a-z0-9])*))*$" <<< "${domain}") # Valid chars check
     validDomain=$(grep -P "^[^\\.]{1,63}(\\.[^\\.]{1,63})*$" <<< "${validDomain}") # Length of each label
     echo "${validDomain}"
 }
@@ -788,12 +884,12 @@ addAudit()
     done
     # Insert only the domain here. The date_added field will be
     # filled with its default value (date_added = current timestamp)
-    pihole-FTL sqlite3 "${gravityDBfile}" "INSERT INTO domain_audit (domain) VALUES ${domains};"
+    pihole-FTL sqlite3 -ni "${gravityDBfile}" "INSERT INTO domain_audit (domain) VALUES ${domains};"
 }
 
 clearAudit()
 {
-    pihole-FTL sqlite3 "${gravityDBfile}" "DELETE FROM domain_audit;"
+    pihole-FTL sqlite3 -ni "${gravityDBfile}" "DELETE FROM domain_audit;"
 }
 
 SetPrivacyLevel() {
@@ -969,10 +1065,10 @@ main() {
         "-db"                 ) ClearSpeedtestData;;
         "-sd"                 ) UpdateSpeedTestRange;;
         "-sn"                 ) RunSpeedtestNow;;
-        "-sm"                 ) SpeedtestMode;;
         "-sc"                 ) ClearSpeedtestData;;
         "-ss"                 ) SpeedtestServer;;
         "-st"                 ) UpdateSpeedTestChartType;;
+        "-su"                 ) UnsetService;;
         "addcustomdns"        ) AddCustomDNSAddress;;
         "removecustomdns"     ) RemoveCustomDNSAddress;;
         "addcustomcname"      ) AddCustomCNAMERecord;;
