@@ -153,7 +153,7 @@ install() {
     fi
 
     local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
-    local packages="bc sqlite3 php${PHP_VERSION}-sqlite3 jq"
+    local packages="bc sqlite3 php${PHP_VERSION}-sqlite3 jq tmux"
 
     local missing_packages=""
     for package in $packages; do
