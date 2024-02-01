@@ -188,6 +188,7 @@ install() {
     chmod +x $curr_wp
     manageHistory db .
     pihole -a -s
+    pihole updatechecker local
 }
 
 uninstall() {
@@ -211,6 +212,7 @@ uninstall() {
         cp -a $org_wp $curr_wp
         chmod +x $curr_wp
         rm -rf /opt/mod_pihole
+        pi-hole updatechecker
     fi
 
     manageHistory ${1-}
@@ -273,7 +275,6 @@ commit() {
     git remote -v | grep -q "old" && git remote remove old
     rm -f $last_wp
     pihole restartdns
-    pihole updatechecker local
     printf "Done!\n\n$(date)\n"
     exit 0
 }
