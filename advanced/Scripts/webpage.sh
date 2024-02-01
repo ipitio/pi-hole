@@ -682,37 +682,22 @@ SpeedtestServer() {
 }
 
 RunSpeedtestNow() {
-    if ! command -v tmux &> /dev/null; then
-        apt-get install tmux -y
-    fi
     tmux new-session -d -s pimod "cat $speedtestfile | sudo bash"
 }
 
 ReinstallSpeedTest() {
-    if ! command -v tmux &> /dev/null; then
-        apt-get install tmux -y
-    fi
     tmux new-session -d -s pimod "cat $speedtestmod | sudo bash"
 }
 
 UpdateSpeedTest() {
-    if ! command -v tmux &> /dev/null; then
-        apt-get install tmux -y
-    fi
     tmux new-session -d -s pimod "cat $speedtestmod | sudo bash -s -- up ${args[2]} ${args[3]}"
 }
 
 UninstallSpeedTest() {
-    if ! command -v tmux &> /dev/null; then
-        apt-get install tmux -y
-    fi
     tmux new-session -d -s pimod "cat $speedtestmod | sudo bash -s -- un ${args[2]}"
 }
 
 ClearSpeedtestData() {
-    if ! command -v tmux &> /dev/null; then
-        apt-get install tmux -y
-    fi
     tmux new-session -d -s pimod "cat $speedtestmod | sudo bash -s -- db"
 }
 

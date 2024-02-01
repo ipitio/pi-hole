@@ -38,8 +38,8 @@ setTags() {
     local branch="${3-master}"
     if [ ! -z "$path" ]; then
         cd "$path"
-        git fetch origin $branch:refs/remotes/origin/$branch
-        git fetch --tags -f
+        git fetch origin $branch:refs/remotes/origin/$branch -q
+        git fetch --tags -f -q
         latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
     fi
     if [ ! -z "$name" ]; then
@@ -153,7 +153,7 @@ install() {
     fi
 
     local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
-    local packages="bc sqlite3 php${PHP_VERSION}-sqlite3 jq"
+    local packages="bc sqlite3 php${PHP_VERSION}-sqlite3 jq tmux"
 
     local missing_packages=""
     for package in $packages; do
@@ -233,6 +233,8 @@ purge() {
     if isEmpty $curr_db; then
         rm -f $curr_db
     fi
+
+    pi-hole updatechecker
 }
 
 update() {
