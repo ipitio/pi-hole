@@ -58,7 +58,7 @@ download() {
     if [ ! -d $dest ]; then # replicate
         cd "$path"
         rm -rf "$name"
-        git clone --depth=1 -b "$branch" "$url" "$name"
+        git clone --depth=1 -b "$branch" "$url" "$name" -q
         setTags "$name" "$src" $branch
         if [ ! -z "$src" ]; then
             if [[ "$localTag" == *.* ]] && [[ "$localTag" < "$latestTag" ]]; then
@@ -81,8 +81,8 @@ download() {
             git fetch origin -q
         fi
         git reset --hard origin/$branch
-        git checkout -B $branch -q
-        git branch -u origin/$branch -q
+        git checkout -B $branch
+        git branch -u origin/$branch
         git clean -ffdx
     fi
 
@@ -232,6 +232,8 @@ purge() {
     if isEmpty $curr_db; then
         rm -f $curr_db
     fi
+
+    pi-hole updatechecker
 }
 
 update() {
