@@ -38,8 +38,8 @@ setTags() {
     local branch="${3-master}"
     if [ ! -z "$path" ]; then
         cd "$path"
-        git fetch origin $branch:refs/remotes/origin/$branch -q
-        git fetch --tags -f -q
+        git fetch origin $branch:refs/remotes/origin/$branch
+        git fetch --tags -f
         latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
     fi
     if [ ! -z "$name" ]; then
@@ -78,11 +78,11 @@ download() {
                 git remote remove origin
                 git remote rename old origin
             fi
-            git fetch origin -q
+            git fetch origin
         fi
         git reset --hard origin/$branch
-        git checkout -B $branch -q
-        git branch -u origin/$branch -q
+        git checkout -B $branch
+        git branch -u origin/$branch
         git clean -ffdx
     fi
 
