@@ -35,9 +35,15 @@ help() {
 setTags() {
     local path=${1-}
     local name=${2-}
+    local branch="${3-master}"
+    local url=${4-}
     if [ ! -z "$path" ]; then
         cd "$path"
-        git fetch origin -q
+        if [ ! -z "$url" ]; then
+            git remote -v | grep -q "origin" && git remote remove origin
+            git remote add origin $url
+        fi
+        git fetch origin $branch:refs/remotes/origin/$branch -q
         git fetch --tags -f -q
         latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
     fi
@@ -52,13 +58,13 @@ download() {
     local name=$2
     local url=$3
     local src=${4-}
-    local branch=${5-master}
+    local branch="${5-master}"
     local dest=$path/$name
     if [ ! -d $dest ]; then # replicate
         cd "$path"
         rm -rf "$name"
         git clone --depth=1 -b "$branch" "$url" "$name"
-        setTags "$name" "$src"
+        setTags "$name" "$src" $branch
         if [ ! -z "$src" ]; then
             if [[ "$localTag" == *.* ]] && [[ "$localTag" < "$latestTag" ]]; then
                 latestTag=$localTag
@@ -66,20 +72,24 @@ download() {
             fi
         fi
     else # replace
-        setTags $dest
+        cd "$dest"
+        git config --global --add safe.directory "$dest"
+        git remote -v | grep -q "old" || git remote rename origin old
+        setTags $dest "" $branch $url
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
-                git config --global --add safe.directory "$dest"
-                git remote -v | grep -q "old" || git remote rename origin old
                 git remote -v | grep -q "origin" && git remote remove origin
                 git remote add origin $url
-            else
+            elif [ -d .git/refs/remotes/old ]; then
                 git remote remove origin
                 git remote rename old origin
             fi
             git fetch origin -q
         fi
         git reset --hard origin/$branch
+        git checkout -B $branch -q
+        git branch -u origin/$branch -q
+        git clean -ffdx
     fi
 
     if [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag)" ]; then
@@ -170,7 +180,7 @@ install() {
     fi
 
     download /opt mod_pihole https://github.com/arevindh/pi-hole
-    download /var/www/html admin https://github.com/arevindh/AdminLTE web
+    download $admin_dir admin https://github.com/arevindh/AdminLTE web
     if [ -f $curr_wp ]; then
         if ! cat $curr_wp | grep -q SpeedTest; then
             cp -a $curr_wp $org_wp
@@ -201,13 +211,14 @@ uninstall() {
         fi
 
         pihole -a -su
-        download /var/www/html admin https://github.com/pi-hole/AdminLTE web
+        download $admin_dir admin https://github.com/pi-hole/AdminLTE web
         if [ ! -f $last_wp ]; then
             cp -a $curr_wp $last_wp
         fi
         cp -a $org_wp $curr_wp
         chmod +x $curr_wp
         rm -rf /opt/mod_pihole
+        rm -rf /opt/pihole/speedtestmod
     fi
 
     manageHistory ${1-}
