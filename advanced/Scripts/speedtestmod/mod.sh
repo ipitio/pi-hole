@@ -87,8 +87,8 @@ download() {
             git fetch origin -q
         fi
         git reset --hard origin/$branch
-        git checkout -B $branch
-        git branch -u origin/$branch
+        git checkout -B $branch -q
+        git branch -u origin/$branch -q
         git clean -ffdx
     fi
 
