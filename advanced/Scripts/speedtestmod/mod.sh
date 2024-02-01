@@ -78,7 +78,7 @@ download() {
                 git remote remove origin
                 git remote rename old origin
             fi
-            git fetch origin
+            git fetch origin -q
         fi
         git reset --hard origin/$branch
         git checkout -B $branch
