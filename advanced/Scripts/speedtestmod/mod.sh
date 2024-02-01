@@ -36,13 +36,8 @@ setTags() {
     local path=${1-}
     local name=${2-}
     local branch="${3-master}"
-    local url=${4-}
     if [ ! -z "$path" ]; then
         cd "$path"
-        if [ ! -z "$url" ]; then
-            git remote -v | grep -q "origin" && git remote remove origin
-            git remote add origin $url
-        fi
         git fetch origin $branch:refs/remotes/origin/$branch -q
         git fetch --tags -f -q
         latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
@@ -72,12 +67,11 @@ download() {
             fi
         fi
     else # replace
-        cd "$dest"
-        git config --global --add safe.directory "$dest"
-        git remote -v | grep -q "old" || git remote rename origin old
-        setTags $dest "" $branch $url
+        setTags $dest "" $branch
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
+                git config --global --add safe.directory "$dest"
+                git remote -v | grep -q "old" || git remote rename origin old
                 git remote -v | grep -q "origin" && git remote remove origin
                 git remote add origin $url
             elif [ -d .git/refs/remotes/old ]; then
@@ -217,6 +211,7 @@ uninstall() {
         fi
         cp -a $org_wp $curr_wp
         chmod +x $curr_wp
+        rm -rf /opt/mod_pihole
     fi
 
     manageHistory ${1-}
@@ -224,7 +219,6 @@ uninstall() {
 
 purge() {
     rm -rf "$admin_dir"*_admin
-    rm -rf /opt/mod_pihole
     rm -rf /opt/pihole/speedtestmod
     if [ -f /etc/systemd/system/pihole-speedtest.timer ]; then
         rm -f /etc/systemd/system/pihole-speedtest.service
