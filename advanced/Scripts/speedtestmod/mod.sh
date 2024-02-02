@@ -212,6 +212,7 @@ uninstall() {
         cp -a $org_wp $curr_wp
         chmod +x $curr_wp
         rm -rf /opt/mod_pihole
+        pihole updatechecker
     fi
 
     manageHistory ${1-}
