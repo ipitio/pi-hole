@@ -636,6 +636,7 @@ SetService() {
         UnsetService
     else
         if [[ "$(get_scheduler)" == "cron" ]]; then
+            crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
             generate_cron_schedule "$1"
         else
             local freq=$(generate_systemd_calendar "$1")
@@ -676,6 +677,7 @@ EOF'
 UnsetService() {
     if [[ "$(get_scheduler)" == "cron" ]]; then
         crontab -l | grep -v "/opt/pihole/speedtestmod/schedule_check.sh" | crontab -
+        rm -f /opt/pihole/speedtestmod/schedule_check.sh
     else
         systemctl disable --now pihole-speedtest.timer &> /dev/null
     fi
