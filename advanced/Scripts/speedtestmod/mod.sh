@@ -131,6 +131,7 @@ install() {
     fi
 
     local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
+    apt-get update
     apt-get install -y bc sqlite3 php$PHP_VERSION-sqlite3 jq tmux curl wget
 
     if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
