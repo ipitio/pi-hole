@@ -622,8 +622,8 @@ EOF'
     crontab -l | grep -v "$schedule_script" | crontab -
     (crontab -l; echo "* * * * * $schedule_script") | crontab -
 
-    if [[ ! -f /tmp/last_run_time ]]; then
-        bash "$schedule_script"
+    if [[ -z $(sqlite3 /etc/pihole/speedtest.db "SELECT start_time FROM speedtest ORDER BY start_time DESC LIMIT 1;") ]]; then
+        /bin/bash /opt/pihole/speedtestmod/speedtest.sh
     fi
 }
 
