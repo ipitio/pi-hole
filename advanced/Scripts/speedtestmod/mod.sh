@@ -35,9 +35,10 @@ help() {
 setTags() {
     local path=${1-}
     local name=${2-}
+    local branch="${3-master}"
     if [ ! -z "$path" ]; then
         cd "$path"
-        git fetch origin -q
+        git fetch origin $branch:refs/remotes/origin/$branch -q
         git fetch --tags -f -q
         latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
     fi
@@ -52,13 +53,13 @@ download() {
     local name=$2
     local url=$3
     local src=${4-}
-    local branch=${5-master}
+    local branch="${5-master}"
     local dest=$path/$name
     if [ ! -d $dest ]; then # replicate
         cd "$path"
         rm -rf "$name"
-        git clone --depth=1 -b "$branch" "$url" "$name"
-        setTags "$name" "$src"
+        git clone --depth=1 -b "$branch" "$url" "$name" -q
+        setTags "$name" "$src" $branch
         if [ ! -z "$src" ]; then
             if [[ "$localTag" == *.* ]] && [[ "$localTag" < "$latestTag" ]]; then
                 latestTag=$localTag
@@ -66,23 +67,28 @@ download() {
             fi
         fi
     else # replace
-        setTags $dest
+        setTags $dest "" $branch
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
                 git config --global --add safe.directory "$dest"
                 git remote -v | grep -q "old" || git remote rename origin old
                 git remote -v | grep -q "origin" && git remote remove origin
                 git remote add origin $url
-            else
+            elif [ -d .git/refs/remotes/old ]; then
                 git remote remove origin
                 git remote rename old origin
             fi
             git fetch origin -q
         fi
         git reset --hard origin/$branch
+        git checkout -B $branch
+        git branch -u origin/$branch
+        git clean -ffdx
     fi
 
-    git -c advice.detachedHead=false checkout $latestTag
+    if [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag)" ]; then
+        git -c advice.detachedHead=false checkout $latestTag
+    fi
     cd ..
 }
 
@@ -147,7 +153,7 @@ install() {
     fi
 
     local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
-    local packages="bc sqlite3 php${PHP_VERSION}-sqlite3 jq"
+    local packages="bc sqlite3 php${PHP_VERSION}-sqlite3 jq tmux"
 
     local missing_packages=""
     for package in $packages; do
@@ -168,7 +174,7 @@ install() {
     fi
 
     download /opt mod_pihole https://github.com/arevindh/pi-hole
-    download /var/www/html admin https://github.com/arevindh/AdminLTE web
+    download $admin_dir admin https://github.com/arevindh/AdminLTE web
     if [ -f $curr_wp ]; then
         if ! cat $curr_wp | grep -q SpeedTest; then
             cp -a $curr_wp $org_wp
@@ -199,12 +205,14 @@ uninstall() {
         fi
 
         pihole -a -su
-        download /var/www/html admin https://github.com/pi-hole/AdminLTE web
+        download $admin_dir admin https://github.com/pi-hole/AdminLTE web
         if [ ! -f $last_wp ]; then
             cp -a $curr_wp $last_wp
         fi
         cp -a $org_wp $curr_wp
         chmod +x $curr_wp
+        rm -rf /opt/mod_pihole
+        pihole updatechecker
     fi
 
     manageHistory ${1-}
@@ -212,7 +220,7 @@ uninstall() {
 
 purge() {
     rm -rf "$admin_dir"*_admin
-    rm -rf /opt/mod_pihole
+    rm -rf /opt/pihole/speedtestmod
     if [ -f /etc/systemd/system/pihole-speedtest.timer ]; then
         rm -f /etc/systemd/system/pihole-speedtest.service
         rm -f /etc/systemd/system/pihole-speedtest.timer
@@ -225,6 +233,8 @@ purge() {
     if isEmpty $curr_db; then
         rm -f $curr_db
     fi
+
+    pi-hole updatechecker
 }
 
 update() {
