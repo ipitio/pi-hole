@@ -602,26 +602,28 @@ generate_cron_schedule() {
     sudo bash -c 'cat > '"$schedule_script"' << EOF
 #!/bin/bash
 # Schedule script to handle complex cron schedules
-last_run_file="/var/tmp/last_run_time"
+last_run_file="/tmp/last_run_time"
 interval_seconds='"$total_seconds"'
 
-last_run_time=\$(sqlite3 /etc/pihole/speedtest.db "SELECT start_time FROM speedtest ORDER BY start_time DESC LIMIT 1;")
-start_time=\$(date -d "\$last_run_time" +%s)
-current_time=\$(date +%s)
-if (( current_time - start_time < interval_seconds )); then
-    exit 0
+if [[ -f "\$last_run_file" ]]; then
+    last_run=\$(cat "\$last_run_file")
+    current_time=\$(date +%s)
+    if (( current_time - last_run < interval_seconds )); then
+        exit 0
+    fi
 fi
 
+echo \$(date +%s) > "\$last_run_file"
+# Execute the actual job
 /bin/bash /opt/pihole/speedtestmod/speedtest.sh
 EOF'
     sudo chmod +x "$schedule_script"
 
     crontab -l | grep -v "$schedule_script" | crontab -
-    echo "* * * * * $schedule_script" | EDITOR='tee -a' crontab -u root -e
+    (crontab -l; echo "* * * * * $schedule_script") | crontab -
 
-    # if the table is empty, run the speedtest now
-    if [[ -z $(sqlite3 /etc/pihole/speedtest.db "SELECT start_time FROM speedtest ORDER BY start_time DESC LIMIT 1;") ]]; then
-        /bin/bash /opt/pihole/speedtestmod/speedtest.sh
+    if [[ ! -f /tmp/last_run_time ]]; then
+        bash "$schedule_script"
     fi
 }
 
