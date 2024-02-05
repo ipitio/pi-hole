@@ -122,6 +122,19 @@ notInstalled() {
     apt-cache policy "$1" | grep 'Installed: (none)' >/dev/null
 }
 
+installIfNotInstalled() {
+    local missing_packages=""
+    for package in "$@"; do
+        if notInstalled "$package"; then
+            missing_packages="$missing_packages $package"
+        fi
+    done
+    missing_packages=$(echo "$missing_packages" | xargs)
+    if [ ! -z "${missing_packages}" ]; then
+        apt-get install -y $missing_packages
+    fi
+}
+
 install() {
     echo "Installing Mod..."
 
@@ -129,6 +142,9 @@ install() {
         echo "Installing Pi-hole..."
         curl -sSL https://install.pi-hole.net | sudo bash
     fi
+
+    local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
+    installIfNotInstalled bc sqlite3 php${PHP_VERSION}-sqlite3 jq tmux curl wget
 
     if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
         echo "Adding speedtest source..."
@@ -151,22 +167,8 @@ install() {
             curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
         fi
     fi
-
-    local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
-    local packages="bc sqlite3 php${PHP_VERSION}-sqlite3 jq tmux"
-
-    local missing_packages=""
-    for package in $packages; do
-        if notInstalled "$package"; then
-            missing_packages="$missing_packages $package"
-        fi
-    done
     if notInstalled speedtest && notInstalled speedtest-cli; then
-        missing_packages="$missing_packages speedtest"
-    fi
-    missing_packages=$(echo "$missing_packages" | xargs)
-    if [ ! -z "${missing_packages}" ]; then
-        apt-get install -y $missing_packages
+        installIfNotInstalled speedtest
     fi
     if [ -f /usr/local/bin/speedtest ]; then
         rm -f /usr/local/bin/speedtest
