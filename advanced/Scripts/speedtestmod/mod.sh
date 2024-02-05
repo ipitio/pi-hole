@@ -234,7 +234,7 @@ purge() {
         rm -f $curr_db
     fi
 
-    pi-hole updatechecker
+    pihole updatechecker
 }
 
 update() {
