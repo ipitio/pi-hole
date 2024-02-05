@@ -594,16 +594,52 @@ generate_systemd_calendar() {
     echo "${freq_entries[*]}"
 }
 
+generate_cron_schedule() {
+    local interval_hours="$1"
+    local total_seconds=$(echo "$interval_hours * 3600" | bc)
+    local schedule_script="/opt/pihole/speedtestmod/schedule_check.sh"
+
+    sudo bash -c 'cat > '"$schedule_script"' << EOF
+#!/bin/bash
+# Schedule script to handle complex cron schedules
+last_run_file="/var/tmp/last_run_time"
+interval_seconds='"$total_seconds"'
+
+if [[ -f "\$last_run_file" ]]; then
+    last_run=\$(cat "\$last_run_file")
+    current_time=\$(date +%s)
+    if (( current_time - last_run < interval_seconds )); then
+        exit 0
+    fi
+fi
+
+echo \$(date +%s) > "\$last_run_file"
+# Execute the actual job
+/opt/pihole/speedtestmod/speedtest.sh
+EOF'
+    sudo chmod +x "$schedule_script"
+
+    crontab -l | grep -v "$schedule_script" | crontab -
+    (crontab -l; echo "* * * * * $schedule_script") | crontab -
+}
+
+get_scheduler() {
+    if [[ -d /run/systemd/system ]]; then
+        echo "systemd"
+    else
+        echo "cron"
+    fi
+}
+
 SetService() {
-    # Remove OLD
-    crontab -l >crontab.tmp || true
-    sed -i '/speedtest/d' crontab.tmp
-    crontab crontab.tmp && rm -f crontab.tmp
     if [[ "$1" == "0" ]]; then
         UnsetService
     else
-        freq=$(generate_systemd_calendar "$1")
-        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
+        if [[ "$(get_scheduler)" == "cron" ]]; then
+            generate_cron_schedule "$1"
+        else
+            local freq=$(generate_systemd_calendar "$1")
+            sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
 Description=Pi-hole Speedtest
 After=network.target
@@ -616,7 +652,7 @@ ExecStart=/opt/pihole/speedtestmod/speedtest.sh
 [Install]
 WantedBy=multi-user.target
 EOF'
-        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
+            sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
 [Unit]
 Description=Pi-hole Speedtest Timer
 
@@ -626,22 +662,23 @@ WantedBy=timers.target
 [Timer]
 Persistent=true
 EOF'
-        while IFS= read -r line; do
-            sudo bash -c "echo 'OnCalendar=$line' >> /etc/systemd/system/pihole-speedtest.timer"
-        done <<< "$freq"
+            while IFS= read -r line; do
+                sudo bash -c "echo 'OnCalendar=$line' >> /etc/systemd/system/pihole-speedtest.timer"
+            done <<< "$freq"
 
-        # systemctl:
-        systemctl daemon-reload
-        systemctl reenable pihole-speedtest.timer &> /dev/null
-        systemctl restart pihole-speedtest.timer
-
-        # service:
-        service
+            systemctl daemon-reload
+            systemctl reenable pihole-speedtest.timer &> /dev/null
+            systemctl restart pihole-speedtest.timer
+        fi
     fi
 }
 
 UnsetService() {
-    systemctl disable --now pihole-speedtest.timer &> /dev/null
+    if [[ "$(get_scheduler)" == "cron" ]]; then
+        crontab -l | grep -v "/opt/pihole/speedtestmod/schedule_check.sh" | crontab -
+    else
+        systemctl disable --now pihole-speedtest.timer &> /dev/null
+    fi
 }
 
 ChangeSpeedTestSchedule() {
