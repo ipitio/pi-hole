@@ -629,9 +629,14 @@ EOF'
         while IFS= read -r line; do
             sudo bash -c "echo 'OnCalendar=$line' >> /etc/systemd/system/pihole-speedtest.timer"
         done <<< "$freq"
+
+        # systemctl:
         systemctl daemon-reload
         systemctl reenable pihole-speedtest.timer &> /dev/null
         systemctl restart pihole-speedtest.timer
+
+        # service:
+        service
     fi
 }
 
