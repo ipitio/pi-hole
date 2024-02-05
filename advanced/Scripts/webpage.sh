@@ -619,9 +619,9 @@ EOF'
     sudo chmod +x "$schedule_script"
 
     crontab -l | grep -v "$schedule_script" | crontab -
-    (crontab -l; echo "* * * * * $schedule_script") | crontab -
+    (crontab -l; echo "* * * * * /bin/bash $schedule_script") | crontab -
 
-    if [[ -z $(sqlite3 /etc/pihole/speedtest.db "SELECT start_time FROM speedtest ORDER BY start_time DESC LIMIT 1;") ]]; then
+    if [[ -z $(sqlite3 /etc/pihole/speedtest.db "SELECT start_time FROM speedtest ORDER BY start_time DESC LIMIT 1;") ]] || [[ ! -f /tmp/last_run_time ]]; then
         local last_run_file="/tmp/last_run_time"
         echo $(date +%s) > "$last_run_file"
         /bin/bash /opt/pihole/speedtestmod/speedtest.sh
