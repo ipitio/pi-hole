@@ -178,7 +178,7 @@ install() {
     chmod +x $curr_wp
     manageHistory db .
     pihole -a -s
-    pihole updatechecker local
+    pihole updatechecker
 }
 
 uninstall() {
@@ -228,8 +228,12 @@ purge() {
 }
 
 update() {
-    echo "Updating Pi-hole..."
-    PIHOLE_SKIP_OS_CHECK=true sudo -E pihole -up
+    if [[ -d /run/systemd/system ]]; then
+        echo "Updating Pi-hole..."
+        PIHOLE_SKIP_OS_CHECK=true sudo -E pihole -up
+    else
+        echo "Systemd not found. Skipping Pi-hole update..."
+    fi
     if [ "${1-}" == "un" ]; then
         purge
         exit 0
