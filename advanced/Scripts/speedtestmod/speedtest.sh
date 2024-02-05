@@ -2,6 +2,21 @@
 FILE=/tmp/speedtest.log
 readonly setupVars="/etc/pihole/setupVars.conf"
 serverid=$(grep 'SPEEDTEST_SERVER' ${setupVars} | cut -d '=' -f2)
+create_table="create table if not exists $db_table (
+id integer primary key autoincrement,
+start_time integer,
+stop_time text,
+from_server text,
+from_ip text,
+server text,
+server_dist real,
+server_ping real,
+download real,
+upload real,
+share_url text
+);"
+sqlite3 /etc/pihole/speedtest.db "$create_table"
+
 start=$(date +"%Y-%m-%d %H:%M:%S %Z")
 
 speedtest() {
