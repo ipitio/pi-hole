@@ -614,7 +614,6 @@ if [[ -f "\$last_run_file" ]]; then
 fi
 
 echo \$(date +%s) > "\$last_run_file"
-# Execute the actual job
 /bin/bash /opt/pihole/speedtestmod/speedtest.sh
 EOF'
     sudo chmod +x "$schedule_script"
@@ -623,6 +622,8 @@ EOF'
     (crontab -l; echo "* * * * * $schedule_script") | crontab -
 
     if [[ -z $(sqlite3 /etc/pihole/speedtest.db "SELECT start_time FROM speedtest ORDER BY start_time DESC LIMIT 1;") ]]; then
+        local last_run_file="/tmp/last_run_time"
+        echo $(date +%s) > "$last_run_file"
         /bin/bash /opt/pihole/speedtestmod/speedtest.sh
     fi
 }
@@ -639,11 +640,18 @@ SetService() {
     if [[ "$1" == "0" ]]; then
         UnsetService
     else
+        local schedule="$1"
+        if [[ -z "$schedule" ]]; then
+            schedule=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
+            if [[ -z "$schedule" ]]; then
+                UnsetService
+            fi
+        fi
         if [[ "$(get_scheduler)" == "cron" ]]; then
             crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
-            generate_cron_schedule "$1"
+            generate_cron_schedule "$schedule"
         else
-            local freq=$(generate_systemd_calendar "$1")
+            local freq=$(generate_systemd_calendar "$schedule")
             sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
 Description=Pi-hole Speedtest
