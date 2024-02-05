@@ -2,7 +2,7 @@
 FILE=/tmp/speedtest.log
 readonly setupVars="/etc/pihole/setupVars.conf"
 serverid=$(grep 'SPEEDTEST_SERVER' ${setupVars} | cut -d '=' -f2)
-create_table="create table if not exists $db_table (
+create_table="create table if not exists speedtest (
 id integer primary key autoincrement,
 start_time integer,
 stop_time text,
