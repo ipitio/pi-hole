@@ -615,7 +615,7 @@ fi
 
 echo \$(date +%s) > "\$last_run_file"
 # Execute the actual job
-/opt/pihole/speedtestmod/speedtest.sh
+/bin/bash /opt/pihole/speedtestmod/speedtest.sh
 EOF'
     sudo chmod +x "$schedule_script"
 
