@@ -92,12 +92,10 @@ isEmpty() {
 manageHistory() {
     if [ "${1-}" == "db" ]; then
         if [ -f $curr_db ] && ! isEmpty $curr_db; then
-            if [ -z "${2-}" ]; then
-                echo "Flushing Database..."
-                mv -f $curr_db $last_db
-                if [ -f /etc/pihole/last_speedtest ]; then
-                    mv -f /etc/pihole/last_speedtest /etc/pihole/last_speedtest.old
-                fi
+            echo "Flushing Database..."
+            mv -f $curr_db $last_db
+            if [ -f /etc/pihole/last_speedtest ]; then
+                mv -f /etc/pihole/last_speedtest /etc/pihole/last_speedtest.old
             fi
         elif [ -f $last_db ]; then
             echo "Restoring Database..."
@@ -167,7 +165,6 @@ install() {
     cp -a /opt/mod_pihole/advanced/Scripts/webpage.sh $curr_wp
     cp -a /opt/mod_pihole/advanced/Scripts/speedtestmod /opt/pihole/speedtestmod
     chmod +x $curr_wp
-    manageHistory db .
     pihole -a -s
     pihole updatechecker local
 }
@@ -299,6 +296,7 @@ main() {
         ;;
     *)
         install
+        manageHistory $db
         ;;
     esac
     exit 0
