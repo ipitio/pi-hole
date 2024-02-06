@@ -642,21 +642,22 @@ get_scheduler() {
     fi
 }
 
+UnsetService() {
+    if [[ "$(get_scheduler)" == "cron" ]]; then
+        generate_cron_schedule "-1"
+    else
+        systemctl disable --now pihole-speedtest.timer &> /dev/null
+    fi
+}
+
 SetService() {
     if [[ "$1" == "0" ]]; then
         UnsetService
     else
-        local interval="$1"
-        if [[ -z "$interval" ]]; then
-            interval=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-            if [[ -z "$interval" ]]; then
-                UnsetService
-            fi
-        fi
         if [[ "$(get_scheduler)" == "cron" ]]; then
-            generate_cron_schedule "$interval"
+            generate_cron_schedule "$1"
         else
-            local freq=$(generate_systemd_calendar "$interval")
+            local freq=$(generate_systemd_calendar "$1")
             sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
 Description=Pi-hole Speedtest
@@ -691,14 +692,6 @@ EOF'
     fi
 }
 
-UnsetService() {
-    if [[ "$(get_scheduler)" == "cron" ]]; then
-        generate_cron_schedule "-1"
-    else
-        systemctl disable --now pihole-speedtest.timer &> /dev/null
-    fi
-}
-
 ChangeSpeedTestSchedule() {
     args[2]=${args[2]%\.}
     if [[ "${args[2]-}" =~ ^([0-9]+(\.[0-9]+)?|\.[0-9]+)$ ]]; then
@@ -707,12 +700,11 @@ ChangeSpeedTestSchedule() {
             SetService "${args[2]}"
         fi
     else
-        SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-        if [[ -z "${SPEEDTESTSCHEDULE}" ]]; then
-            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0"
+        local interval=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
+        if [[ -z "$interval" ]]; then
+            UnsetService
         fi
-        SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-        SetService "${SPEEDTESTSCHEDULE}"
+        SetService "$interval"
     fi
 }
 
