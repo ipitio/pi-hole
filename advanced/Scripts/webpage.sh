@@ -610,12 +610,12 @@ generate_cron_schedule() {
 last_run_file="/etc/pihole/last_speedtest"
 interval_seconds='"$total_seconds"'
 
-schedule=$(grep "SPEEDTESTSCHEDULE" "/etc/pihole/setupVars.conf" | cut -f2 -d"=")
-interval=$(grep "interval_seconds" "/opt/pihole/speedtestmod/schedule_check.sh" | cut -f2 -d"=")
+schedule=\$(grep "SPEEDTESTSCHEDULE" "/etc/pihole/setupVars.conf" | cut -f2 -d"=")
+interval=\$(grep "interval_seconds" "/opt/pihole/speedtestmod/schedule_check.sh" | cut -f2 -d"=")
 
 # if schedule is set and is greater than 0, and interval is not set, set interval to schedule
 if [[ "\$schedule" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]] && (( $(echo "\$schedule > 0" | bc -l) )) && [[ ! "\$interval" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
-    pihole -a -s "$schedule"
+    pihole -a -s "\$schedule"
     exit 0
 fi
 
