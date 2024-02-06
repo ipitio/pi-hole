@@ -630,7 +630,7 @@ EOF'
     crontab -l 2>/dev/null | grep -v "$schedule_script" | crontab -
     if (( $(echo "$total_seconds > 0" | bc -l) )); then
         crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
-        (crontab -l; echo "* * * * * /bin/bash $schedule_script") | crontab -
+        (crontab -l 2>/dev/null; echo "* * * * * /bin/bash $schedule_script") | crontab -
     fi
 }
 
@@ -694,14 +694,14 @@ EOF'
 
 ChangeSpeedTestSchedule() {
     args[2]=${args[2]%\.}
-    if [[ "${args[2]-}" =~ ^([0-9]+(\.[0-9]+)?|\.[0-9]+)$ ]]; then
+    if [[ "${args[2]-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
         if (( $(echo "${args[2]} >= 0" | bc -l) )); then
             addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
             SetService "${args[2]}"
         fi
     else
         local interval=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-        if [[ -z "$interval" ]]; then
+        if [[ ! "${interval}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
             UnsetService
         fi
         SetService "$interval"
