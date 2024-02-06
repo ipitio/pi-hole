@@ -715,8 +715,9 @@ ChangeSpeedTestSchedule() {
         local interval=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
         if [[ ! "${interval-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
             UnsetService
+        else
+            SetService "$interval"
         fi
-        SetService "$interval"
     fi
 }
 
