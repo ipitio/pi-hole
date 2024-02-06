@@ -599,7 +599,7 @@ generate_cron_schedule() {
     local total_seconds=$(echo "$interval_hours * 3600" | bc)
     local schedule_script="/opt/pihole/speedtestmod/schedule_check.sh"
 
-    if (( $(echo "$total_seconds < 60" | bc -l) )); then
+    if (( $(echo "$total_seconds < 60" | bc -l) )) && (( $(echo "$total_seconds > 0" | bc -l) )); then
         total_seconds=60
         addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0.017"
     fi
@@ -617,7 +617,7 @@ fi
 if [[ -f "\$last_run_file" ]]; then
     last_run=\$(cat "\$last_run_file")
     current_time=\$(date +%s)
-    if (( \$current_time - \$last_run < \$interval_seconds )); then
+    if (( \$(echo "\$current_time - \$last_run < \$interval_seconds" | bc -l) )); then
         exit 0
     fi
 fi
@@ -631,7 +631,6 @@ EOF'
     if (( $(echo "$total_seconds > 0" | bc -l) )); then
         crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
         (crontab -l; echo "* * * * * /bin/bash $schedule_script") | crontab -
-        /bin/bash /opt/pihole/speedtestmod/speedtest.sh
     fi
 }
 
