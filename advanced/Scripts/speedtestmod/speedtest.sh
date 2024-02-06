@@ -5,7 +5,7 @@ serverid=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2
 
 create_table="create table if not exists speedtest (
 id integer primary key autoincrement,
-start_time integer,
+start_time text,
 stop_time text,
 from_server text,
 from_ip text,
