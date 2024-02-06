@@ -618,7 +618,7 @@ schedule=\$(grep "SPEEDTESTSCHEDULE" "/etc/pihole/setupVars.conf" | cut -f2 -d"=
 
 # if schedule is set and is greater than 0, and interval is "nan", set the speedtest interval to the schedule
 if [[ "\${schedule-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]] && (( \$(echo "\$schedule > 0" | bc -l) )) && [[ "\$interval_seconds" == "nan" ]]; then
-    pihole -a -s "\$schedule"
+    /usr/local/bin/pihole -a -s "\$schedule"
     exit 0
 fi
 
@@ -641,7 +641,7 @@ EOF
 
     crontab -l 2>/dev/null | grep -v "$schedule_script" | crontab -
     crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
-    (crontab -l 2>/dev/null; echo "* * * * * /bin/bash $schedule_script") | crontab -
+    (crontab -l; echo "* * * * * /bin/bash $schedule_script") | crontab -
 }
 
 get_scheduler() {
