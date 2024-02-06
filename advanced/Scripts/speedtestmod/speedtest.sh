@@ -1,6 +1,6 @@
 #!/bin/bash
 FILE=/tmp/speedtest.log
-start=$(date +"%Y-%m-%d %H:%M:%S %Z")
+start=$(date -u +"%Y-%m-%d %H:%M:%S")
 serverid=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2)
 
 create_table="create table if not exists speedtest (
@@ -35,7 +35,7 @@ speedtest() {
 }
 
 internet() {
-    stop=$(date +"%Y-%m-%d %H:%M:%S %Z")
+    stop=$(date -u +"%Y-%m-%d %H:%M:%S")
     res="$(<$FILE)"
     server_name=$(jq -r '.server.name' <<< "$res")
     server_dist=0
@@ -68,7 +68,7 @@ internet() {
 }
 
 nointernet(){
-    stop=$(date +"%Y-%m-%d %H:%M:%S %Z")
+    stop=$(date -u +"%Y-%m-%d %H:%M:%S")
     echo "No Internet"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start}', '${stop}', 'No Internet', '-', '-', 0, 0, 0, 0, '#');"
     exit 1
