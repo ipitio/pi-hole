@@ -608,33 +608,33 @@ generate_cron_schedule() {
         total_seconds="nan"
     fi
 
-    sudo bash -c "cat > $(printf %q "$schedule_script")" << 'EOF'
+    sudo bash -c "cat > $(printf %q "$schedule_script")" << EOF
 #!/bin/bash
 # Schedule script to handle complex cron schedules
 last_run_file="/etc/pihole/last_speedtest"
 interval_seconds='"$total_seconds"'
 
-schedule=$(grep "SPEEDTESTSCHEDULE" "/etc/pihole/setupVars.conf" | cut -f2 -d"=")
+schedule=\$(grep "SPEEDTESTSCHEDULE" "/etc/pihole/setupVars.conf" | cut -f2 -d"=")
 
 # if schedule is set and is greater than 0, and interval is "nan", set the speedtest interval to the schedule
-if [[ "$schedule" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]] && (( $(echo "$schedule > 0" | bc -l) )) && [[ "$interval_seconds" == "nan" ]]; then
-    pihole -a -s "$schedule"
+if [[ "\${schedule-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]] && (( \$(echo "\$schedule > 0" | bc -l) )) && [[ "\$interval_seconds" == "nan" ]]; then
+    pihole -a -s "\$schedule"
     exit 0
 fi
 
-if (( $(echo "$interval_seconds <= 0" | bc -l) )); then
+if (( \$(echo "\$interval_seconds <= 0" | bc -l) )); then
     exit 0
 fi
 
-if [[ -f "$last_run_file" ]]; then
-    last_run=$(cat "$last_run_file")
-    current_time=$(date +%s)
-    if (( $(echo "$current_time - $last_run < $interval_seconds" | bc -l) )); then
+if [[ -f "\$last_run_file" ]]; then
+    last_run=\$(cat "\$last_run_file")
+    current_time=\$(date +%s)
+    if (( \$(echo "\$current_time - \$last_run < \$interval_seconds" | bc -l) )); then
         exit 0
     fi
 fi
 
-echo $(date +%s) > "$last_run_file"
+echo \$(date +%s) > "\$last_run_file"
 /bin/bash /opt/pihole/speedtestmod/speedtest.sh
 EOF
     sudo chmod +x "$schedule_script"
@@ -713,7 +713,7 @@ ChangeSpeedTestSchedule() {
         fi
     else
         local interval=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-        if [[ ! "${interval}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
+        if [[ ! "${interval-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
             UnsetService
         fi
         SetService "$interval"
