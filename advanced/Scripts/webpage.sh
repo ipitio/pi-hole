@@ -602,7 +602,7 @@ generate_cron_schedule() {
     sudo bash -c 'cat > '"$schedule_script"' << EOF
 #!/bin/bash
 # Schedule script to handle complex cron schedules
-last_run_file="/tmp/last_run_time"
+last_run_file="/etc/pihole/last_speedtest"
 interval_seconds='"$total_seconds"'
 
 if [[ -f "\$last_run_file" ]]; then
@@ -621,8 +621,8 @@ EOF'
     crontab -l | grep -v "$schedule_script" | crontab -
     (crontab -l; echo "* * * * * /bin/bash $schedule_script") | crontab -
 
-    if [[ -z $(sqlite3 /etc/pihole/speedtest.db "SELECT start_time FROM speedtest ORDER BY start_time DESC LIMIT 1;") ]] || [[ ! -f /tmp/last_run_time ]]; then
-        local last_run_file="/tmp/last_run_time"
+    if [[ -z $(sqlite3 /etc/pihole/speedtest.db "SELECT start_time FROM speedtest ORDER BY start_time DESC LIMIT 1;") ]] || [[ ! -f /etc/pihole/last_speedtest ]]; then
+        local last_run_file="/etc/pihole/last_speedtest"
         echo $(date +%s) > "$last_run_file"
         /bin/bash /opt/pihole/speedtestmod/speedtest.sh
     fi
