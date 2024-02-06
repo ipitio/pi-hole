@@ -1,7 +1,8 @@
 #!/bin/bash
 FILE=/tmp/speedtest.log
-readonly setupVars="/etc/pihole/setupVars.conf"
-serverid=$(grep 'SPEEDTEST_SERVER' ${setupVars} | cut -d '=' -f2)
+start=$(date +"%Y-%m-%d %H:%M:%S %Z")
+serverid=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2)
+
 create_table="create table if not exists speedtest (
 id integer primary key autoincrement,
 start_time integer,
@@ -16,8 +17,6 @@ upload real,
 share_url text
 );"
 sqlite3 /etc/pihole/speedtest.db "$create_table"
-
-start=$(date +"%Y-%m-%d %H:%M:%S %Z")
 
 speedtest() {
     if grep -q official <<< "$(/usr/bin/speedtest --version)"; then
