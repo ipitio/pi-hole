@@ -9,19 +9,6 @@ org_wp=$curr_wp.org
 curr_db=/etc/pihole/speedtest.db
 last_db=$curr_db.old
 db_table="speedtest"
-create_table="create table if not exists $db_table (
-id integer primary key autoincrement,
-start_time integer,
-stop_time text,
-from_server text,
-from_ip text,
-server text,
-server_dist real,
-server_ping real,
-download real,
-upload real,
-share_url text
-);"
 
 help() {
     echo "(Re)install Latest Speedtest Mod."
@@ -108,13 +95,17 @@ manageHistory() {
             if [ -z "${2-}" ]; then
                 echo "Flushing Database..."
                 mv -f $curr_db $last_db
+                if [ -f /etc/pihole/last_speedtest ]; then
+                    mv -f /etc/pihole/last_speedtest /etc/pihole/last_speedtest.old
+                fi
             fi
         elif [ -f $last_db ]; then
             echo "Restoring Database..."
             mv -f $last_db $curr_db
+            if [ -f /etc/pihole/last_speedtest.old ]; then
+                mv -f /etc/pihole/last_speedtest.old /etc/pihole/last_speedtest
+            fi
         fi
-        echo "Configuring Database..."
-        sqlite3 "$curr_db" "$create_table"
     fi
 }
 
@@ -178,7 +169,7 @@ install() {
     chmod +x $curr_wp
     manageHistory db .
     pihole -a -s
-    pihole updatechecker
+    pihole updatechecker local
 }
 
 uninstall() {
@@ -220,6 +211,7 @@ purge() {
     rm -f "$curr_wp".*
     rm -f "$curr_db".*
     rm -f "$curr_db"_*
+    rm -f /etc/pihole/last_speedtest.*
     if isEmpty $curr_db; then
         rm -f $curr_db
     fi

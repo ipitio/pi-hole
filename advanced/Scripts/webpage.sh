@@ -599,16 +599,25 @@ generate_cron_schedule() {
     local total_seconds=$(echo "$interval_hours * 3600" | bc)
     local schedule_script="/opt/pihole/speedtestmod/schedule_check.sh"
 
+    if (( $(echo "$total_seconds < 60" | bc -l) )); then
+        total_seconds=60
+        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0.017"
+    fi
+
     sudo bash -c 'cat > '"$schedule_script"' << EOF
 #!/bin/bash
 # Schedule script to handle complex cron schedules
 last_run_file="/etc/pihole/last_speedtest"
 interval_seconds='"$total_seconds"'
 
+if (( \$(echo "\$interval_seconds <= 0" | bc -l) )); then
+    exit 0
+fi
+
 if [[ -f "\$last_run_file" ]]; then
     last_run=\$(cat "\$last_run_file")
     current_time=\$(date +%s)
-    if (( current_time - last_run < interval_seconds )); then
+    if (( \$current_time - \$last_run < \$interval_seconds )); then
         exit 0
     fi
 fi
@@ -619,11 +628,9 @@ EOF'
     sudo chmod +x "$schedule_script"
 
     crontab -l | grep -v "$schedule_script" | crontab -
-    (crontab -l; echo "* * * * * /bin/bash $schedule_script") | crontab -
-
-    if [[ -z $(sqlite3 /etc/pihole/speedtest.db "SELECT start_time FROM speedtest ORDER BY start_time DESC LIMIT 1;") ]] || [[ ! -f /etc/pihole/last_speedtest ]]; then
-        local last_run_file="/etc/pihole/last_speedtest"
-        echo $(date +%s) > "$last_run_file"
+    if (( $(echo "$total_seconds > 0" | bc -l) )); then
+        crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
+        (crontab -l; echo "* * * * * /bin/bash $schedule_script") | crontab -
         /bin/bash /opt/pihole/speedtestmod/speedtest.sh
     fi
 }
@@ -640,18 +647,17 @@ SetService() {
     if [[ "$1" == "0" ]]; then
         UnsetService
     else
-        local schedule="$1"
-        if [[ -z "$schedule" ]]; then
-            schedule=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-            if [[ -z "$schedule" ]]; then
+        local interval="$1"
+        if [[ -z "$interval" ]]; then
+            interval=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
+            if [[ -z "$interval" ]]; then
                 UnsetService
             fi
         fi
         if [[ "$(get_scheduler)" == "cron" ]]; then
-            crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
-            generate_cron_schedule "$schedule"
+            generate_cron_schedule "$interval"
         else
-            local freq=$(generate_systemd_calendar "$schedule")
+            local freq=$(generate_systemd_calendar "$interval")
             sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
 Description=Pi-hole Speedtest
@@ -688,8 +694,7 @@ EOF'
 
 UnsetService() {
     if [[ "$(get_scheduler)" == "cron" ]]; then
-        crontab -l | grep -v "/opt/pihole/speedtestmod/schedule_check.sh" | crontab -
-        rm -f /opt/pihole/speedtestmod/schedule_check.sh
+        generate_cron_schedule "-1"
     else
         systemctl disable --now pihole-speedtest.timer &> /dev/null
     fi
