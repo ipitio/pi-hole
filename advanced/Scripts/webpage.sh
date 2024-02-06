@@ -627,7 +627,7 @@ echo \$(date +%s) > "\$last_run_file"
 EOF'
     sudo chmod +x "$schedule_script"
 
-    crontab -l | grep -v "$schedule_script" | crontab -
+    crontab -l | grep -v "$schedule_script" | crontab - &> /dev/null
     if (( $(echo "$total_seconds > 0" | bc -l) )); then
         crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
         (crontab -l; echo "* * * * * /bin/bash $schedule_script") | crontab -
