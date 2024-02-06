@@ -614,7 +614,7 @@ generate_cron_schedule() {
 last_run_file="/etc/pihole/last_speedtest"
 interval_seconds=$total_seconds
 
-schedule=\$(grep "SPEEDTESTSCHEDULE" "/etc/pihole/setupVars.conf" | cut -f2 -d"=")
+schedule=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")
 
 # if schedule is set and is greater than 0, and interval is "nan", set the speedtest interval to the schedule
 if [[ "\${schedule-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]] && (( \$(echo "\$schedule > 0" | bc -l) )) && [[ "\$interval_seconds" == "nan" ]]; then
@@ -635,7 +635,9 @@ if [[ -f "\$last_run_file" ]]; then
 fi
 
 echo \$(date +%s) > "\$last_run_file"
-/bin/bash /opt/pihole/speedtestmod/speedtest.sh
+if [[ \$(tmux list-sessions 2>/dev/null | grep -c pimod) -eq 0 ]]; then
+    /usr/bin/tmux new-session -d -s pimod "cat $speedtestfile | sudo bash"
+fi
 EOF
     sudo chmod +x "$schedule_script"
 
@@ -747,7 +749,9 @@ SpeedtestServer() {
 }
 
 RunSpeedtestNow() {
-    tmux new-session -d -s pimod "cat $speedtestfile | sudo bash"
+    if [[ $(tmux list-sessions 2>/dev/null | grep -c pimod) -eq 0 ]]; then
+        tmux new-session -d -s pimod "cat $speedtestfile | sudo bash"
+    fi
 }
 
 ReinstallSpeedTest() {
