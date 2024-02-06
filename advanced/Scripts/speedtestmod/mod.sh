@@ -168,9 +168,7 @@ install() {
     cp -a /opt/mod_pihole/advanced/Scripts/speedtestmod /opt/pihole/speedtestmod
     chmod +x $curr_wp
     manageHistory db .
-
-    local interval=$(grep "SPEEDTESTSCHEDULE" "/etc/pihole/setupVars.conf" | cut -f2 -d"=")
-    pihole -a -s "$interval"
+    pihole -a -s
     pihole updatechecker local
 }
 
