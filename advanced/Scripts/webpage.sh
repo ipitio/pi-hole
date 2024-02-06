@@ -640,10 +640,8 @@ EOF
     sudo chmod +x "$schedule_script"
 
     crontab -l 2>/dev/null | grep -v "$schedule_script" | crontab -
-    if (( $(echo "$total_seconds > 0" | bc -l) )); then
-        crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
-        (crontab -l 2>/dev/null; echo "* * * * * /bin/bash $schedule_script") | crontab -
-    fi
+    crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
+    (crontab -l 2>/dev/null; echo "* * * * * /bin/bash $schedule_script") | crontab -
 }
 
 get_scheduler() {
