@@ -9,19 +9,6 @@ org_wp=$curr_wp.org
 curr_db=/etc/pihole/speedtest.db
 last_db=$curr_db.old
 db_table="speedtest"
-create_table="create table if not exists $db_table (
-id integer primary key autoincrement,
-start_time integer,
-stop_time text,
-from_server text,
-from_ip text,
-server text,
-server_dist real,
-server_ping real,
-download real,
-upload real,
-share_url text
-);"
 
 help() {
     echo "(Re)install Latest Speedtest Mod."
@@ -58,7 +45,7 @@ download() {
     if [ ! -d $dest ]; then # replicate
         cd "$path"
         rm -rf "$name"
-        git clone --depth=1 -b "$branch" "$url" "$name" -q
+        git clone --depth=1 -b "$branch" "$url" "$name"
         setTags "$name" "$src" $branch
         if [ ! -z "$src" ]; then
             if [[ "$localTag" == *.* ]] && [[ "$localTag" < "$latestTag" ]]; then
@@ -81,7 +68,7 @@ download() {
             git fetch origin -q
         fi
         git reset --hard origin/$branch
-        git checkout -B $branch
+        git checkout -B $branch -q
         git branch -u origin/$branch
         git clean -ffdx
     fi
@@ -105,16 +92,18 @@ isEmpty() {
 manageHistory() {
     if [ "${1-}" == "db" ]; then
         if [ -f $curr_db ] && ! isEmpty $curr_db; then
-            if [ -z "${2-}" ]; then
-                echo "Flushing Database..."
-                mv -f $curr_db $last_db
+            echo "Flushing Database..."
+            mv -f $curr_db $last_db
+            if [ -f /etc/pihole/last_speedtest ]; then
+                mv -f /etc/pihole/last_speedtest /etc/pihole/last_speedtest.old
             fi
         elif [ -f $last_db ]; then
             echo "Restoring Database..."
             mv -f $last_db $curr_db
+            if [ -f /etc/pihole/last_speedtest.old ]; then
+                mv -f /etc/pihole/last_speedtest.old /etc/pihole/last_speedtest
+            fi
         fi
-        echo "Configuring Database..."
-        sqlite3 "$curr_db" "$create_table"
     fi
 }
 
@@ -129,6 +118,10 @@ install() {
         echo "Installing Pi-hole..."
         curl -sSL https://install.pi-hole.net | sudo bash
     fi
+
+    local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
+    apt-get update
+    apt-get install -y bc sqlite3 php$PHP_VERSION-sqlite3 jq tmux curl wget
 
     if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
         echo "Adding speedtest source..."
@@ -151,22 +144,8 @@ install() {
             curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
         fi
     fi
-
-    local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
-    local packages="bc sqlite3 php${PHP_VERSION}-sqlite3 jq tmux"
-
-    local missing_packages=""
-    for package in $packages; do
-        if notInstalled "$package"; then
-            missing_packages="$missing_packages $package"
-        fi
-    done
     if notInstalled speedtest && notInstalled speedtest-cli; then
-        missing_packages="$missing_packages speedtest"
-    fi
-    missing_packages=$(echo "$missing_packages" | xargs)
-    if [ ! -z "${missing_packages}" ]; then
-        apt-get install -y $missing_packages
+        apt-get install -y speedtest
     fi
     if [ -f /usr/local/bin/speedtest ]; then
         rm -f /usr/local/bin/speedtest
@@ -186,7 +165,6 @@ install() {
     cp -a /opt/mod_pihole/advanced/Scripts/webpage.sh $curr_wp
     cp -a /opt/mod_pihole/advanced/Scripts/speedtestmod /opt/pihole/speedtestmod
     chmod +x $curr_wp
-    manageHistory db .
     pihole -a -s
     pihole updatechecker local
 }
@@ -230,16 +208,21 @@ purge() {
     rm -f "$curr_wp".*
     rm -f "$curr_db".*
     rm -f "$curr_db"_*
+    rm -f /etc/pihole/last_speedtest.*
     if isEmpty $curr_db; then
         rm -f $curr_db
     fi
 
-    pi-hole updatechecker
+    pihole updatechecker
 }
 
 update() {
-    echo "Updating Pi-hole..."
-    PIHOLE_SKIP_OS_CHECK=true sudo -E pihole -up
+    if [[ -d /run/systemd/system ]]; then
+        echo "Updating Pi-hole..."
+        PIHOLE_SKIP_OS_CHECK=true sudo -E pihole -up
+    else
+        echo "Systemd not found. Skipping Pi-hole update..."
+    fi
     if [ "${1-}" == "un" ]; then
         purge
         exit 0
@@ -313,6 +296,7 @@ main() {
         ;;
     *)
         install
+        manageHistory $db
         ;;
     esac
     exit 0

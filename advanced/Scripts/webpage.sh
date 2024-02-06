@@ -594,16 +594,85 @@ generate_systemd_calendar() {
     echo "${freq_entries[*]}"
 }
 
+generate_cron_schedule() {
+    local interval_hours="$1"
+    local total_seconds=$(echo "$interval_hours * 3600" | bc)
+    local schedule_script="/opt/pihole/speedtestmod/schedule_check.sh"
+
+    if (( $(echo "$total_seconds < 60" | bc -l) )) && (( $(echo "$total_seconds > 0" | bc -l) )); then
+        total_seconds=60
+        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0.017"
+    fi
+
+    if [[ ! "$total_seconds" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
+        total_seconds="nan"
+    fi
+
+    sudo bash -c "cat > $(printf %q "$schedule_script")" << EOF
+#!/bin/bash
+# Schedule script to handle complex cron schedules
+last_run_file="/etc/pihole/last_speedtest"
+interval_seconds=$total_seconds
+
+schedule=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")
+
+# if schedule is set and is greater than 0, and interval is "nan", set the speedtest interval to the schedule
+if [[ "\${schedule-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]] && (( \$(echo "\$schedule > 0" | bc -l) )) && [[ "\$interval_seconds" == "nan" ]]; then
+    /usr/local/bin/pihole -a -s "\$schedule"
+    exit 0
+fi
+
+if (( \$(echo "\$interval_seconds <= 0" | bc -l) )); then
+    exit 0
+fi
+
+if [[ -f "\$last_run_file" ]]; then
+    last_run=\$(cat "\$last_run_file")
+    current_time=\$(date +%s)
+    if (( \$(echo "\$current_time - \$last_run < \$interval_seconds" | bc -l) )); then
+        exit 0
+    fi
+fi
+
+echo \$(date +%s) > "\$last_run_file"
+if [[ \$(tmux list-sessions 2>/dev/null | grep -c pimod) -eq 0 ]]; then
+    /usr/bin/tmux new-session -d -s pimod "cat $speedtestfile | sudo bash"
+fi
+EOF
+    sudo chmod +x "$schedule_script"
+
+    crontab -l 2>/dev/null | grep -v "$schedule_script" | crontab -
+    if [[ "$total_seconds" == "nan" ]] || (( $(echo "$total_seconds > 0" | bc -l) )); then
+        crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
+        (crontab -l; echo "* * * * * /bin/bash $schedule_script") | crontab -
+    fi
+}
+
+get_scheduler() {
+    if [[ -d /run/systemd/system ]]; then
+        echo "systemd"
+    else
+        echo "cron"
+    fi
+}
+
+UnsetService() {
+    if [[ "$(get_scheduler)" == "cron" ]]; then
+        generate_cron_schedule "-1"
+    else
+        systemctl disable --now pihole-speedtest.timer &> /dev/null
+    fi
+}
+
 SetService() {
-    # Remove OLD
-    crontab -l >crontab.tmp || true
-    sed -i '/speedtest/d' crontab.tmp
-    crontab crontab.tmp && rm -f crontab.tmp
     if [[ "$1" == "0" ]]; then
         UnsetService
     else
-        freq=$(generate_systemd_calendar "$1")
-        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
+        if [[ "$(get_scheduler)" == "cron" ]]; then
+            generate_cron_schedule "$1"
+        else
+            local freq=$(generate_systemd_calendar "$1")
+            sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
 Description=Pi-hole Speedtest
 After=network.target
@@ -616,7 +685,7 @@ ExecStart=/opt/pihole/speedtestmod/speedtest.sh
 [Install]
 WantedBy=multi-user.target
 EOF'
-        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
+            sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
 [Unit]
 Description=Pi-hole Speedtest Timer
 
@@ -626,33 +695,31 @@ WantedBy=timers.target
 [Timer]
 Persistent=true
 EOF'
-        while IFS= read -r line; do
-            sudo bash -c "echo 'OnCalendar=$line' >> /etc/systemd/system/pihole-speedtest.timer"
-        done <<< "$freq"
-        systemctl daemon-reload
-        systemctl reenable pihole-speedtest.timer &> /dev/null
-        systemctl restart pihole-speedtest.timer
-    fi
-}
+            while IFS= read -r line; do
+                sudo bash -c "echo 'OnCalendar=$line' >> /etc/systemd/system/pihole-speedtest.timer"
+            done <<< "$freq"
 
-UnsetService() {
-    systemctl disable --now pihole-speedtest.timer &> /dev/null
+            systemctl daemon-reload
+            systemctl reenable pihole-speedtest.timer &> /dev/null
+            systemctl restart pihole-speedtest.timer
+        fi
+    fi
 }
 
 ChangeSpeedTestSchedule() {
     args[2]=${args[2]%\.}
-    if [[ "${args[2]-}" =~ ^([0-9]+(\.[0-9]+)?|\.[0-9]+)$ ]]; then
+    if [[ "${args[2]-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
         if (( $(echo "${args[2]} >= 0" | bc -l) )); then
             addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
             SetService "${args[2]}"
         fi
     else
-        SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-        if [[ -z "${SPEEDTESTSCHEDULE}" ]]; then
-            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0"
+        local interval=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
+        if [[ ! "${interval-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
+            UnsetService
+        else
+            SetService "$interval"
         fi
-        SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-        SetService "${SPEEDTESTSCHEDULE}"
     fi
 }
 
@@ -682,7 +749,9 @@ SpeedtestServer() {
 }
 
 RunSpeedtestNow() {
-    tmux new-session -d -s pimod "cat $speedtestfile | sudo bash"
+    if [[ $(tmux list-sessions 2>/dev/null | grep -c pimod) -eq 0 ]]; then
+        tmux new-session -d -s pimod "cat $speedtestfile | sudo bash"
+    fi
 }
 
 ReinstallSpeedTest() {
