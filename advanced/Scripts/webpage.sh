@@ -638,8 +638,8 @@ fi
 
 if [[ \$(tmux list-sessions 2>/dev/null | grep -c pimod) -eq 0 ]]; then
     /usr/bin/tmux new-session -d -s pimod "cat $speedtestfile | sudo bash"
+    echo \$(date +%s) > "\$last_run_file"
 fi
-echo \$(date +%s) > "\$last_run_file"
 EOF
     sudo chmod +x "$schedule_script"
 
