@@ -108,7 +108,15 @@ manageHistory() {
 }
 
 notInstalled() {
-    apt-cache policy "$1" | grep 'Installed: (none)' >/dev/null
+    if [ -x "$(command -v yum)" ] || [ -x "$(command -v dnf)" ]; then
+        rpm -q "$1" &>/dev/null || return 0
+    elif [ -x "$(command -v apt-get)" ]; then
+        dpkg -s "$1" &>/dev/null || return 0
+    else
+        echo "Unsupported package manager!"
+        exit 1
+    fi
+    return 1
 }
 
 install() {
@@ -120,32 +128,55 @@ install() {
     fi
 
     local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
-    apt-get update
-    apt-get install -y bc sqlite3 php$PHP_VERSION-sqlite3 jq tmux curl wget
+    local PKG_MANAGER=$(command -v apt-get || command -v yum || command -v dnf)
+    local PKGS=(bc sqlite3 jq tmux wget "php$PHP_VERSION-sqlite3")
 
-    if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
-        echo "Adding speedtest source..."
-        if [ -e /etc/os-release ]; then
-            . /etc/os-release
-            local base="ubuntu debian"
-            local os=${ID}
-            local dist=${VERSION_CODENAME}
-            if [ ! -z "${ID_LIKE-}" ] && [[ "${base//\"/}" =~ "${ID_LIKE//\"/}" ]] && [ "${os}" != "ubuntu" ]; then
-                os=${ID_LIKE%% *}
-                [ -z "${UBUNTU_CODENAME-}" ] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
-                dist=${UBUNTU_CODENAME}
-                [ -z "$dist" ] && dist=${VERSION_CODENAME}
+    if [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
+        apt-get update
+    fi
+
+    local missingPkgs=()
+    for pkg in "${PKGS[@]}"; do
+        if notInstalled "$pkg"; then
+            missingPkgs+=("$pkg")
+        fi
+    done
+
+    if [ ${#missingPkgs[@]} -gt 0 ]; then
+        sudo $PKG_MANAGER install -y "${missingPkgs[@]}"
+    fi
+
+    if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
+        if [ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]; then
+            echo "Adding speedtest source for RPM..."
+            sudo bash -c 'curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash'
+        fi
+    elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
+        if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
+            echo "Adding speedtest source for DEB..."
+            if [ -e /etc/os-release ]; then
+                . /etc/os-release
+                local base="ubuntu debian"
+                local os=${ID}
+                local dist=${VERSION_CODENAME}
+                if [ ! -z "${ID_LIKE-}" ] && [[ "${base//\"/}" =~ "${ID_LIKE//\"/}" ]] && [ "${os}" != "ubuntu" ]; then
+                    os=${ID_LIKE%% *}
+                    [ -z "${UBUNTU_CODENAME-}" ] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
+                    dist=${UBUNTU_CODENAME}
+                    [ -z "$dist" ] && dist=${VERSION_CODENAME}
+                fi
+                wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
+                chmod +x /tmp/script.deb.sh
+                os=$os dist=$dist /tmp/script.deb.sh
+                rm -f /tmp/script.deb.sh
+            else
+                curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
             fi
-            wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
-            chmod +x /tmp/script.deb.sh
-            os=$os dist=$dist /tmp/script.deb.sh
-            rm -f /tmp/script.deb.sh
-        else
-            curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
         fi
     fi
+
     if notInstalled speedtest && notInstalled speedtest-cli; then
-        apt-get install -y speedtest
+        sudo $PKG_MANAGER install -y speedtest
     fi
     if [ -f /usr/local/bin/speedtest ]; then
         rm -f /usr/local/bin/speedtest
