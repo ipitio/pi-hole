@@ -100,7 +100,7 @@ tryagain(){
             yum install -y --allowerasing speedtest
         fi
     fi
-    speedtest > "$FILE" && internet || nointernet
+    speedtest && internet || nointernet
 }
 
 main() {
@@ -109,7 +109,7 @@ main() {
         exit $?
     fi
     echo "Test has been initiated, please wait."
-    speedtest > "$FILE" && internet || tryagain
+    speedtest && internet || tryagain
 }
 
-main
+main > "$FILE"
