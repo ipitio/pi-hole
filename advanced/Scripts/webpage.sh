@@ -617,8 +617,10 @@ interval_seconds=$total_seconds
 schedule=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")
 
 # if schedule is set and is greater than 0, and interval is "nan", set the speedtest interval to the schedule
-if [[ "\${schedule-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]] && (( \$(echo "\$schedule > 0" | bc -l) )) && [[ "\$interval_seconds" == "nan" ]]; then
-    /usr/local/bin/pihole -a -s "\$schedule"
+if [[ "\$interval_seconds" == "nan" ]]; then
+    if [[ "\${schedule-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]] && (( \$(echo "\$schedule > 0" | bc -l) )); then
+        /usr/local/bin/pihole -a -s "\$schedule"
+    fi
     exit 0
 fi
 
