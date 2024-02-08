@@ -604,7 +604,7 @@ generate_cron_schedule() {
         addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0.017"
     fi
 
-    if [[ ! "$total_seconds" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
+    if [[ ! "$total_seconds" =~ ^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
         total_seconds="nan"
     fi
 
