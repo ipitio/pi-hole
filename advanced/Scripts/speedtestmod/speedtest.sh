@@ -64,6 +64,7 @@ internet() {
     sep="$quote$sep$quote"
     printf "$quote$start$sep$stop$sep$isp$sep$from_ip$sep$server_name$sep$server_dist$sep$server_ping$sep$download$sep$upload$sep$share_url$quote\n"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start}', '${stop}', '${isp}', '${from_ip}', '${server_name}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
+    mv -f "$FILE" /var/log/pihole/speedtest.log
     exit 0
 }
 
@@ -71,6 +72,7 @@ nointernet(){
     stop=$(date -u --rfc-3339='seconds')
     echo "No Internet"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start}', '${stop}', 'No Internet', '-', '-', 0, 0, 0, 0, '#');"
+    mv -f "$FILE" /var/log/pihole/speedtest.log
     exit 1
 }
 
@@ -113,6 +115,3 @@ main() {
 }
 
 main > "$FILE"
-
-cp $FILE /var/log/pihole/speedtest.log
-rm $FILE

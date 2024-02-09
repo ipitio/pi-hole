@@ -606,7 +606,7 @@ generate_cron_schedule() {
     if [[ ! "$total_seconds" =~ ^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
         total_seconds="nan"
     elif (( $(echo "$total_seconds > 0" | bc -l) )); then
-        remainder=$(echo "$total_seconds % 60" | bc -l)
+        remainder=$(awk "BEGIN {print $total_seconds % 60}")
         if (( $(echo "$remainder < 30" | bc -l) )); then
             total_seconds=$(echo "$total_seconds - $remainder" | bc -l)
         else
