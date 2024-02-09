@@ -562,14 +562,14 @@ generate_systemd_calendar() {
     elif (( $(echo "$total_seconds == 3600" | bc -l) )); then # exactly an hour
         freq_entries+=("*-*-* *:00:00")
     elif (( $(echo "$total_seconds < 86400" | bc -l) )); then # less than a day
-        if (( $(echo "3600 % $total_seconds == 0" | bc -l) )); then # divides evenly into an hour
+        if (( $(awk "BEGIN {print ($total_seconds / 3600) % 1}") == 0 )); then # divides evenly into an hour
             local hour_interval=$(echo "$total_seconds / 3600" | bc)
             freq_entries+=("*-*-* 00/$hour_interval:00:00")
         else # does not divide evenly into an hour
             local current_second=0
             while (( $(echo "$current_second < 86400" | bc -l) )); do
                 local hour=$(echo "$current_second / 3600" | bc)
-                local minute=$(echo "($current_second % 3600) / 60" | bc)
+                local minute=$(awk "BEGIN {print ($current_second % 3600) / 60}")
                 hour=${hour%.*}
                 minute=${minute%.*}
                 freq_entries+=("*-*-* $(printf "%02d:%02d:00" $hour $minute)")
