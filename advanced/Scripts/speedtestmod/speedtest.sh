@@ -50,7 +50,7 @@ internet() {
         share_url=$(jq -r '.result.url' <<< "$res")
         server_id=$(jq -r '.server.id' <<< "$res")
         servers="$(curl 'https://www.speedtest.net/api/js/servers' --compressed -H 'Upgrade-Insecure-Requests: 1' -H 'DNT: 1' -H 'Sec-GPC: 1')"
-        server_dist=$(jq -r --argjson server_id "$server_id" '.[] | select(.id==$server_id) | .distance' <<< "$servers")
+        server_dist=$(jq -r --arg server_id "$server_id" '.[] | select(.id == ($server_id | tonumber)) | .distance' <<< "$servers")
     else
         download=$(jq -r '.download' <<< "$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
         upload=$(jq -r '.upload' <<< "$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
@@ -62,11 +62,6 @@ internet() {
         server_dist=$(jq -r '.server.d' <<< "$res")
     fi
 
-    sep="\t"
-    quote=""
-    opts=
-    sep="$quote$sep$quote"
-    printf "$quote$start$sep$stop$sep$isp$sep$from_ip$sep$server_name$sep$server_dist$sep$server_ping$sep$download$sep$upload$sep$share_url$quote\n"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start}', '${stop}', '${isp}', '${from_ip}', '${server_name}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
     mv -f "$FILE" /var/log/pihole/speedtest.log
     exit 0
