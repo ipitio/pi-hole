@@ -116,4 +116,3 @@ main > "$FILE"
 
 cp $FILE /var/log/pihole/speedtest.log
 rm $FILE
-```
