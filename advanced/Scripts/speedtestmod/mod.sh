@@ -1,11 +1,8 @@
 #!/bin/bash
-LOG_FILE="/var/log/pimod.log"
-
 admin_dir=/var/www/html
 curr_wp=/opt/pihole/webpage.sh
 last_wp=$curr_wp.old
 org_wp=$curr_wp.org
-
 curr_db=/etc/pihole/speedtest.db
 last_db=$curr_db.old
 db_table="speedtest"
@@ -278,12 +275,8 @@ abort() {
         download $admin_dir admin old web
     fi
 
-    if (($aborted == 0)); then
-        pihole restartdns
-        printf "Please try again or try manually.\n\n$(date)\n"
-    fi
-    aborted=1
-    exit 1
+    pihole restartdns
+    printf "Please try again or try manually.\n\n$(date)\n"
 }
 
 commit() {
@@ -292,7 +285,6 @@ commit() {
     rm -f $last_wp
     pihole restartdns
     printf "Done!\n\n$(date)\n"
-    exit 0
 }
 
 main() {
@@ -333,4 +325,7 @@ main() {
     exit 0
 }
 
-main "$@" 2>&1 | sudo tee -- "$LOG_FILE"
+rm -f /tmp/pimod.log
+main "$@" 2>&1 | tee -a /tmp/pimod.log
+mv -f /tmp/pimod.log /var/log/pihole/mod.log
+exit 0

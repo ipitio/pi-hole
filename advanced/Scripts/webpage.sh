@@ -562,14 +562,14 @@ generate_systemd_calendar() {
     elif (( $(echo "$total_seconds == 3600" | bc -l) )); then # exactly an hour
         freq_entries+=("*-*-* *:00:00")
     elif (( $(echo "$total_seconds < 86400" | bc -l) )); then # less than a day
-        if (( $(echo "3600 % $total_seconds == 0" | bc -l) )); then # divides evenly into an hour
+        if (( $(awk "BEGIN {print ($total_seconds / 3600) % 1}") == 0 )); then # divides evenly into an hour
             local hour_interval=$(echo "$total_seconds / 3600" | bc)
             freq_entries+=("*-*-* 00/$hour_interval:00:00")
         else # does not divide evenly into an hour
             local current_second=0
             while (( $(echo "$current_second < 86400" | bc -l) )); do
                 local hour=$(echo "$current_second / 3600" | bc)
-                local minute=$(echo "($current_second % 3600) / 60" | bc)
+                local minute=$(awk "BEGIN {print ($current_second % 3600) / 60}")
                 hour=${hour%.*}
                 minute=${minute%.*}
                 freq_entries+=("*-*-* $(printf "%02d:%02d:00" $hour $minute)")
@@ -600,18 +600,18 @@ generate_cron_schedule() {
 
     if (( $(echo "$total_seconds < 60" | bc -l) )) && (( $(echo "$total_seconds > 0" | bc -l) )); then
         total_seconds=60
-        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0.017"
     fi
 
     if [[ ! "$total_seconds" =~ ^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
         total_seconds="nan"
     elif (( $(echo "$total_seconds > 0" | bc -l) )); then
-        remainder=$(echo "$total_seconds % 60" | bc -l)
+        remainder=$(awk "BEGIN {print $total_seconds % 60}")
         if (( $(echo "$remainder < 30" | bc -l) )); then
             total_seconds=$(echo "$total_seconds - $remainder" | bc -l)
         else
             total_seconds=$(echo "$total_seconds + (60 - $remainder)" | bc -l)
         fi
+        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "$(echo "scale=3; $total_seconds / 3600" | bc)"
     fi
 
     sudo bash -c "cat > $(printf %q "$schedule_script")" << EOF
