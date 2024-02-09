@@ -607,7 +607,12 @@ generate_cron_schedule() {
     if [[ ! "$total_seconds" =~ ^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
         total_seconds="nan"
     else
-        total_seconds=$(echo "scale=0; ($total_seconds + 30) / 60 * 60" | bc)
+        remainder=$(echo "$total_seconds % 60" | bc)
+        if [ $(echo "$remainder < 30" | bc) -eq 1 ]; then
+            total_seconds=$(echo "$total_seconds - $remainder" | bc)
+        else
+            total_seconds=$(echo "$total_seconds + (60 - $remainder)" | bc)
+        fi
     fi
 
     sudo bash -c "cat > $(printf %q "$schedule_script")" << EOF
