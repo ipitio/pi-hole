@@ -40,6 +40,9 @@ internet() {
     server_name=$(jq -r '.server.name' <<< "$res")
     server_dist=0
 
+    # remove the first line
+    res=$(sed '1d' <<< "$res")
+
     if grep -q official <<< "$(/usr/bin/speedtest --version)"; then
         download=$(jq -r '.download.bandwidth' <<< "$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
         upload=$(jq -r '.upload.bandwidth' <<< "$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
@@ -58,7 +61,7 @@ internet() {
         share_url=$(jq -r '.share' <<< "$res")
     fi
 
-    sep="\n"
+    sep="\t"
     quote=""
     opts=
     sep="$quote$sep$quote"
