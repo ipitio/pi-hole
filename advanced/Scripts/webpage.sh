@@ -595,8 +595,7 @@ generate_systemd_calendar() {
 }
 
 generate_cron_schedule() {
-    local interval_hours="$1"
-    local total_seconds=$(echo "$interval_hours * 3600" | bc)
+    local total_seconds=$(echo "$1 * 3600" | bc)
     local schedule_script="/opt/pihole/speedtestmod/schedule_check.sh"
 
     if (( $(echo "$total_seconds < 60" | bc -l) )) && (( $(echo "$total_seconds > 0" | bc -l) )); then
@@ -604,8 +603,15 @@ generate_cron_schedule() {
         addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0.017"
     fi
 
-    if [[ ! "$total_seconds" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
+    if [[ ! "$total_seconds" =~ ^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
         total_seconds="nan"
+    elif (( $(echo "$total_seconds > 0" | bc -l) )); then
+        remainder=$(echo "$total_seconds % 60" | bc -l)
+        if (( $(echo "$remainder < 30" | bc -l) )); then
+            total_seconds=$(echo "$total_seconds - $remainder" | bc -l)
+        else
+            total_seconds=$(echo "$total_seconds + (60 - $remainder)" | bc -l)
+        fi
     fi
 
     sudo bash -c "cat > $(printf %q "$schedule_script")" << EOF
@@ -617,8 +623,10 @@ interval_seconds=$total_seconds
 schedule=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")
 
 # if schedule is set and is greater than 0, and interval is "nan", set the speedtest interval to the schedule
-if [[ "\${schedule-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]] && (( \$(echo "\$schedule > 0" | bc -l) )) && [[ "\$interval_seconds" == "nan" ]]; then
-    /usr/local/bin/pihole -a -s "\$schedule"
+if [[ "\$interval_seconds" == "nan" ]]; then
+    if [[ "\${schedule-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]] && (( \$(echo "\$schedule > 0" | bc -l) )); then
+        /usr/local/bin/pihole -a -s "\$schedule"
+    fi
     exit 0
 fi
 
@@ -634,8 +642,8 @@ if [[ -f "\$last_run_file" ]]; then
     fi
 fi
 
-echo \$(date +%s) > "\$last_run_file"
 if [[ \$(tmux list-sessions 2>/dev/null | grep -c pimod) -eq 0 ]]; then
+    echo \$(date +%s) > "\$last_run_file"
     /usr/bin/tmux new-session -d -s pimod "cat $speedtestfile | sudo bash"
 fi
 EOF
@@ -645,6 +653,7 @@ EOF
     if [[ "$total_seconds" == "nan" ]] || (( $(echo "$total_seconds > 0" | bc -l) )); then
         crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
         (crontab -l; echo "* * * * * /bin/bash $schedule_script") | crontab -
+        sudo bash -c "$schedule_script"
     fi
 }
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 FILE=/tmp/speedtest.log
-start=$(date +"%Y-%m-%d %H:%M:%S %Z")
+start=$(date -u --rfc-3339='seconds')
 serverid=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2)
 
 create_table="create table if not exists speedtest (
@@ -35,7 +35,7 @@ speedtest() {
 }
 
 internet() {
-    stop=$(date +"%Y-%m-%d %H:%M:%S %Z")
+    stop=$(date -u --rfc-3339='seconds')
     res="$(<$FILE)"
     server_name=$(jq -r '.server.name' <<< "$res")
     server_dist=0
@@ -68,19 +68,39 @@ internet() {
 }
 
 nointernet(){
-    stop=$(date +"%Y-%m-%d %H:%M:%S %Z")
+    stop=$(date -u --rfc-3339='seconds')
     echo "No Internet"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start}', '${stop}', 'No Internet', '-', '-', 0, 0, 0, 0, '#');"
     exit 1
 }
 
-tryagain(){
-    if apt-cache policy speedtest-cli | grep -q 'Installed: (none)'; then
-        apt-get install -y speedtest-cli speedtest-
+notInstalled() {
+    if [ -x "$(command -v yum)" ] || [ -x "$(command -v dnf)" ]; then
+        rpm -q "$1" &>/dev/null || return 0
+    elif [ -x "$(command -v apt-get)" ]; then
+        dpkg -s "$1" &>/dev/null || return 0
     else
-        apt-get install -y speedtest speedtest-cli-
+        echo "Unsupported package manager!"
+        exit 1
     fi
-    speedtest > "$FILE" && internet || nointernet
+    return 1
+}
+
+tryagain(){
+    if notInstalled speedtest-cli; then
+        if [ -x "$(command -v apt-get)" ]; then
+            apt-get install -y speedtest-cli speedtest-
+        else
+            yum install -y --allowerasing speedtest-cli
+        fi
+    else
+        if [ -x "$(command -v apt-get)" ]; then
+            apt-get install -y speedtest speedtest-cli-
+        else
+            yum install -y --allowerasing speedtest
+        fi
+    fi
+    speedtest && internet || nointernet
 }
 
 main() {
@@ -89,7 +109,10 @@ main() {
         exit $?
     fi
     echo "Test has been initiated, please wait."
-    speedtest > "$FILE" && internet || tryagain
+    speedtest && internet || tryagain
 }
 
-main
+main > "$FILE"
+
+cp $FILE /var/log/pihole/speedtest.log
+rm $FILE
