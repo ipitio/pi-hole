@@ -36,12 +36,9 @@ speedtest() {
 
 internet() {
     stop=$(date -u --rfc-3339='seconds')
-    res="$(<$FILE)"
+    res="$(</tmp/speedtest_results)"
+    rm -f /tmp/speedtest_results
     server_name=$(jq -r '.server.name' <<< "$res")
-    server_dist=0
-
-    # remove the first line
-    res=$(sed '1d' <<< "$res")
 
     if grep -q official <<< "$(/usr/bin/speedtest --version)"; then
         download=$(jq -r '.download.bandwidth' <<< "$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
@@ -51,6 +48,9 @@ internet() {
         from_ip=$(jq -r '.interface.externalIp' <<< "$res")
         server_ping=$(jq -r '.ping.latency' <<< "$res")
         share_url=$(jq -r '.result.url' <<< "$res")
+        server_id=$(jq -r '.server.id' <<< "$res")
+        servers="$(curl 'https://www.speedtest.net/api/js/servers' --compressed -H 'Upgrade-Insecure-Requests: 1' -H 'DNT: 1' -H 'Sec-GPC: 1')"
+        server_dist=$(jq -r --argjson server_id "$server_id" '.[] | select(.id==$server_id) | .distance' <<< "$servers")
     else
         download=$(jq -r '.download' <<< "$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
         upload=$(jq -r '.upload' <<< "$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
@@ -59,6 +59,7 @@ internet() {
         from_ip=$(jq -r '.client.ip' <<< "$res")
         server_ping=$(jq -r '.ping' <<< "$res")
         share_url=$(jq -r '.share' <<< "$res")
+        server_dist=$(jq -r '.server.d' <<< "$res")
     fi
 
     sep="\t"
@@ -71,6 +72,7 @@ internet() {
 
 nointernet(){
     stop=$(date -u --rfc-3339='seconds')
+    rm -f /tmp/speedtest_results
     echo "No Internet"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start}', '${stop}', 'No Internet', '-', '-', 0, 0, 0, 0, '#');"
 }
@@ -101,7 +103,7 @@ tryagain(){
             yum install -y --allowerasing speedtest
         fi
     fi
-    speedtest && internet || nointernet
+    speedtest > /tmp/speedtest_results && internet || nointernet
 }
 
 main() {
@@ -110,7 +112,7 @@ main() {
         exit $?
     fi
     echo "Test has been initiated, please wait..."
-    speedtest && internet || tryagain
+    speedtest > /tmp/speedtest_results && internet || tryagain
 }
 
 rm -f "$FILE"
