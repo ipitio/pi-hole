@@ -611,7 +611,7 @@ generate_cron_schedule() {
         else
             total_seconds=$(echo "$total_seconds + (60 - $remainder)" | bc -l)
         fi
-        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "$(echo "$total_seconds / 3600" | bc -l)"
+        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "$(echo "scale=3; $total_seconds / 3600" | bc)"
     fi
 
     sudo bash -c "cat > $(printf %q "$schedule_script")" << EOF
