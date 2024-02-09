@@ -1,11 +1,8 @@
 #!/bin/bash
-LOG_FILE="/var/log/pimod.log"
-
 admin_dir=/var/www/html
 curr_wp=/opt/pihole/webpage.sh
 last_wp=$curr_wp.old
 org_wp=$curr_wp.org
-
 curr_db=/etc/pihole/speedtest.db
 last_db=$curr_db.old
 db_table="speedtest"
@@ -278,13 +275,8 @@ abort() {
         download $admin_dir admin old web
     fi
 
-    if (($aborted == 0)); then
-        pihole restartdns
-        printf "Please try again or try manually.\n\n$(date)\n"
-    fi
-    aborted=1
-    [ -f /tmp/pimod.log ] && mv -f /tmp/pimod.log $LOG_FILE
-    exit 1
+    pihole restartdns
+    printf "Please try again or try manually.\n\n$(date)\n"
 }
 
 commit() {
@@ -293,8 +285,6 @@ commit() {
     rm -f $last_wp
     pihole restartdns
     printf "Done!\n\n$(date)\n"
-    [ -f /tmp/pimod.log ] && mv -f /tmp/pimod.log $LOG_FILE
-    exit 0
 }
 
 main() {
@@ -335,9 +325,7 @@ main() {
     exit 0
 }
 
-if [ -n "$TMUX" ]; then
-    rm -f /tmp/speedtest.log && mkfifo /tmp/speedtest.log && tmux pipe-pane -t pimod -o 'cat >> /tmp/speedtest.log'
-    main "$@"
-else
-    main "$@" 2>&1 | sudo tee -- "$LOG_FILE"
-fi
+rm -f /tmp/pimod.log
+main "$@" 2>&1 | tee -a /tmp/pimod.log
+mv -f /tmp/pimod.log /var/log/pimod.log
+exit 0
