@@ -18,8 +18,6 @@ share_url text
 );"
 sqlite3 /etc/pihole/speedtest.db "$create_table"
 
-rm -f /tmp/speedtest.log && mkfifo /tmp/speedtest.log && tmux pipe-pane -t pimod -o 'cat >> /tmp/speedtest.log'
-
 speedtest() {
     if grep -q official <<< "$(/usr/bin/speedtest --version)"; then
         if [[ -z "${serverid}" ]]; then
@@ -112,8 +110,9 @@ main() {
         sudo "$0" "$@"
         exit $?
     fi
-    echo "Test has been initiated, please wait."
+    echo "Test has been initiated, please wait..."
     speedtest && internet || tryagain
 }
 
-main
+rm -f "$FILE"
+main | tee -a "$FILE"
