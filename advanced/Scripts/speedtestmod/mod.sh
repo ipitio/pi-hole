@@ -283,6 +283,7 @@ abort() {
         printf "Please try again or try manually.\n\n$(date)\n"
     fi
     aborted=1
+    [ -f /tmp/pimod.log ] && mv -f /tmp/pimod.log $LOG_FILE
     exit 1
 }
 
@@ -292,6 +293,7 @@ commit() {
     rm -f $last_wp
     pihole restartdns
     printf "Done!\n\n$(date)\n"
+    [ -f /tmp/pimod.log ] && mv -f /tmp/pimod.log $LOG_FILE
     exit 0
 }
 
@@ -333,4 +335,9 @@ main() {
     exit 0
 }
 
-main "$@" 2>&1 | sudo tee -- "$LOG_FILE"
+if [ -n "$TMUX" ]; then
+    rm -f /tmp/speedtest.log && mkfifo /tmp/speedtest.log && tmux pipe-pane -t pimod -o 'cat >> /tmp/speedtest.log'
+    main "$@"
+else
+    main "$@" 2>&1 | sudo tee -- "$LOG_FILE"
+fi
