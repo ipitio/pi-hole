@@ -600,7 +600,6 @@ generate_cron_schedule() {
 
     if (( $(echo "$total_seconds < 60" | bc -l) )) && (( $(echo "$total_seconds > 0" | bc -l) )); then
         total_seconds=60
-        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0.017"
     fi
 
     if [[ ! "$total_seconds" =~ ^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
@@ -612,6 +611,7 @@ generate_cron_schedule() {
         else
             total_seconds=$(echo "$total_seconds + (60 - $remainder)" | bc -l)
         fi
+        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "$(echo "$total_seconds / 3600" | bc -l)"
     fi
 
     sudo bash -c "cat > $(printf %q "$schedule_script")" << EOF
