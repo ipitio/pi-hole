@@ -184,14 +184,14 @@ install() {
     download $admin_dir admin https://github.com/arevindh/AdminLTE web
     if [ -f $curr_wp ]; then
         if ! cat $curr_wp | grep -q SpeedTest; then
-            cp -a $curr_wp $org_wp
+            cp -af $curr_wp $org_wp
         fi
         if [ ! -f $last_wp ]; then
-            cp -a $curr_wp $last_wp
+            cp -af $curr_wp $last_wp
         fi
     fi
-    cp -a /opt/mod_pihole/advanced/Scripts/webpage.sh $curr_wp
-    cp -a /opt/mod_pihole/advanced/Scripts/speedtestmod /opt/pihole/speedtestmod
+    cp -af /opt/mod_pihole/advanced/Scripts/webpage.sh $curr_wp
+    cp -af /opt/mod_pihole/advanced/Scripts/speedtestmod/. /opt/pihole/speedtestmod/
     chmod +x $curr_wp
     pihole -a -s
     pihole updatechecker local
@@ -206,16 +206,16 @@ uninstall() {
                 download /opt org_pihole https://github.com/pi-hole/pi-hole Pi-hole
             fi
             cd /opt
-            cp -a org_pihole/advanced/Scripts/webpage.sh $org_wp
+            cp -af org_pihole/advanced/Scripts/webpage.sh $org_wp
             rm -rf org_pihole
         fi
 
         pihole -a -su
         download $admin_dir admin https://github.com/pi-hole/AdminLTE web
         if [ ! -f $last_wp ]; then
-            cp -a $curr_wp $last_wp
+            cp -af $curr_wp $last_wp
         fi
-        cp -a $org_wp $curr_wp
+        cp -af $org_wp $curr_wp
         chmod +x $curr_wp
         rm -rf /opt/mod_pihole
         pihole updatechecker
@@ -261,7 +261,7 @@ abort() {
     echo "Process Aborting..."
 
     if [ -f $last_wp ]; then
-        cp -a $last_wp $curr_wp
+        cp -af $last_wp $curr_wp
         chmod +x $curr_wp
         rm -f $last_wp
     fi
@@ -276,6 +276,7 @@ abort() {
     fi
 
     pihole restartdns
+    aborted=1
     printf "Please try again or try manually.\n\n$(date)\n"
 }
 
@@ -322,10 +323,9 @@ main() {
         manageHistory $db
         ;;
     esac
-    exit 0
 }
 
 rm -f /tmp/pimod.log
 main "$@" 2>&1 | tee -a /tmp/pimod.log
 mv -f /tmp/pimod.log /var/log/pihole/mod.log
-exit 0
+exit $aborted
