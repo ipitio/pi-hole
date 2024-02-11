@@ -191,7 +191,7 @@ install() {
         fi
     fi
     cp -af /opt/mod_pihole/advanced/Scripts/webpage.sh $curr_wp
-    cp -af /opt/mod_pihole/advanced/Scripts/speedtestmod /opt/pihole/speedtestmod
+    cp -af /opt/mod_pihole/advanced/Scripts/speedtestmod/. /opt/pihole/speedtestmod/
     chmod +x $curr_wp
     pihole -a -s
     pihole updatechecker local
@@ -276,6 +276,7 @@ abort() {
     fi
 
     pihole restartdns
+    aborted=1
     printf "Please try again or try manually.\n\n$(date)\n"
 }
 
@@ -322,10 +323,9 @@ main() {
         manageHistory $db
         ;;
     esac
-    exit 0
 }
 
 rm -f /tmp/pimod.log
 main "$@" 2>&1 | tee -a /tmp/pimod.log
 mv -f /tmp/pimod.log /var/log/pihole/mod.log
-exit 0
+exit $aborted
