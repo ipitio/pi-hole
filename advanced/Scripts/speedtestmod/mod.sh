@@ -94,11 +94,17 @@ manageHistory() {
             if [ -f /etc/pihole/last_speedtest ]; then
                 mv -f /etc/pihole/last_speedtest /etc/pihole/last_speedtest.old
             fi
+            if [ -f /var/log/pihole/speedtest.log ]; then
+                mv -f /var/log/pihole/speedtest.log /var/log/pihole/speedtest.log.old
+            fi
         elif [ -f $last_db ]; then
             echo "Restoring Database..."
             mv -f $last_db $curr_db
             if [ -f /etc/pihole/last_speedtest.old ]; then
                 mv -f /etc/pihole/last_speedtest.old /etc/pihole/last_speedtest
+            fi
+            if [ -f /var/log/pihole/speedtest.log.old ]; then
+                mv -f /var/log/pihole/speedtest.log.old /var/log/pihole/speedtest.log
             fi
         fi
     fi
