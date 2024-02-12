@@ -329,6 +329,7 @@ main() {
         manageHistory $db
         ;;
     esac
+    exit 0
 }
 
 rm -f /tmp/pimod.log
