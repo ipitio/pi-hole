@@ -64,7 +64,6 @@ Options:
   -sc                             Clear speedtest data
   -ss                             Set custom server
   -st                             Set default speedtest chart type (line, bar)
-  -su                             Stop future scheduled speedtests
   -l, privacylevel                Set privacy level (0 = lowest, 3 = highest)
   -t, teleporter                  Backup configuration as an archive
   -t, teleporter myname.tar.gz    Backup configuration to archive with name myname.tar.gz as specified"
@@ -595,17 +594,16 @@ generate_systemd_calendar() {
 }
 
 generate_cron_schedule() {
-    local total_seconds=$(echo "$1 * 3600" | bc)
+    local total_seconds="nan"
     local schedule_script="/opt/pihole/speedtestmod/schedule_check.sh"
 
-    if (( $(echo "$total_seconds < 60" | bc -l) )) && (( $(echo "$total_seconds > 0" | bc -l) )); then
-        total_seconds=60
-    fi
+    if [[ "$1" != "nan" ]] && [[ "$1" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]] && (( $(echo "$1 > 0" | bc -l) )); then
+        total_seconds=$(echo "$1 * 3600" | bc)
+        if (( $(echo "$total_seconds < 60" | bc -l) )); then
+            total_seconds=60
+        fi
 
-    if [[ ! "$total_seconds" =~ ^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
-        total_seconds="nan"
-    elif (( $(echo "$total_seconds > 0" | bc -l) )); then
-        remainder=$(awk "BEGIN {print $total_seconds % 60}")
+        local remainder=$(awk "BEGIN {print $total_seconds % 60}")
         if (( $(echo "$remainder < 30" | bc -l) )); then
             total_seconds=$(echo "$total_seconds - $remainder" | bc -l)
         else
@@ -624,7 +622,7 @@ schedule=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")
 
 # if schedule is set and is greater than 0, and interval is "nan", set the speedtest interval to the schedule
 if [[ "\$interval_seconds" == "nan" ]]; then
-    if [[ "\${schedule-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]] && (( \$(echo "\$schedule > 0" | bc -l) )); then
+    if [[ "\${schedule-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
         /usr/local/bin/pihole -a -s "\$schedule"
     fi
     exit 0
@@ -657,31 +655,27 @@ EOF
     fi
 }
 
-get_scheduler() {
-    if [[ -d /run/systemd/system ]]; then
-        echo "systemd"
+ChangeSpeedTestSchedule() {
+    local interval="${args[2]%\.}"
+    if [[ "${interval-}" =~ ^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
+        if (( $(echo "$interval < 0" | bc -l) )); then
+            interval="0"
+        fi
+        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "$interval"
     else
-        echo "cron"
+        interval=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
+        if [[ ! "${interval-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
+            interval="nan"
+        fi
     fi
-}
 
-UnsetService() {
-    if [[ "$(get_scheduler)" == "cron" ]]; then
-        generate_cron_schedule "-1"
-    else
+    if [[ ! -d /run/systemd/system ]]; then
+        generate_cron_schedule "$interval"
+    elif [[ "$interval" == "0" ]] || [[ "$interval" == "nan" ]]; then
         systemctl disable --now pihole-speedtest.timer &> /dev/null
-    fi
-}
-
-SetService() {
-    if [[ "$1" == "0" ]]; then
-        UnsetService
     else
-        if [[ "$(get_scheduler)" == "cron" ]]; then
-            generate_cron_schedule "$1"
-        else
-            local freq=$(generate_systemd_calendar "$1")
-            sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
+        local freq=$(generate_systemd_calendar "$interval")
+        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
 Description=Pi-hole Speedtest
 After=network.target
@@ -694,7 +688,7 @@ ExecStart=/opt/pihole/speedtestmod/speedtest.sh
 [Install]
 WantedBy=multi-user.target
 EOF'
-            sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
+        sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.timer << EOF
 [Unit]
 Description=Pi-hole Speedtest Timer
 
@@ -704,31 +698,13 @@ WantedBy=timers.target
 [Timer]
 Persistent=true
 EOF'
-            while IFS= read -r line; do
-                sudo bash -c "echo 'OnCalendar=$line' >> /etc/systemd/system/pihole-speedtest.timer"
-            done <<< "$freq"
+        while IFS= read -r line; do
+            sudo bash -c "echo 'OnCalendar=$line' >> /etc/systemd/system/pihole-speedtest.timer"
+        done <<< "$freq"
 
-            systemctl daemon-reload
-            systemctl reenable pihole-speedtest.timer &> /dev/null
-            systemctl restart pihole-speedtest.timer
-        fi
-    fi
-}
-
-ChangeSpeedTestSchedule() {
-    args[2]=${args[2]%\.}
-    if [[ "${args[2]-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
-        if (( $(echo "${args[2]} >= 0" | bc -l) )); then
-            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
-            SetService "${args[2]}"
-        fi
-    else
-        local interval=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-        if [[ ! "${interval-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
-            UnsetService
-        else
-            SetService "$interval"
-        fi
+        systemctl daemon-reload
+        systemctl reenable pihole-speedtest.timer &> /dev/null
+        systemctl restart pihole-speedtest.timer
     fi
 }
 
@@ -1131,7 +1107,6 @@ main() {
         "-sc"                 ) ClearSpeedtestData;;
         "-ss"                 ) SpeedtestServer;;
         "-st"                 ) UpdateSpeedTestChartType;;
-        "-su"                 ) UnsetService;;
         "addcustomdns"        ) AddCustomDNSAddress;;
         "removecustomdns"     ) RemoveCustomDNSAddress;;
         "addcustomcname"      ) AddCustomCNAMERecord;;
