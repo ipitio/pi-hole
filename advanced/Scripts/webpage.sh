@@ -657,7 +657,7 @@ EOF
 
 ChangeSpeedTestSchedule() {
     local interval="${args[2]%\.}"
-    if [[ "${interval-}" =~ ^-([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
+    if [[ "${interval-}" =~ ^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
         if (( $(echo "$interval < 0" | bc -l) )); then
             interval="0"
         fi
