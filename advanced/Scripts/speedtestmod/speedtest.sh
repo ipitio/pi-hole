@@ -46,6 +46,7 @@ savetest() {
     sqlite3 /etc/pihole/speedtest.db "$create_table"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start_time}', '${stop_time}', '${isp}', '${from_ip}', '${server}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
     mv -f "$out" /var/log/pihole/speedtest.log
+    cp -af /var/log/pihole/speedtest.log /etc/pihole/speedtest.log
     rm -f /tmp/speedtest_results
     [ "$isp" == "No Internet" ] && exit 1 || exit 0
 }
@@ -87,7 +88,7 @@ internet() {
 
 nointernet(){
     local stop=$(date -u --rfc-3339='seconds')
-    echo "No Internet"
+    echo "No Internet" > /tmp/speedtest_results
     savetest "$start" "$stop"
 }
 
