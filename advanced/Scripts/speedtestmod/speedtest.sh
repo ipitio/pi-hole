@@ -38,11 +38,9 @@ internet() {
     stop=$(date -u --rfc-3339='seconds')
     res="$(</tmp/speedtest_results)"
     server_name=$(jq -r '.server.name' <<< "$res")
+    server_id=$(jq -r '.server.id' <<< "$res")
     servers="$(curl 'https://www.speedtest.net/api/js/servers' --compressed -H 'Upgrade-Insecure-Requests: 1' -H 'DNT: 1' -H 'Sec-GPC: 1')"
     server_dist=$(jq --arg id "$server_id" '.[] | select(.id == $id) | .distance' <<< "$servers")
-    if [ -z "$server_dist" ]; then
-        server_dist=-1
-    fi
 
     if grep -q official <<< "$(/usr/bin/speedtest --version)"; then
         download=$(jq -r '.download.bandwidth' <<< "$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
@@ -52,7 +50,9 @@ internet() {
         from_ip=$(jq -r '.interface.externalIp' <<< "$res")
         server_ping=$(jq -r '.ping.latency' <<< "$res")
         share_url=$(jq -r '.result.url' <<< "$res")
-        server_id=$(jq -r '.server.id' <<< "$res")
+        if [ -z "$server_dist" ]; then
+            server_dist="-1"
+        fi
     else
         download=$(jq -r '.download' <<< "$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
         upload=$(jq -r '.upload' <<< "$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
@@ -61,7 +61,9 @@ internet() {
         from_ip=$(jq -r '.client.ip' <<< "$res")
         server_ping=$(jq -r '.ping' <<< "$res")
         share_url=$(jq -r '.share' <<< "$res")
-        server_dist=$(jq -r '.server.d' <<< "$res")
+        if [ -z "$server_dist" ]; then
+            server_dist=$(jq -r '.server.d' <<< "$res")
+        fi
     fi
 
     jq . /tmp/speedtest_results
