@@ -1,27 +1,11 @@
 #!/bin/bash
-LOG_FILE="/var/log/pimod.log"
-
 admin_dir=/var/www/html
 curr_wp=/opt/pihole/webpage.sh
 last_wp=$curr_wp.old
 org_wp=$curr_wp.org
-
 curr_db=/etc/pihole/speedtest.db
 last_db=$curr_db.old
 db_table="speedtest"
-create_table="create table if not exists $db_table (
-id integer primary key autoincrement,
-start_time integer,
-stop_time text,
-from_server text,
-from_ip text,
-server text,
-server_dist real,
-server_ping real,
-download real,
-upload real,
-share_url text
-);"
 
 help() {
     echo "(Re)install Latest Speedtest Mod."
@@ -58,7 +42,7 @@ download() {
     if [ ! -d $dest ]; then # replicate
         cd "$path"
         rm -rf "$name"
-        git clone --depth=1 -b "$branch" "$url" "$name" -q
+        git clone --depth=1 -b "$branch" "$url" "$name"
         setTags "$name" "$src" $branch
         if [ ! -z "$src" ]; then
             if [[ "$localTag" == *.* ]] && [[ "$localTag" < "$latestTag" ]]; then
@@ -81,7 +65,7 @@ download() {
             git fetch origin -q
         fi
         git reset --hard origin/$branch
-        git checkout -B $branch
+        git checkout -B $branch -q
         git branch -u origin/$branch
         git clean -ffdx
     fi
@@ -105,21 +89,37 @@ isEmpty() {
 manageHistory() {
     if [ "${1-}" == "db" ]; then
         if [ -f $curr_db ] && ! isEmpty $curr_db; then
-            if [ -z "${2-}" ]; then
-                echo "Flushing Database..."
-                mv -f $curr_db $last_db
+            echo "Flushing Database..."
+            mv -f $curr_db $last_db
+            if [ -f /etc/pihole/last_speedtest ]; then
+                mv -f /etc/pihole/last_speedtest /etc/pihole/last_speedtest.old
+            fi
+            if [ -f /var/log/pihole/speedtest.log ]; then
+                mv -f /var/log/pihole/speedtest.log /var/log/pihole/speedtest.log.old
             fi
         elif [ -f $last_db ]; then
             echo "Restoring Database..."
             mv -f $last_db $curr_db
+            if [ -f /etc/pihole/last_speedtest.old ]; then
+                mv -f /etc/pihole/last_speedtest.old /etc/pihole/last_speedtest
+            fi
+            if [ -f /var/log/pihole/speedtest.log.old ]; then
+                mv -f /var/log/pihole/speedtest.log.old /var/log/pihole/speedtest.log
+            fi
         fi
-        echo "Configuring Database..."
-        sqlite3 "$curr_db" "$create_table"
     fi
 }
 
 notInstalled() {
-    apt-cache policy "$1" | grep 'Installed: (none)' >/dev/null
+    if [ -x "$(command -v yum)" ] || [ -x "$(command -v dnf)" ]; then
+        rpm -q "$1" &>/dev/null || return 0
+    elif [ -x "$(command -v apt-get)" ]; then
+        dpkg -s "$1" &>/dev/null || return 0
+    else
+        echo "Unsupported package manager!"
+        exit 1
+    fi
+    return 1
 }
 
 install() {
@@ -130,43 +130,56 @@ install() {
         curl -sSL https://install.pi-hole.net | sudo bash
     fi
 
-    if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
-        echo "Adding speedtest source..."
-        if [ -e /etc/os-release ]; then
-            . /etc/os-release
-            local base="ubuntu debian"
-            local os=${ID}
-            local dist=${VERSION_CODENAME}
-            if [ ! -z "${ID_LIKE-}" ] && [[ "${base//\"/}" =~ "${ID_LIKE//\"/}" ]] && [ "${os}" != "ubuntu" ]; then
-                os=${ID_LIKE%% *}
-                [ -z "${UBUNTU_CODENAME-}" ] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
-                dist=${UBUNTU_CODENAME}
-                [ -z "$dist" ] && dist=${VERSION_CODENAME}
-            fi
-            wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
-            chmod +x /tmp/script.deb.sh
-            os=$os dist=$dist /tmp/script.deb.sh
-            rm -f /tmp/script.deb.sh
-        else
-            curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
-        fi
+    local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
+    local PKG_MANAGER=$(command -v apt-get || command -v yum || command -v dnf)
+    local PKGS=(bc sqlite3 jq tmux wget "php$PHP_VERSION-sqlite3")
+
+    if [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
+        apt-get update
     fi
 
-    local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
-    local packages="bc sqlite3 php${PHP_VERSION}-sqlite3 jq tmux"
-
-    local missing_packages=""
-    for package in $packages; do
-        if notInstalled "$package"; then
-            missing_packages="$missing_packages $package"
+    local missingPkgs=()
+    for pkg in "${PKGS[@]}"; do
+        if notInstalled "$pkg"; then
+            missingPkgs+=("$pkg")
         fi
     done
-    if notInstalled speedtest && notInstalled speedtest-cli; then
-        missing_packages="$missing_packages speedtest"
+
+    if [ ${#missingPkgs[@]} -gt 0 ]; then
+        sudo $PKG_MANAGER install -y "${missingPkgs[@]}"
     fi
-    missing_packages=$(echo "$missing_packages" | xargs)
-    if [ ! -z "${missing_packages}" ]; then
-        apt-get install -y $missing_packages
+
+    if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
+        if [ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]; then
+            echo "Adding speedtest source for RPM..."
+            sudo bash -c 'curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash'
+        fi
+    elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
+        if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
+            echo "Adding speedtest source for DEB..."
+            if [ -e /etc/os-release ]; then
+                . /etc/os-release
+                local base="ubuntu debian"
+                local os=${ID}
+                local dist=${VERSION_CODENAME}
+                if [ ! -z "${ID_LIKE-}" ] && [[ "${base//\"/}" =~ "${ID_LIKE//\"/}" ]] && [ "${os}" != "ubuntu" ]; then
+                    os=${ID_LIKE%% *}
+                    [ -z "${UBUNTU_CODENAME-}" ] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
+                    dist=${UBUNTU_CODENAME}
+                    [ -z "$dist" ] && dist=${VERSION_CODENAME}
+                fi
+                wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
+                chmod +x /tmp/script.deb.sh
+                os=$os dist=$dist /tmp/script.deb.sh
+                rm -f /tmp/script.deb.sh
+            else
+                curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
+            fi
+        fi
+    fi
+
+    if notInstalled speedtest && notInstalled speedtest-cli; then
+        sudo $PKG_MANAGER install -y speedtest
     fi
     if [ -f /usr/local/bin/speedtest ]; then
         rm -f /usr/local/bin/speedtest
@@ -177,16 +190,15 @@ install() {
     download $admin_dir admin https://github.com/arevindh/AdminLTE web
     if [ -f $curr_wp ]; then
         if ! cat $curr_wp | grep -q SpeedTest; then
-            cp -a $curr_wp $org_wp
+            cp -af $curr_wp $org_wp
         fi
         if [ ! -f $last_wp ]; then
-            cp -a $curr_wp $last_wp
+            cp -af $curr_wp $last_wp
         fi
     fi
-    cp -a /opt/mod_pihole/advanced/Scripts/webpage.sh $curr_wp
-    cp -a /opt/mod_pihole/advanced/Scripts/speedtestmod /opt/pihole/speedtestmod
+    cp -af /opt/mod_pihole/advanced/Scripts/webpage.sh $curr_wp
+    cp -af /opt/mod_pihole/advanced/Scripts/speedtestmod/. /opt/pihole/speedtestmod/
     chmod +x $curr_wp
-    manageHistory db .
     pihole -a -s
     pihole updatechecker local
 }
@@ -200,16 +212,16 @@ uninstall() {
                 download /opt org_pihole https://github.com/pi-hole/pi-hole Pi-hole
             fi
             cd /opt
-            cp -a org_pihole/advanced/Scripts/webpage.sh $org_wp
+            cp -af org_pihole/advanced/Scripts/webpage.sh $org_wp
             rm -rf org_pihole
         fi
 
-        pihole -a -su
+        pihole -a -s 0
         download $admin_dir admin https://github.com/pi-hole/AdminLTE web
         if [ ! -f $last_wp ]; then
-            cp -a $curr_wp $last_wp
+            cp -af $curr_wp $last_wp
         fi
-        cp -a $org_wp $curr_wp
+        cp -af $org_wp $curr_wp
         chmod +x $curr_wp
         rm -rf /opt/mod_pihole
         pihole updatechecker
@@ -230,16 +242,21 @@ purge() {
     rm -f "$curr_wp".*
     rm -f "$curr_db".*
     rm -f "$curr_db"_*
+    rm -f /etc/pihole/last_speedtest.*
     if isEmpty $curr_db; then
         rm -f $curr_db
     fi
 
-    pi-hole updatechecker
+    pihole updatechecker
 }
 
 update() {
-    echo "Updating Pi-hole..."
-    PIHOLE_SKIP_OS_CHECK=true sudo -E pihole -up
+    if [[ -d /run/systemd/system ]]; then
+        echo "Updating Pi-hole..."
+        PIHOLE_SKIP_OS_CHECK=true sudo -E pihole -up
+    else
+        echo "Systemd not found. Skipping Pi-hole update..."
+    fi
     if [ "${1-}" == "un" ]; then
         purge
         exit 0
@@ -250,7 +267,7 @@ abort() {
     echo "Process Aborting..."
 
     if [ -f $last_wp ]; then
-        cp -a $last_wp $curr_wp
+        cp -af $last_wp $curr_wp
         chmod +x $curr_wp
         rm -f $last_wp
     fi
@@ -264,12 +281,9 @@ abort() {
         download $admin_dir admin old web
     fi
 
-    if (($aborted == 0)); then
-        pihole restartdns
-        printf "Please try again or try manually.\n\n$(date)\n"
-    fi
+    pihole restartdns
     aborted=1
-    exit 1
+    printf "Please try again or try manually.\n\n$(date)\n"
 }
 
 commit() {
@@ -278,7 +292,6 @@ commit() {
     rm -f $last_wp
     pihole restartdns
     printf "Done!\n\n$(date)\n"
-    exit 0
 }
 
 main() {
@@ -313,9 +326,13 @@ main() {
         ;;
     *)
         install
+        manageHistory $db
         ;;
     esac
     exit 0
 }
 
-main "$@" 2>&1 | sudo tee -- "$LOG_FILE"
+rm -f /tmp/pimod.log
+main "$@" 2>&1 | tee -a /tmp/pimod.log
+mv -f /tmp/pimod.log /var/log/pihole/mod.log
+exit $aborted

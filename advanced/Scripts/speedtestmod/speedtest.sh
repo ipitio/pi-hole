@@ -1,8 +1,20 @@
 #!/bin/bash
-FILE=/tmp/speedtest.log
-readonly setupVars="/etc/pihole/setupVars.conf"
-serverid=$(grep 'SPEEDTEST_SERVER' ${setupVars} | cut -d '=' -f2)
-start=$(date +"%Y-%m-%d %H:%M:%S %Z")
+start=$(date -u --rfc-3339='seconds')
+out=/tmp/speedtest.log
+serverid=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2)
+create_table="create table if not exists speedtest (
+id integer primary key autoincrement,
+start_time text,
+stop_time text,
+from_server text,
+from_ip text,
+server text,
+server_dist real,
+server_ping real,
+download real,
+upload real,
+share_url text
+);"
 
 speedtest() {
     if grep -q official <<< "$(/usr/bin/speedtest --version)"; then
@@ -21,52 +33,81 @@ speedtest() {
 }
 
 internet() {
-    stop=$(date +"%Y-%m-%d %H:%M:%S %Z")
-    res="$(<$FILE)"
-    server_name=$(jq -r '.server.name' <<< "$res")
-    server_dist=0
+    stop=$(date -u --rfc-3339='seconds')
+    res="$(</tmp/speedtest_results)"
+    server_id=$(jq -r '.server.id' <<< "$res")
+    servers="$(curl 'https://www.speedtest.net/api/js/servers' --compressed -H 'Upgrade-Insecure-Requests: 1' -H 'DNT: 1' -H 'Sec-GPC: 1')"
+    server_dist=$(jq --arg id "$server_id" '.[] | select(.id == $id) | .distance' <<< "$servers")
 
     if grep -q official <<< "$(/usr/bin/speedtest --version)"; then
+        server_name=$(jq -r '.server.name' <<< "$res")
         download=$(jq -r '.download.bandwidth' <<< "$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
         upload=$(jq -r '.upload.bandwidth' <<< "$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
         isp=$(jq -r '.isp' <<< "$res")
-        server_ip=$(jq -r '.server.ip' <<< "$res")
         from_ip=$(jq -r '.interface.externalIp' <<< "$res")
         server_ping=$(jq -r '.ping.latency' <<< "$res")
         share_url=$(jq -r '.result.url' <<< "$res")
+        if [ -z "$server_dist" ]; then
+            server_dist="-1"
+        fi
     else
+        server_name=$(jq -r '.server.sponsor' <<< "$res")
         download=$(jq -r '.download' <<< "$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
         upload=$(jq -r '.upload' <<< "$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
         isp=$(jq -r '.client.isp' <<< "$res")
-        server_ip=$(jq -r '.server.host' <<< "$res")
         from_ip=$(jq -r '.client.ip' <<< "$res")
         server_ping=$(jq -r '.ping' <<< "$res")
         share_url=$(jq -r '.share' <<< "$res")
+        if [ -z "$server_dist" ]; then
+            server_dist=$(jq -r '.server.d' <<< "$res")
+        fi
     fi
 
-    sep="\t"
-    quote=""
-    opts=
-    sep="$quote$sep$quote"
-    printf "$quote$start$sep$stop$sep$isp$sep$from_ip$sep$server_name$sep$server_dist$sep$server_ping$sep$download$sep$upload$sep$share_url$quote\n"
+    jq . /tmp/speedtest_results
+    sqlite3 /etc/pihole/speedtest.db "$create_table"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start}', '${stop}', '${isp}', '${from_ip}', '${server_name}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
+    mv -f "$out" /var/log/pihole/speedtest.log
     exit 0
 }
 
 nointernet(){
-    stop=$(date +"%Y-%m-%d %H:%M:%S %Z")
+    stop=$(date -u --rfc-3339='seconds')
+    rm -f /tmp/speedtest_results
     echo "No Internet"
+    sqlite3 /etc/pihole/speedtest.db "$create_table"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start}', '${stop}', 'No Internet', '-', '-', 0, 0, 0, 0, '#');"
+    mv -f "$out" /var/log/pihole/speedtest.log
     exit 1
 }
 
-tryagain(){
-    if apt-cache policy speedtest-cli | grep -q 'Installed: (none)'; then
-        apt-get install -y speedtest-cli speedtest-
+notInstalled() {
+    if [ -x "$(command -v yum)" ] || [ -x "$(command -v dnf)" ]; then
+        rpm -q "$1" &>/dev/null || return 0
+    elif [ -x "$(command -v apt-get)" ]; then
+        dpkg -s "$1" &>/dev/null || return 0
     else
-        apt-get install -y speedtest speedtest-cli-
+        echo "Unsupported package manager!"
+        mv -f "$out" /var/log/pihole/speedtest.log
+        exit 1
     fi
-    speedtest > "$FILE" && internet || nointernet
+    return 1
+}
+
+tryagain(){
+    if notInstalled speedtest-cli; then
+        if [ -x "$(command -v apt-get)" ]; then
+            apt-get install -y speedtest-cli speedtest-
+        else
+            yum install -y --allowerasing speedtest-cli
+        fi
+    else
+        if [ -x "$(command -v apt-get)" ]; then
+            apt-get install -y speedtest speedtest-cli-
+        else
+            yum install -y --allowerasing speedtest
+        fi
+    fi
+    speedtest > /tmp/speedtest_results && internet || nointernet
 }
 
 main() {
@@ -74,8 +115,9 @@ main() {
         sudo "$0" "$@"
         exit $?
     fi
-    echo "Test has been initiated, please wait."
-    speedtest > "$FILE" && internet || tryagain
+    echo "Test has been initiated, please wait..."
+    speedtest > /tmp/speedtest_results && internet || tryagain
 }
 
-main
+rm -f "$out"
+main | tee -a "$out"

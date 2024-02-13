@@ -64,7 +64,6 @@ Options:
   -sc                             Clear speedtest data
   -ss                             Set custom server
   -st                             Set default speedtest chart type (line, bar)
-  -su                             Stop future scheduled speedtests
   -l, privacylevel                Set privacy level (0 = lowest, 3 = highest)
   -t, teleporter                  Backup configuration as an archive
   -t, teleporter myname.tar.gz    Backup configuration to archive with name myname.tar.gz as specified"
@@ -562,14 +561,14 @@ generate_systemd_calendar() {
     elif (( $(echo "$total_seconds == 3600" | bc -l) )); then # exactly an hour
         freq_entries+=("*-*-* *:00:00")
     elif (( $(echo "$total_seconds < 86400" | bc -l) )); then # less than a day
-        if (( $(echo "3600 % $total_seconds == 0" | bc -l) )); then # divides evenly into an hour
+        if (( $(awk "BEGIN {print ($total_seconds / 3600) % 1}") == 0 )); then # divides evenly into an hour
             local hour_interval=$(echo "$total_seconds / 3600" | bc)
             freq_entries+=("*-*-* 00/$hour_interval:00:00")
         else # does not divide evenly into an hour
             local current_second=0
             while (( $(echo "$current_second < 86400" | bc -l) )); do
                 local hour=$(echo "$current_second / 3600" | bc)
-                local minute=$(echo "($current_second % 3600) / 60" | bc)
+                local minute=$(awk "BEGIN {print ($current_second % 3600) / 60}")
                 hour=${hour%.*}
                 minute=${minute%.*}
                 freq_entries+=("*-*-* $(printf "%02d:%02d:00" $hour $minute)")
@@ -594,15 +593,88 @@ generate_systemd_calendar() {
     echo "${freq_entries[*]}"
 }
 
-SetService() {
-    # Remove OLD
-    crontab -l >crontab.tmp || true
-    sed -i '/speedtest/d' crontab.tmp
-    crontab crontab.tmp && rm -f crontab.tmp
-    if [[ "$1" == "0" ]]; then
-        UnsetService
+generate_cron_schedule() {
+    local total_seconds="nan"
+    local schedule_script="/opt/pihole/speedtestmod/schedule_check.sh"
+
+    if [[ "$1" != "nan" ]] && [[ "$1" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]] && (( $(echo "$1 > 0" | bc -l) )); then
+        total_seconds=$(echo "$1 * 3600" | bc)
+        if (( $(echo "$total_seconds < 60" | bc -l) )); then
+            total_seconds=60
+        fi
+
+        local remainder=$(awk "BEGIN {print $total_seconds % 60}")
+        if (( $(echo "$remainder < 30" | bc -l) )); then
+            total_seconds=$(echo "$total_seconds - $remainder" | bc -l)
+        else
+            total_seconds=$(echo "$total_seconds + (60 - $remainder)" | bc -l)
+        fi
+        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "$(echo "scale=3; $total_seconds / 3600" | bc)"
+    fi
+
+    sudo bash -c "cat > $(printf %q "$schedule_script")" << EOF
+#!/bin/bash
+# Schedule script to handle complex cron schedules
+last_run_file="/etc/pihole/last_speedtest"
+interval_seconds=$total_seconds
+
+schedule=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")
+
+# if schedule is set and interval is "nan", set the speedtest interval to the schedule
+if [[ "\$interval_seconds" == "nan" ]]; then
+    if [[ "\${schedule-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
+        /usr/local/bin/pihole -a -s "\$schedule"
+    fi
+    exit 0
+fi
+
+if (( \$(echo "\$interval_seconds <= 0" | bc -l) )); then
+    exit 0
+fi
+
+if [[ -f "\$last_run_file" ]]; then
+    last_run=\$(cat "\$last_run_file")
+    current_time=\$(date +%s)
+    if (( \$(echo "\$current_time - \$last_run < \$interval_seconds" | bc -l) )); then
+        exit 0
+    fi
+fi
+
+if [[ \$(tmux list-sessions 2>/dev/null | grep -c pimod) -eq 0 ]]; then
+    echo \$(date +%s) > "\$last_run_file"
+    /usr/bin/tmux new-session -d -s pimod "cat $speedtestfile | sudo bash"
+fi
+EOF
+    sudo chmod +x "$schedule_script"
+
+    crontab -l 2>/dev/null | grep -v "$schedule_script" | crontab -
+    if [[ "$total_seconds" == "nan" ]] || (( $(echo "$total_seconds > 0" | bc -l) )); then
+        crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
+        (crontab -l; echo "* * * * * /bin/bash $schedule_script") | crontab -
+        sudo bash -c "$schedule_script"
+    fi
+}
+
+ChangeSpeedTestSchedule() {
+    local interval="${args[2]%\.}"
+    if [[ "${interval-}" =~ ^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
+        if (( $(echo "$interval < 0" | bc -l) )); then
+            interval="0"
+        fi
+        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "$interval"
     else
-        freq=$(generate_systemd_calendar "$1")
+        interval=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
+        if [[ ! "${interval-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
+            interval="nan"
+        fi
+    fi
+
+    if [[ ! -d /run/systemd/system ]]; then
+        generate_cron_schedule "$interval"
+    elif [[ "$interval" == "0" ]] || [[ "$interval" == "nan" ]]; then
+        systemctl disable --now pihole-speedtest.timer &> /dev/null
+    else
+        local freq=$(generate_systemd_calendar "$interval")
         sudo bash -c 'cat > /etc/systemd/system/pihole-speedtest.service << EOF
 [Unit]
 Description=Pi-hole Speedtest
@@ -629,30 +701,10 @@ EOF'
         while IFS= read -r line; do
             sudo bash -c "echo 'OnCalendar=$line' >> /etc/systemd/system/pihole-speedtest.timer"
         done <<< "$freq"
+
         systemctl daemon-reload
         systemctl reenable pihole-speedtest.timer &> /dev/null
         systemctl restart pihole-speedtest.timer
-    fi
-}
-
-UnsetService() {
-    systemctl disable --now pihole-speedtest.timer &> /dev/null
-}
-
-ChangeSpeedTestSchedule() {
-    args[2]=${args[2]%\.}
-    if [[ "${args[2]-}" =~ ^([0-9]+(\.[0-9]+)?|\.[0-9]+)$ ]]; then
-        if (( $(echo "${args[2]} >= 0" | bc -l) )); then
-            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "${args[2]}"
-            SetService "${args[2]}"
-        fi
-    else
-        SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-        if [[ -z "${SPEEDTESTSCHEDULE}" ]]; then
-            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0"
-        fi
-        SPEEDTESTSCHEDULE=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-        SetService "${SPEEDTESTSCHEDULE}"
     fi
 }
 
@@ -682,7 +734,9 @@ SpeedtestServer() {
 }
 
 RunSpeedtestNow() {
-    tmux new-session -d -s pimod "cat $speedtestfile | sudo bash"
+    if [[ $(tmux list-sessions 2>/dev/null | grep -c pimod) -eq 0 ]]; then
+        tmux new-session -d -s pimod "cat $speedtestfile | sudo bash"
+    fi
 }
 
 ReinstallSpeedTest() {
@@ -1053,7 +1107,6 @@ main() {
         "-sc"                 ) ClearSpeedtestData;;
         "-ss"                 ) SpeedtestServer;;
         "-st"                 ) UpdateSpeedTestChartType;;
-        "-su"                 ) UnsetService;;
         "addcustomdns"        ) AddCustomDNSAddress;;
         "removecustomdns"     ) RemoveCustomDNSAddress;;
         "addcustomcname"      ) AddCustomCNAMERecord;;
