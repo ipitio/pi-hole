@@ -651,7 +651,7 @@ EOF
     if [[ "$total_seconds" == "nan" ]] || (( $(echo "$total_seconds > 0" | bc -l) )); then
         crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
         (crontab -l; echo "* * * * * /bin/bash $schedule_script") | crontab -
-        sudo bash -c "$schedule_script"
+        bash -c "$schedule_script"
     fi
 }
 
