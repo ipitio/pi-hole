@@ -32,52 +32,63 @@ speedtest() {
     fi
 }
 
+savetest() {
+    local start_time=$1
+    local stop_time=$2
+    local isp=${3-"No Internet"}
+    local from_ip=${4-"-"}
+    local server=${5-"-"}
+    local server_dist=${6-0}
+    local server_ping=${7-0}
+    local download=${8-0}
+    local upload=${9-0}
+    local share_url=${10-"#"}
+    sqlite3 /etc/pihole/speedtest.db "$create_table"
+    sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start_time}', '${stop_time}', '${isp}', '${from_ip}', '${server}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
+    mv -f "$out" /var/log/pihole/speedtest.log
+    rm -f /tmp/speedtest_results
+    [ "$isp" == "No Internet" ] && exit 1 || exit 0
+}
+
 internet() {
-    stop=$(date -u --rfc-3339='seconds')
-    res="$(</tmp/speedtest_results)"
-    server_id=$(jq -r '.server.id' <<< "$res")
-    servers="$(curl 'https://www.speedtest.net/api/js/servers' --compressed -H 'Upgrade-Insecure-Requests: 1' -H 'DNT: 1' -H 'Sec-GPC: 1')"
-    server_dist=$(jq --arg id "$server_id" '.[] | select(.id == $id) | .distance' <<< "$servers")
+    local stop=$(date -u --rfc-3339='seconds')
+    local res="$(</tmp/speedtest_results)"
+    local server_id=$(jq -r '.server.id' <<< "$res")
+    local servers="$(curl 'https://www.speedtest.net/api/js/servers' --compressed -H 'Upgrade-Insecure-Requests: 1' -H 'DNT: 1' -H 'Sec-GPC: 1')"
+    local server_dist=$(jq --arg id "$server_id" '.[] | select(.id == $id) | .distance' <<< "$servers")
 
     if grep -q official <<< "$(/usr/bin/speedtest --version)"; then
-        server_name=$(jq -r '.server.name' <<< "$res")
-        download=$(jq -r '.download.bandwidth' <<< "$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
-        upload=$(jq -r '.upload.bandwidth' <<< "$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
-        isp=$(jq -r '.isp' <<< "$res")
-        from_ip=$(jq -r '.interface.externalIp' <<< "$res")
-        server_ping=$(jq -r '.ping.latency' <<< "$res")
-        share_url=$(jq -r '.result.url' <<< "$res")
+        local server_name=$(jq -r '.server.name' <<< "$res")
+        local download=$(jq -r '.download.bandwidth' <<< "$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
+        local upload=$(jq -r '.upload.bandwidth' <<< "$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
+        local isp=$(jq -r '.isp' <<< "$res")
+        local from_ip=$(jq -r '.interface.externalIp' <<< "$res")
+        local server_ping=$(jq -r '.ping.latency' <<< "$res")
+        local share_url=$(jq -r '.result.url' <<< "$res")
         if [ -z "$server_dist" ]; then
             server_dist="-1"
         fi
     else
-        server_name=$(jq -r '.server.sponsor' <<< "$res")
-        download=$(jq -r '.download' <<< "$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
-        upload=$(jq -r '.upload' <<< "$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
-        isp=$(jq -r '.client.isp' <<< "$res")
-        from_ip=$(jq -r '.client.ip' <<< "$res")
-        server_ping=$(jq -r '.ping' <<< "$res")
-        share_url=$(jq -r '.share' <<< "$res")
+        local server_name=$(jq -r '.server.sponsor' <<< "$res")
+        local download=$(jq -r '.download' <<< "$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
+        local upload=$(jq -r '.upload' <<< "$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
+        local isp=$(jq -r '.client.isp' <<< "$res")
+        local from_ip=$(jq -r '.client.ip' <<< "$res")
+        local server_ping=$(jq -r '.ping' <<< "$res")
+        local share_url=$(jq -r '.share' <<< "$res")
         if [ -z "$server_dist" ]; then
             server_dist=$(jq -r '.server.d' <<< "$res")
         fi
     fi
 
     jq . /tmp/speedtest_results
-    sqlite3 /etc/pihole/speedtest.db "$create_table"
-    sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start}', '${stop}', '${isp}', '${from_ip}', '${server_name}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
-    mv -f "$out" /var/log/pihole/speedtest.log
-    exit 0
+    savetest "$start" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
 }
 
 nointernet(){
-    stop=$(date -u --rfc-3339='seconds')
-    rm -f /tmp/speedtest_results
+    local stop=$(date -u --rfc-3339='seconds')
     echo "No Internet"
-    sqlite3 /etc/pihole/speedtest.db "$create_table"
-    sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start}', '${stop}', 'No Internet', '-', '-', 0, 0, 0, 0, '#');"
-    mv -f "$out" /var/log/pihole/speedtest.log
-    exit 1
+    savetest "$start" "$stop"
 }
 
 notInstalled() {
