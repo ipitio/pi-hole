@@ -218,7 +218,7 @@ uninstall() {
             rm -rf org_pihole
         fi
 
-        pihole -a -s 0
+        pihole -a -s -1
         download $admin_dir admin https://github.com/pi-hole/AdminLTE web
         if [ ! -f $last_wp ]; then
             cp -af $curr_wp $last_wp
