@@ -1,8 +1,7 @@
 #!/bin/bash
-FILE=/tmp/speedtest.log
 start=$(date -u --rfc-3339='seconds')
+out=/tmp/speedtest.log
 serverid=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2)
-
 create_table="create table if not exists speedtest (
 id integer primary key autoincrement,
 start_time text,
@@ -16,7 +15,6 @@ download real,
 upload real,
 share_url text
 );"
-sqlite3 /etc/pihole/speedtest.db "$create_table"
 
 speedtest() {
     if grep -q official <<< "$(/usr/bin/speedtest --version)"; then
@@ -66,8 +64,9 @@ internet() {
     fi
 
     jq . /tmp/speedtest_results
+    sqlite3 /etc/pihole/speedtest.db "$create_table"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start}', '${stop}', '${isp}', '${from_ip}', '${server_name}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
-    mv -f "$FILE" /var/log/pihole/speedtest.log
+    mv -f "$out" /var/log/pihole/speedtest.log
     exit 0
 }
 
@@ -75,8 +74,9 @@ nointernet(){
     stop=$(date -u --rfc-3339='seconds')
     rm -f /tmp/speedtest_results
     echo "No Internet"
+    sqlite3 /etc/pihole/speedtest.db "$create_table"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start}', '${stop}', 'No Internet', '-', '-', 0, 0, 0, 0, '#');"
-    mv -f "$FILE" /var/log/pihole/speedtest.log
+    mv -f "$out" /var/log/pihole/speedtest.log
     exit 1
 }
 
@@ -87,7 +87,7 @@ notInstalled() {
         dpkg -s "$1" &>/dev/null || return 0
     else
         echo "Unsupported package manager!"
-        mv -f "$FILE" /var/log/pihole/speedtest.log
+        mv -f "$out" /var/log/pihole/speedtest.log
         exit 1
     fi
     return 1
@@ -119,5 +119,5 @@ main() {
     speedtest > /tmp/speedtest_results && internet || tryagain
 }
 
-rm -f "$FILE"
-main | tee -a "$FILE"
+rm -f "$out"
+main | tee -a "$out"
