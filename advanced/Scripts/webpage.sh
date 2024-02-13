@@ -663,9 +663,7 @@ ChangeSpeedTestSchedule() {
             addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "$interval"
         fi
     else
-        cat $setupVars
         interval=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
-        echo "Interval: $interval"
         if [[ ! "${interval-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
             interval="nan"
         fi
