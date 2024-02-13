@@ -659,8 +659,9 @@ ChangeSpeedTestSchedule() {
     if [[ "${interval-}" =~ ^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
         if (( $(echo "$interval < 0" | bc -l) )); then
             interval="0"
+        else
+            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "$interval"
         fi
-        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "$interval"
     else
         interval=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
         if [[ ! "${interval-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then

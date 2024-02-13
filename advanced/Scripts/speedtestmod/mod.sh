@@ -201,8 +201,8 @@ install() {
     cp -af /opt/mod_pihole/advanced/Scripts/webpage.sh $curr_wp
     cp -af /opt/mod_pihole/advanced/Scripts/speedtestmod/. /opt/pihole/speedtestmod/
     chmod +x $curr_wp
-    pihole -a -s
     pihole updatechecker local
+    pihole -a -s
 }
 
 uninstall() {
@@ -218,7 +218,7 @@ uninstall() {
             rm -rf org_pihole
         fi
 
-        pihole -a -s 0
+        pihole -a -s -1
         download $admin_dir admin https://github.com/pi-hole/AdminLTE web
         if [ ! -f $last_wp ]; then
             cp -af $curr_wp $last_wp
