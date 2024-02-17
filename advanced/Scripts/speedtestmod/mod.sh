@@ -28,7 +28,9 @@ setTags() {
     fi
     if [ ! -z "$name" ]; then
         localTag=$(pihole -v | grep "$name" | cut -d ' ' -f 6)
-        [ "$localTag" == "HEAD" ] && localTag=$(pihole -v | grep "$name" | cut -d ' ' -f 7)
+        if [ "$localTag" == "HEAD" ]; then
+            localTag=$(pihole -v | grep "$name" | cut -d ' ' -f 7)
+        fi
     fi
 }
 
