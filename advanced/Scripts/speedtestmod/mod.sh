@@ -28,7 +28,9 @@ setTags() {
     fi
     if [ ! -z "$name" ]; then
         localTag=$(pihole -v | grep "$name" | cut -d ' ' -f 6)
-        [ "$localTag" == "HEAD" ] && localTag=$(pihole -v | grep "$name" | cut -d ' ' -f 7)
+        if [ "$localTag" == "HEAD" ]; then
+            localTag=$(pihole -v | grep "$name" | cut -d ' ' -f 7)
+        fi
     fi
 }
 
@@ -39,11 +41,11 @@ download() {
     local src=${4-}
     local branch="${5-master}"
     local dest=$path/$name
-    if [ ! -d $dest ]; then # replicate
+    if [ ! -d "$dest" ]; then # replicate
         cd "$path"
         rm -rf "$name"
         git clone --depth=1 -b "$branch" "$url" "$name"
-        setTags "$name" "$src" $branch
+        setTags "$name" "$src" "$branch"
         if [ ! -z "$src" ]; then
             if [[ "$localTag" == *.* ]] && [[ "$localTag" < "$latestTag" ]]; then
                 latestTag=$localTag
@@ -51,27 +53,28 @@ download() {
             fi
         fi
     else # replace
-        setTags $dest "" $branch
+        setTags "$dest" "" "$branch"
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
                 git config --global --add safe.directory "$dest"
                 git remote -v | grep -q "old" || git remote rename origin old
                 git remote -v | grep -q "origin" && git remote remove origin
-                git remote add origin $url
+                git remote add origin "$url"
             elif [ -d .git/refs/remotes/old ]; then
                 git remote remove origin
                 git remote rename old origin
+                git clean -ffdx
             fi
             git fetch origin -q
+            setTags "$dest" "$src" "$branch"
         fi
-        git reset --hard origin/$branch
-        git checkout -B $branch -q
-        git branch -u origin/$branch
-        git clean -ffdx
+        git reset --hard origin/"$branch"
+        git checkout -B "$branch" -q
+        git branch -u origin/"$branch"
     fi
 
     if [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag)" ]; then
-        git -c advice.detachedHead=false checkout $latestTag
+        git -c advice.detachedHead=false checkout "$latestTag"
     fi
     cd ..
 }
@@ -154,7 +157,7 @@ install() {
     if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
         if [ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]; then
             echo "Adding speedtest source for RPM..."
-            sudo bash -c 'curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash'
+            curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash
         fi
     elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
         if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
