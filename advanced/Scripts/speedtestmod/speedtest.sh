@@ -75,9 +75,10 @@ notInstalled() {
 }
 
 run() {
-    local res=$(speedtest >/tmp/speedtest_results)
+    speedtest >/tmp/speedtest_results
     local stop=$(date -u --rfc-3339='seconds')
-    if $res; then
+    if jq -e . /tmp/speedtest_results &>/dev/null; then
+        local res=$(</tmp/speedtest_results)
         local server_id=$(jq -r '.server.id' <<<"$res")
         local servers="$(curl 'https://www.speedtest.net/api/js/servers' --compressed -H 'Upgrade-Insecure-Requests: 1' -H 'DNT: 1' -H 'Sec-GPC: 1')"
         local server_dist=$(jq --arg id "$server_id" '.[] | select(.id == $id) | .distance' <<<"$servers")
