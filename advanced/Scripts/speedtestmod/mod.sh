@@ -65,7 +65,6 @@ download() {
                 git remote rename old origin
                 git clean -ffdx
             fi
-            git fetch origin -q
             setTags "$dest" "$src" "$branch"
         fi
         git reset --hard origin/"$branch"
