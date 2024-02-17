@@ -45,9 +45,9 @@ savetest() {
     local share_url=${10:-"#"}
     sqlite3 /etc/pihole/speedtest.db "$create_table"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start_time}', '${stop_time}', '${isp}', '${from_ip}', '${server}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
-    mv -f "$out" /var/log/pihole/speedtest.log
+    mv -f /tmp/speedtest_results /var/log/pihole/speedtest.log
     cp -af /var/log/pihole/speedtest.log /etc/pihole/speedtest.log
-    rm -f /tmp/speedtest_results
+    rm -f "$out"
     [ "$isp" == "No Internet" ] && exit 1 || exit 0
 }
 
@@ -127,9 +127,10 @@ main() {
         sudo "$0" "$@"
         exit $?
     fi
+    echo "Running test..."
     run
 }
 
-echo "Running test..."
+
 rm -f "$out"
 main | tee -a "$out"
