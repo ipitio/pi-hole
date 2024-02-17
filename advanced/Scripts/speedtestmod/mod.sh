@@ -42,8 +42,8 @@ download() {
     local branch="${5:-master}"
     local dest=$path/$name
 
-    cd "$path"
     if [ ! -d "$dest" ]; then # replicate
+        cd "$path"
         rm -rf "$name"
         git clone --depth=1 -b "$branch" "$url" "$name"
         setTags "$name" "${src:-}" "$branch"
@@ -54,6 +54,7 @@ download() {
             fi
         fi
     else # replace
+        cd "$dest"
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
                 git config --global --add safe.directory "$dest"
