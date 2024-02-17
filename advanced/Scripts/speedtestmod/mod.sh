@@ -17,9 +17,9 @@ help() {
 }
 
 setTags() {
-    local path=${1-}
-    local name=${2-}
-    local branch="${3-master}"
+    local path=${1:-}
+    local name=${2:-}
+    local branch="${3:-master}"
     if [ ! -z "$path" ]; then
         cd "$path"
         git fetch origin $branch:refs/remotes/origin/$branch -q
@@ -38,14 +38,15 @@ download() {
     local path=$1
     local name=$2
     local url=$3
-    local src=${4-}
-    local branch="${5-master}"
+    local src=${4:-}
+    local branch="${5:-master}"
     local dest=$path/$name
+
     if [ ! -d "$dest" ]; then # replicate
         cd "$path"
         rm -rf "$name"
         git clone --depth=1 -b "$branch" "$url" "$name"
-        setTags "$name" "$src" "$branch"
+        setTags "$name" "${src:-}" "$branch"
         if [ ! -z "$src" ]; then
             if [[ "$localTag" == *.* ]] && [[ "$localTag" < "$latestTag" ]]; then
                 latestTag=$localTag
@@ -53,7 +54,7 @@ download() {
             fi
         fi
     else # replace
-        setTags "$dest" "" "$branch"
+        cd "$dest"
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
                 git config --global --add safe.directory "$dest"
@@ -65,9 +66,8 @@ download() {
                 git remote rename old origin
                 git clean -ffdx
             fi
-            git fetch origin -q
-            setTags "$dest" "$src" "$branch"
         fi
+        setTags "$dest" "${src:-}" "$branch"
         git reset --hard origin/"$branch"
         git checkout -B "$branch" -q
         git branch -u origin/"$branch"
@@ -90,7 +90,7 @@ isEmpty() {
 }
 
 manageHistory() {
-    if [ "${1-}" == "db" ]; then
+    if [ "${1:-}" == "db" ]; then
         if [ -f $curr_db ] && ! isEmpty $curr_db; then
             echo "Flushing Database..."
             mv -f $curr_db $last_db
@@ -232,7 +232,7 @@ uninstall() {
         pihole updatechecker
     fi
 
-    manageHistory ${1-}
+    manageHistory ${1:-}
 }
 
 purge() {
@@ -262,7 +262,7 @@ update() {
     else
         echo "Systemd not found. Skipping Pi-hole update..."
     fi
-    if [ "${1-}" == "un" ]; then
+    if [ "${1:-}" == "un" ]; then
         purge
         exit 0
     fi
@@ -301,7 +301,7 @@ commit() {
 
 main() {
     printf "Thanks for using Speedtest Mod!\nScript by @ipitio\n\n$(date)\n\n"
-    local op=${1-}
+    local op=${1:-}
     if [ "$op" == "-h" ] || [ "$op" == "--help" ]; then
         help
         exit 0
@@ -315,7 +315,7 @@ main() {
     trap '[ "$?" -eq "0" ] && commit || abort' EXIT
     trap 'abort' INT TERM
 
-    local db=$([ "$op" == "up" ] && echo "${3-}" || [ "$op" == "un" ] && echo "${2-}" || echo "$op")
+    local db=$([ "$op" == "up" ] && echo "${3:-}" || [ "$op" == "un" ] && echo "${2:-}" || echo "$op")
     case $op in
     db)
         manageHistory $db
@@ -326,7 +326,7 @@ main() {
         ;;
     up)
         uninstall $db
-        update ${2-}
+        update ${2:-}
         install
         ;;
     *)
