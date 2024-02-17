@@ -107,7 +107,7 @@ run() {
             fi
         fi
 
-        jq . /tmp/speedtest_results
+        jq . /tmp/speedtest_results >/tmp/speedtest_results
         savetest "$start" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
     elif [ "${1:-}" == "3" ]; then
         echo "Test Failed!" >/tmp/speedtest_results
@@ -130,7 +130,6 @@ main() {
     echo "Running test..."
     run
 }
-
 
 rm -f "$out"
 main | tee -a "$out"
