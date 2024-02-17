@@ -53,6 +53,7 @@ download() {
             fi
         fi
     else # replace
+        setTags "$dest" "" "$branch"
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
                 git config --global --add safe.directory "$dest"
@@ -64,8 +65,8 @@ download() {
                 git remote rename old origin
                 git clean -ffdx
             fi
+            setTags "$dest" "${src:-}" "$branch"
         fi
-        setTags "$dest" "${src:-}" "$branch"
         git reset --hard origin/"$branch"
         git checkout -B "$branch" -q
         git branch -u origin/"$branch"
