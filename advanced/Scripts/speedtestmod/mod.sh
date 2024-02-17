@@ -41,11 +41,12 @@ download() {
     local src=${4:-}
     local branch="${5:-master}"
     local dest=$path/$name
+
+    cd "$path"
     if [ ! -d "$dest" ]; then # replicate
-        cd "$path"
         rm -rf "$name"
         git clone --depth=1 -b "$branch" "$url" "$name"
-        setTags "$name" "$src" "$branch"
+        setTags "$name" "${src:-}" "$branch"
         if [ ! -z "$src" ]; then
             if [[ "$localTag" == *.* ]] && [[ "$localTag" < "$latestTag" ]]; then
                 latestTag=$localTag
@@ -53,7 +54,6 @@ download() {
             fi
         fi
     else # replace
-        setTags "$dest" "" "$branch"
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
                 git config --global --add safe.directory "$dest"
@@ -65,8 +65,8 @@ download() {
                 git remote rename old origin
                 git clean -ffdx
             fi
-            setTags "$dest" "${src:-}" "$branch"
         fi
+        setTags "$dest" "${src:-}" "$branch"
         git reset --hard origin/"$branch"
         git checkout -B "$branch" -q
         git branch -u origin/"$branch"
