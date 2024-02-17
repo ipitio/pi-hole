@@ -17,9 +17,9 @@ help() {
 }
 
 setTags() {
-    local path=${1-}
-    local name=${2-}
-    local branch="${3-master}"
+    local path=${1:-}
+    local name=${2:-}
+    local branch="${3:-master}"
     if [ ! -z "$path" ]; then
         cd "$path"
         git fetch origin $branch:refs/remotes/origin/$branch -q
@@ -38,14 +38,14 @@ download() {
     local path=$1
     local name=$2
     local url=$3
-    local src=${4-}
-    local branch="${5-master}"
+    local src=${4:-}
+    local branch="${5:-master}"
     local dest=$path/$name
-    if [ ! -d $dest ]; then # replicate
+    if [ ! -d "$dest" ]; then # replicate
         cd "$path"
         rm -rf "$name"
         git clone --depth=1 -b "$branch" "$url" "$name"
-        setTags "$name" "$src" $branch
+        setTags "$name" "$src" "$branch"
         if [ ! -z "$src" ]; then
             if [[ "$localTag" == *.* ]] && [[ "$localTag" < "$latestTag" ]]; then
                 latestTag=$localTag
@@ -53,28 +53,28 @@ download() {
             fi
         fi
     else # replace
-        setTags $dest "" $branch
+        setTags "$dest" "" "$branch"
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
                 git config --global --add safe.directory "$dest"
                 git remote -v | grep -q "old" || git remote rename origin old
                 git remote -v | grep -q "origin" && git remote remove origin
-                git remote add origin $url
+                git remote add origin "$url"
             elif [ -d .git/refs/remotes/old ]; then
                 git remote remove origin
                 git remote rename old origin
+                git clean -ffdx
             fi
             git fetch origin -q
-            setTags "$dest" "$src" $branch
+            setTags "$dest" "$src" "$branch"
         fi
-        git reset --hard origin/$branch
-        git checkout -B $branch -q
-        git branch -u origin/$branch
-        git clean -ffdx
+        git reset --hard origin/"$branch"
+        git checkout -B "$branch" -q
+        git branch -u origin/"$branch"
     fi
 
     #if [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag)" ]; then
-    #    git -c advice.detachedHead=false checkout $latestTag
+    #    git -c advice.detachedHead=false checkout "$latestTag"
     #fi
     cd ..
 }
@@ -90,7 +90,7 @@ isEmpty() {
 }
 
 manageHistory() {
-    if [ "${1-}" == "db" ]; then
+    if [ "${1:-}" == "db" ]; then
         if [ -f $curr_db ] && ! isEmpty $curr_db; then
             echo "Flushing Database..."
             mv -f $curr_db $last_db
@@ -157,7 +157,7 @@ install() {
     if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
         if [ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]; then
             echo "Adding speedtest source for RPM..."
-            sudo bash -c 'curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash'
+            curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash
         fi
     elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
         if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
@@ -232,7 +232,7 @@ uninstall() {
         pihole updatechecker
     fi
 
-    manageHistory ${1-}
+    manageHistory ${1:-}
 }
 
 purge() {
@@ -262,7 +262,7 @@ update() {
     else
         echo "Systemd not found. Skipping Pi-hole update..."
     fi
-    if [ "${1-}" == "un" ]; then
+    if [ "${1:-}" == "un" ]; then
         purge
         exit 0
     fi
@@ -301,7 +301,7 @@ commit() {
 
 main() {
     printf "Thanks for using Speedtest Mod!\nScript by @ipitio\n\n$(date)\n\n"
-    local op=${1-}
+    local op=${1:-}
     if [ "$op" == "-h" ] || [ "$op" == "--help" ]; then
         help
         exit 0
@@ -315,7 +315,7 @@ main() {
     trap '[ "$?" -eq "0" ] && commit || abort' EXIT
     trap 'abort' INT TERM
 
-    local db=$([ "$op" == "up" ] && echo "${3-}" || [ "$op" == "un" ] && echo "${2-}" || echo "$op")
+    local db=$([ "$op" == "up" ] && echo "${3:-}" || [ "$op" == "un" ] && echo "${2:-}" || echo "$op")
     case $op in
     db)
         manageHistory $db
@@ -326,7 +326,7 @@ main() {
         ;;
     up)
         uninstall $db
-        update ${2-}
+        update ${2:-}
         install
         ;;
     *)
