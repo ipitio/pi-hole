@@ -47,6 +47,7 @@ savetest() {
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start_time}', '${stop_time}', '${isp}', '${from_ip}', '${server}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
     mv -f /tmp/speedtest_results /var/log/pihole/speedtest.log
     cp -af /var/log/pihole/speedtest.log /etc/pihole/speedtest.log
+    rm -f "$out"
     [ "$isp" == "No Internet" ] && exit 1 || exit 0
 }
 
@@ -74,7 +75,7 @@ notInstalled() {
 }
 
 run() {
-    speedtest >/tmp/speedtest_results && jq . /tmp/speedtest_results | tee /tmp/speedtest_results || echo "Attempt ${2:-1} Failed!" >/tmp/speedtest_results
+    speedtest | jq . >/tmp/speedtest_results || echo "Attempt ${2:-1} Failed!" >/tmp/speedtest_results
     local stop=$(date -u --rfc-3339='seconds')
     if jq -e '.server.id' /tmp/speedtest_results &>/dev/null; then
         local res=$(</tmp/speedtest_results)
@@ -129,7 +130,4 @@ main() {
     run $1 # Number of attempts
 }
 
-rm -f "$out"
-touch "$out"
-main ${1:-3} | sudo tee -a "$out"
-rm -f "$out"
+main ${1:-3} >"$out"

@@ -337,8 +337,6 @@ main() {
     exit 0
 }
 
-rm -f /tmp/pimod.log
-touch /tmp/pimod.log
-main "$@" 2>&1 | tee -a /tmp/pimod.log
+main "$@" 2>&1 >/tmp/pimod.log
 mv -f /tmp/pimod.log /var/log/pihole/mod.log
 exit $aborted
