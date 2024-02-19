@@ -130,6 +130,7 @@ main() {
     run $1 # Number of attempts
 }
 
+rm -f "$out"
 touch "$out"
 main ${1:-3} | sudo tee -a "$out"
 rm -f "$out"
