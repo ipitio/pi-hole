@@ -74,7 +74,7 @@ notInstalled() {
 }
 
 run() {
-    speedtest || echo "Attempt ${2:-1} Failed!" >/tmp/speedtest_results
+    speedtest >/tmp/speedtest_results || echo "Attempt ${2:-1} Failed!" >/tmp/speedtest_results
     local stop=$(date -u --rfc-3339='seconds')
     if jq -e '.server.id' /tmp/speedtest_results &>/dev/null; then
         local res=$(</tmp/speedtest_results)
