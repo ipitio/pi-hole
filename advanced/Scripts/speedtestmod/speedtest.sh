@@ -71,6 +71,7 @@ notInstalled() {
         mv -f "$out" /var/log/pihole/speedtest.log
         exit 1
     fi
+
     return 1
 }
 
@@ -112,11 +113,41 @@ run() {
         echo "Test Failed!" >/tmp/speedtest_results
         savetest "$start" "$stop"
     else
-        if notInstalled speedtest-cli; then
-            swaptest speedtest-cli speedtest
-        else
+        if notInstalled speedtest; then
+            local PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
+            if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
+                if [ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]; then
+                    echo "Adding speedtest source for RPM..."
+                    curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash
+                fi
+            elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
+                if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
+                    echo "Adding speedtest source for DEB..."
+                    if [ -e /etc/os-release ]; then
+                        . /etc/os-release
+                        local base="ubuntu debian"
+                        local os=${ID}
+                        local dist=${VERSION_CODENAME}
+                        if [ ! -z "${ID_LIKE-}" ] && [[ "${base//\"/}" =~ "${ID_LIKE//\"/}" ]] && [ "${os}" != "ubuntu" ]; then
+                            os=${ID_LIKE%% *}
+                            [ -z "${UBUNTU_CODENAME-}" ] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
+                            dist=${UBUNTU_CODENAME}
+                            [ -z "$dist" ] && dist=${VERSION_CODENAME}
+                        fi
+                        wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
+                        chmod +x /tmp/script.deb.sh
+                        os=$os dist=$dist /tmp/script.deb.sh
+                        rm -f /tmp/script.deb.sh
+                    else
+                        curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
+                    fi
+                fi
+            fi
             swaptest speedtest speedtest-cli
+        else
+            swaptest speedtest-cli speedtest
         fi
+
         run $1 $((${2:-1} + 1))
     fi
 }
@@ -126,7 +157,8 @@ main() {
         sudo "$0" "$@"
         exit $?
     fi
-    echo "Running test..."
+
+    echo "Running Test..."
     run $1 # Number of attempts
 }
 

@@ -136,7 +136,7 @@ install() {
     fi
 
     local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
-    local PKG_MANAGER=$(command -v apt-get || command -v yum || command -v dnf)
+    local PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
     local PKGS=(bc sqlite3 jq tmux wget "php$PHP_VERSION-sqlite3")
 
     if [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
@@ -151,44 +151,39 @@ install() {
     done
 
     if [ ${#missingPkgs[@]} -gt 0 ]; then
-        sudo $PKG_MANAGER install -y "${missingPkgs[@]}"
-    fi
-
-    if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
-        if [ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]; then
-            echo "Adding speedtest source for RPM..."
-            curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash
-        fi
-    elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
-        if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
-            echo "Adding speedtest source for DEB..."
-            if [ -e /etc/os-release ]; then
-                . /etc/os-release
-                local base="ubuntu debian"
-                local os=${ID}
-                local dist=${VERSION_CODENAME}
-                if [ ! -z "${ID_LIKE-}" ] && [[ "${base//\"/}" =~ "${ID_LIKE//\"/}" ]] && [ "${os}" != "ubuntu" ]; then
-                    os=${ID_LIKE%% *}
-                    [ -z "${UBUNTU_CODENAME-}" ] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
-                    dist=${UBUNTU_CODENAME}
-                    [ -z "$dist" ] && dist=${VERSION_CODENAME}
-                fi
-                wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
-                chmod +x /tmp/script.deb.sh
-                os=$os dist=$dist /tmp/script.deb.sh
-                rm -f /tmp/script.deb.sh
-            else
-                curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
-            fi
-        fi
+        $PKG_MANAGER install -y "${missingPkgs[@]}"
     fi
 
     if notInstalled speedtest && notInstalled speedtest-cli; then
-        sudo $PKG_MANAGER install -y speedtest
-    fi
-    if [ -f /usr/local/bin/speedtest ]; then
-        rm -f /usr/local/bin/speedtest
-        ln -s /usr/bin/speedtest /usr/local/bin/speedtest
+        if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
+            if [ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]; then
+                echo "Adding speedtest source for RPM..."
+                curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash
+            fi
+        elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
+            if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
+                echo "Adding speedtest source for DEB..."
+                if [ -e /etc/os-release ]; then
+                    . /etc/os-release
+                    local base="ubuntu debian"
+                    local os=${ID}
+                    local dist=${VERSION_CODENAME}
+                    if [ ! -z "${ID_LIKE-}" ] && [[ "${base//\"/}" =~ "${ID_LIKE//\"/}" ]] && [ "${os}" != "ubuntu" ]; then
+                        os=${ID_LIKE%% *}
+                        [ -z "${UBUNTU_CODENAME-}" ] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
+                        dist=${UBUNTU_CODENAME}
+                        [ -z "$dist" ] && dist=${VERSION_CODENAME}
+                    fi
+                    wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
+                    chmod +x /tmp/script.deb.sh
+                    os=$os dist=$dist /tmp/script.deb.sh
+                    rm -f /tmp/script.deb.sh
+                else
+                    curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
+                fi
+            fi
+        fi
+        $PKG_MANAGER install -y speedtest
     fi
 
     download /opt mod_pihole https://github.com/ipitio/pi-hole "" ipitio
