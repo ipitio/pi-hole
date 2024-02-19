@@ -19,9 +19,9 @@ share_url text
 speedtest() {
     if grep -q official <<<"$(/usr/bin/speedtest --version)"; then
         if [[ -z "${serverid}" ]]; then
-            /usr/bin/speedtest --accept-gdpr --accept-license -f json-pretty
+            /usr/bin/speedtest --accept-gdpr --accept-license -f json
         else
-            /usr/bin/speedtest -s $serverid --accept-gdpr --accept-license -f json-pretty
+            /usr/bin/speedtest -s $serverid --accept-gdpr --accept-license -f json
         fi
     else
         if [[ -z "${serverid}" ]]; then
@@ -75,9 +75,9 @@ notInstalled() {
 }
 
 run() {
-    speedtest >/tmp/speedtest_results
+    speedtest | jq . >/tmp/speedtest_results || echo "Attempt ${2:-1} Failed!" >/tmp/speedtest_results
     local stop=$(date -u --rfc-3339='seconds')
-    if jq -e . /tmp/speedtest_results &>/dev/null; then
+    if jq -e '.server.id' /tmp/speedtest_results &>/dev/null; then
         local res=$(</tmp/speedtest_results)
         local server_id=$(jq -r '.server.id' <<<"$res")
         local servers="$(curl 'https://www.speedtest.net/api/js/servers' --compressed -H 'Upgrade-Insecure-Requests: 1' -H 'DNT: 1' -H 'Sec-GPC: 1')"
@@ -107,9 +107,8 @@ run() {
             fi
         fi
 
-        jq . /tmp/speedtest_results | tee /tmp/speedtest_results
         savetest "$start" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
-    elif [ "${1:-}" == "3" ]; then
+    elif [ "${1}" == "${2:-}" ] || [ "${1}" -le 1 ]; then
         echo "Test Failed!" >/tmp/speedtest_results
         savetest "$start" "$stop"
     else
@@ -118,7 +117,7 @@ run() {
         else
             swaptest speedtest speedtest-cli
         fi
-        run $((${1:-0} + 1))
+        run $1 $((${2:-1} + 1))
     fi
 }
 
@@ -128,8 +127,7 @@ main() {
         exit $?
     fi
     echo "Running test..."
-    run
+    run $1 # Number of attempts
 }
 
-rm -f "$out"
-main | tee -a "$out"
+main ${1:-3} >"$out"
