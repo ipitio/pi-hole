@@ -19,9 +19,9 @@ share_url text
 speedtest() {
     if grep -q official <<<"$(/usr/bin/speedtest --version)"; then
         if [[ -z "${serverid}" ]]; then
-            /usr/bin/speedtest --accept-gdpr --accept-license -f json-pretty -p
+            /usr/bin/speedtest --accept-gdpr --accept-license -f json
         else
-            /usr/bin/speedtest -s $serverid --accept-gdpr --accept-license -f json-pretty -p
+            /usr/bin/speedtest -s $serverid --accept-gdpr --accept-license -f json
         fi
     else
         if [[ -z "${serverid}" ]]; then
@@ -74,7 +74,7 @@ notInstalled() {
 }
 
 run() {
-    speedtest >/tmp/speedtest_results || echo "Attempt ${2:-1} Failed!" >/tmp/speedtest_results
+    speedtest >/tmp/speedtest_results && jq . /tmp/speedtest_results | tee /tmp/speedtest_results || echo "Attempt ${2:-1} Failed!" >/tmp/speedtest_results
     local stop=$(date -u --rfc-3339='seconds')
     if jq -e '.server.id' /tmp/speedtest_results &>/dev/null; then
         local res=$(</tmp/speedtest_results)
@@ -106,7 +106,6 @@ run() {
             fi
         fi
 
-        jq . /tmp/speedtest_results | tee /tmp/speedtest_results
         savetest "$start" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
     elif [ "${1}" == "${2:-}" ] || [ "${1}" -le 1 ]; then
         echo "Test Failed!" >/tmp/speedtest_results
