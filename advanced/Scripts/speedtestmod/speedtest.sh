@@ -47,7 +47,6 @@ savetest() {
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start_time}', '${stop_time}', '${isp}', '${from_ip}', '${server}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
     mv -f /tmp/speedtest_results /var/log/pihole/speedtest.log
     cp -af /var/log/pihole/speedtest.log /etc/pihole/speedtest.log
-    rm -f "$out"
     [ "$isp" == "No Internet" ] && exit 1 || exit 0
 }
 
@@ -75,9 +74,9 @@ notInstalled() {
 }
 
 run() {
-    speedtest >/tmp/speedtest_results
+    /usr/bin/speedtest >/tmp/speedtest_results
     local stop=$(date -u --rfc-3339='seconds')
-    if jq -e . /tmp/speedtest_results &>/dev/null; then
+    if jq -e '.server.id' /tmp/speedtest_results &>/dev/null; then
         local res=$(</tmp/speedtest_results)
         local server_id=$(jq -r '.server.id' <<<"$res")
         local servers="$(curl 'https://www.speedtest.net/api/js/servers' --compressed -H 'Upgrade-Insecure-Requests: 1' -H 'DNT: 1' -H 'Sec-GPC: 1')"
@@ -109,7 +108,7 @@ run() {
 
         jq . /tmp/speedtest_results | tee /tmp/speedtest_results
         savetest "$start" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
-    elif [ "${1:-}" == "3" ]; then
+    elif [ "${1}" == "${2:-}" ]; then
         echo "Test Failed!" >/tmp/speedtest_results
         savetest "$start" "$stop"
     else
@@ -118,7 +117,7 @@ run() {
         else
             swaptest speedtest speedtest-cli
         fi
-        run $((${1:-0} + 1))
+        run $1 $((${2:-0} + 1))
     fi
 }
 
@@ -128,8 +127,9 @@ main() {
         exit $?
     fi
     echo "Running test..."
-    run
+    run $1 # Number of attempts
 }
 
+touch "$out"
+main ${1:-3} | tee -a "$out"
 rm -f "$out"
-main | tee -a "$out"
