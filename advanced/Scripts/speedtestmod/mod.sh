@@ -186,8 +186,8 @@ install() {
         $PKG_MANAGER install -y speedtest
     fi
 
-    download /opt mod_pihole https://github.com/ipitio/pi-hole "" ipitio
-    download $admin_dir admin https://github.com/ipitio/AdminLTE web
+    download /opt mod_pihole https://github.com/arevindh/pi-hole
+    download $admin_dir admin https://github.com/arevindh/AdminLTE web
     if [ -f $curr_wp ]; then
         if ! cat $curr_wp | grep -q SpeedTest; then
             cp -af $curr_wp $org_wp
