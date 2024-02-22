@@ -651,7 +651,6 @@ EOF
     if [[ "$total_seconds" == "nan" ]] || (( $(echo "$total_seconds > 0" | bc -l) )); then
         crontab -l &> /dev/null || crontab -l 2>/dev/null | { cat; echo ""; } | crontab -
         (crontab -l; echo "* * * * * /bin/bash $schedule_script") | crontab -
-        sudo bash -c "$schedule_script"
     fi
 }
 
@@ -660,8 +659,9 @@ ChangeSpeedTestSchedule() {
     if [[ "${interval-}" =~ ^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
         if (( $(echo "$interval < 0" | bc -l) )); then
             interval="0"
+        else
+            addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "$interval"
         fi
-        addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "$interval"
     else
         interval=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
         if [[ ! "${interval-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then

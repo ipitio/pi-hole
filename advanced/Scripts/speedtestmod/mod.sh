@@ -17,9 +17,10 @@ help() {
 }
 
 setTags() {
-    local path=${1-}
-    local name=${2-}
-    local branch="${3-master}"
+    local path=${1:-}
+    local name=${2:-}
+    local branch="${3:-master}"
+
     if [ ! -z "$path" ]; then
         cd "$path"
         git fetch origin $branch:refs/remotes/origin/$branch -q
@@ -28,7 +29,9 @@ setTags() {
     fi
     if [ ! -z "$name" ]; then
         localTag=$(pihole -v | grep "$name" | cut -d ' ' -f 6)
-        [ "$localTag" == "HEAD" ] && localTag=$(pihole -v | grep "$name" | cut -d ' ' -f 7)
+        if [ "$localTag" == "HEAD" ]; then
+            localTag=$(pihole -v | grep "$name" | cut -d ' ' -f 7)
+        fi
     fi
 }
 
@@ -36,14 +39,15 @@ download() {
     local path=$1
     local name=$2
     local url=$3
-    local src=${4-}
-    local branch="${5-master}"
+    local src=${4:-}
+    local branch="${5:-master}"
     local dest=$path/$name
-    if [ ! -d $dest ]; then # replicate
+
+    if [ ! -d "$dest" ]; then # replicate
         cd "$path"
         rm -rf "$name"
         git clone --depth=1 -b "$branch" "$url" "$name"
-        setTags "$name" "$src" $branch
+        setTags "$name" "${src:-}" "$branch"
         if [ ! -z "$src" ]; then
             if [[ "$localTag" == *.* ]] && [[ "$localTag" < "$latestTag" ]]; then
                 latestTag=$localTag
@@ -51,27 +55,27 @@ download() {
             fi
         fi
     else # replace
-        setTags $dest "" $branch
+        cd "$dest"
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
                 git config --global --add safe.directory "$dest"
                 git remote -v | grep -q "old" || git remote rename origin old
                 git remote -v | grep -q "origin" && git remote remove origin
-                git remote add origin $url
+                git remote add -t "$branch" origin "$url"
             elif [ -d .git/refs/remotes/old ]; then
                 git remote remove origin
                 git remote rename old origin
+                git clean -ffdx
             fi
-            git fetch origin -q
         fi
-        git reset --hard origin/$branch
-        git checkout -B $branch -q
-        git branch -u origin/$branch
-        git clean -ffdx
+        setTags "$dest" "${src:-}" "$branch"
+        git reset --hard origin/"$branch"
+        git checkout -B "$branch"
+        git branch -u origin/"$branch"
     fi
 
     if [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag)" ]; then
-        git -c advice.detachedHead=false checkout $latestTag
+        git -c advice.detachedHead=false checkout "$latestTag"
     fi
     cd ..
 }
@@ -87,7 +91,7 @@ isEmpty() {
 }
 
 manageHistory() {
-    if [ "${1-}" == "db" ]; then
+    if [ "${1:-}" == "db" ]; then
         if [ -f $curr_db ] && ! isEmpty $curr_db; then
             echo "Flushing Database..."
             mv -f $curr_db $last_db
@@ -96,6 +100,7 @@ manageHistory() {
             fi
             if [ -f /var/log/pihole/speedtest.log ]; then
                 mv -f /var/log/pihole/speedtest.log /var/log/pihole/speedtest.log.old
+                rm -f /etc/pihole/speedtest.log
             fi
         elif [ -f $last_db ]; then
             echo "Restoring Database..."
@@ -105,20 +110,22 @@ manageHistory() {
             fi
             if [ -f /var/log/pihole/speedtest.log.old ]; then
                 mv -f /var/log/pihole/speedtest.log.old /var/log/pihole/speedtest.log
+                cp -af /var/log/pihole/speedtest.log /etc/pihole/speedtest.log
             fi
         fi
     fi
 }
 
 notInstalled() {
-    if [ -x "$(command -v yum)" ] || [ -x "$(command -v dnf)" ]; then
-        rpm -q "$1" &>/dev/null || return 0
-    elif [ -x "$(command -v apt-get)" ]; then
+    if [ -x "$(command -v apt-get)" ]; then
         dpkg -s "$1" &>/dev/null || return 0
+    elif [ -x "$(command -v dnf)" ] || [ -x "$(command -v yum)" ]; then
+        rpm -q "$1" &>/dev/null || return 0
     else
         echo "Unsupported package manager!"
         exit 1
     fi
+
     return 1
 }
 
@@ -131,12 +138,8 @@ install() {
     fi
 
     local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
-    local PKG_MANAGER=$(command -v apt-get || command -v yum || command -v dnf)
+    local PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
     local PKGS=(bc sqlite3 jq tmux wget "php$PHP_VERSION-sqlite3")
-
-    if [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
-        apt-get update
-    fi
 
     local missingPkgs=()
     for pkg in "${PKGS[@]}"; do
@@ -146,44 +149,42 @@ install() {
     done
 
     if [ ${#missingPkgs[@]} -gt 0 ]; then
-        sudo $PKG_MANAGER install -y "${missingPkgs[@]}"
-    fi
-
-    if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
-        if [ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]; then
-            echo "Adding speedtest source for RPM..."
-            sudo bash -c 'curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash'
+        if [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
+            apt-get update
         fi
-    elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
-        if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
-            echo "Adding speedtest source for DEB..."
-            if [ -e /etc/os-release ]; then
-                . /etc/os-release
-                local base="ubuntu debian"
-                local os=${ID}
-                local dist=${VERSION_CODENAME}
-                if [ ! -z "${ID_LIKE-}" ] && [[ "${base//\"/}" =~ "${ID_LIKE//\"/}" ]] && [ "${os}" != "ubuntu" ]; then
-                    os=${ID_LIKE%% *}
-                    [ -z "${UBUNTU_CODENAME-}" ] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
-                    dist=${UBUNTU_CODENAME}
-                    [ -z "$dist" ] && dist=${VERSION_CODENAME}
-                fi
-                wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
-                chmod +x /tmp/script.deb.sh
-                os=$os dist=$dist /tmp/script.deb.sh
-                rm -f /tmp/script.deb.sh
-            else
-                curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
-            fi
-        fi
+        $PKG_MANAGER install -y "${missingPkgs[@]}"
     fi
 
     if notInstalled speedtest && notInstalled speedtest-cli; then
-        sudo $PKG_MANAGER install -y speedtest
-    fi
-    if [ -f /usr/local/bin/speedtest ]; then
-        rm -f /usr/local/bin/speedtest
-        ln -s /usr/bin/speedtest /usr/local/bin/speedtest
+        if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
+            if [ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]; then
+                echo "Adding speedtest source for RPM..."
+                curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash
+            fi
+        elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
+            if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
+                echo "Adding speedtest source for DEB..."
+                if [ -e /etc/os-release ]; then
+                    . /etc/os-release
+                    local base="ubuntu debian"
+                    local os=${ID}
+                    local dist=${VERSION_CODENAME}
+                    if [ ! -z "${ID_LIKE-}" ] && [[ "${base//\"/}" =~ "${ID_LIKE//\"/}" ]] && [ "${os}" != "ubuntu" ]; then
+                        os=${ID_LIKE%% *}
+                        [ -z "${UBUNTU_CODENAME-}" ] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
+                        dist=${UBUNTU_CODENAME}
+                        [ -z "$dist" ] && dist=${VERSION_CODENAME}
+                    fi
+                    wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
+                    chmod +x /tmp/script.deb.sh
+                    os=$os dist=$dist /tmp/script.deb.sh
+                    rm -f /tmp/script.deb.sh
+                else
+                    curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
+                fi
+            fi
+        fi
+        $PKG_MANAGER install -y speedtest
     fi
 
     download /opt mod_pihole https://github.com/arevindh/pi-hole
@@ -199,8 +200,8 @@ install() {
     cp -af /opt/mod_pihole/advanced/Scripts/webpage.sh $curr_wp
     cp -af /opt/mod_pihole/advanced/Scripts/speedtestmod/. /opt/pihole/speedtestmod/
     chmod +x $curr_wp
-    pihole -a -s
     pihole updatechecker local
+    pihole -a -s
 }
 
 uninstall() {
@@ -216,7 +217,7 @@ uninstall() {
             rm -rf org_pihole
         fi
 
-        pihole -a -s 0
+        pihole -a -s -1
         download $admin_dir admin https://github.com/pi-hole/AdminLTE web
         if [ ! -f $last_wp ]; then
             cp -af $curr_wp $last_wp
@@ -227,7 +228,7 @@ uninstall() {
         pihole updatechecker
     fi
 
-    manageHistory ${1-}
+    manageHistory ${1:-}
 }
 
 purge() {
@@ -257,7 +258,7 @@ update() {
     else
         echo "Systemd not found. Skipping Pi-hole update..."
     fi
-    if [ "${1-}" == "un" ]; then
+    if [ "${1:-}" == "un" ]; then
         purge
         exit 0
     fi
@@ -296,7 +297,7 @@ commit() {
 
 main() {
     printf "Thanks for using Speedtest Mod!\nScript by @ipitio\n\n$(date)\n\n"
-    local op=${1-}
+    local op=${1:-}
     if [ "$op" == "-h" ] || [ "$op" == "--help" ]; then
         help
         exit 0
@@ -310,7 +311,7 @@ main() {
     trap '[ "$?" -eq "0" ] && commit || abort' EXIT
     trap 'abort' INT TERM
 
-    local db=$([ "$op" == "up" ] && echo "${3-}" || [ "$op" == "un" ] && echo "${2-}" || echo "$op")
+    local db=$([ "$op" == "up" ] && echo "${3:-}" || [ "$op" == "un" ] && echo "${2:-}" || echo "$op")
     case $op in
     db)
         manageHistory $db
@@ -321,7 +322,7 @@ main() {
         ;;
     up)
         uninstall $db
-        update ${2-}
+        update ${2:-}
         install
         ;;
     *)
@@ -333,6 +334,7 @@ main() {
 }
 
 rm -f /tmp/pimod.log
+touch /tmp/pimod.log
 main "$@" 2>&1 | tee -a /tmp/pimod.log
 mv -f /tmp/pimod.log /var/log/pihole/mod.log
 exit $aborted
