@@ -139,10 +139,6 @@ install() {
     local PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
     local PKGS=(bc sqlite3 jq tmux wget "php$PHP_VERSION-sqlite3")
 
-    if [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
-        apt-get update
-    fi
-
     local missingPkgs=()
     for pkg in "${PKGS[@]}"; do
         if notInstalled "$pkg"; then
@@ -151,6 +147,9 @@ install() {
     done
 
     if [ ${#missingPkgs[@]} -gt 0 ]; then
+        if [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
+            apt-get update
+        fi
         $PKG_MANAGER install -y "${missingPkgs[@]}"
     fi
 
