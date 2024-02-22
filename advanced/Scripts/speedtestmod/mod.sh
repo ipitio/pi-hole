@@ -20,9 +20,16 @@ setTags() {
     local path=${1:-}
     local name=${2:-}
     local branch="${3:-master}"
+    local org=${4:-}
+
     if [ ! -z "$path" ]; then
         cd "$path"
-        git fetch origin $branch:refs/remotes/origin/$branch -q
+        if [ "$org" == "false" ] || git stash list | grep -q "No stash found"; then
+            git fetch origin $branch:refs/remotes/origin/$branch
+        else
+            git checkout stash -- .
+            git stash drop
+        fi
         git fetch --tags -f -q
         latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
     fi
@@ -41,12 +48,13 @@ download() {
     local src=${4:-}
     local branch="${5:-master}"
     local dest=$path/$name
+    local org=$(echo "$url" | grep -q "github.com/pi-hole" && echo "true" || echo "false")
 
     if [ ! -d "$dest" ]; then # replicate
         cd "$path"
         rm -rf "$name"
         git clone --depth=1 -b "$branch" "$url" "$name"
-        setTags "$name" "${src:-}" "$branch"
+        setTags "$name" "${src:-}" "$branch" "$org"
         if [ ! -z "$src" ]; then
             if [[ "$localTag" == *.* ]] && [[ "$localTag" < "$latestTag" ]]; then
                 latestTag=$localTag
@@ -55,21 +63,24 @@ download() {
         fi
     else # replace
         cd "$dest"
+        if [ "$org" == "false" ] && git stash list | grep -q "No stash found"; then
+            git stash
+        fi
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
                 git config --global --add safe.directory "$dest"
                 git remote -v | grep -q "old" || git remote rename origin old
                 git remote -v | grep -q "origin" && git remote remove origin
-                git remote add origin "$url"
+                git remote add -t "$branch" origin "$url"
             elif [ -d .git/refs/remotes/old ]; then
                 git remote remove origin
                 git remote rename old origin
                 git clean -ffdx
             fi
         fi
-        setTags "$dest" "${src:-}" "$branch"
+        setTags "$dest" "${src:-}" "$branch" "$org"
         git reset --hard origin/"$branch"
-        git checkout -B "$branch" -q
+        git checkout -B "$branch"
         git branch -u origin/"$branch"
     fi
 
