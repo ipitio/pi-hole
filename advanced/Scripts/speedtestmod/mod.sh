@@ -56,9 +56,6 @@ download() {
         fi
     else # replace
         cd "$dest"
-        if [ ! -f .git/refs/stash ]; then
-            git stash
-        fi
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
                 git config --global --add safe.directory "$dest"
@@ -68,10 +65,6 @@ download() {
             elif [ -d .git/refs/remotes/old ]; then
                 git remote remove origin
                 git remote rename old origin
-                if [ -f .git/refs/stash ]; then
-                    git checkout stash -- .
-                    git stash clear
-                fi
                 git clean -ffdx
             fi
         fi
