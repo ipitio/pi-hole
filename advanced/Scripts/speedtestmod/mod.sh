@@ -21,10 +21,11 @@ setTags() {
     local name=${2:-}
     local branch="${3:-master}"
     local org=${4:-}
+    local stash=${5:-0}
 
     if [ ! -z "$path" ]; then
         cd "$path"
-        if [ "$org" == "false" ] || git stash list | grep -q "No stash found"; then
+        if [ "$org" == "false" ] || [ "$stash" == "0" ]; then
             git fetch origin $branch:refs/remotes/origin/$branch
         else
             git checkout stash -- .
@@ -63,7 +64,8 @@ download() {
         fi
     else # replace
         cd "$dest"
-        if [ "$org" == "false" ] && git stash list | grep -q "No stash found"; then
+        local stash=$(git stash list | wc -l)
+        if [ "$org" == "false" ] && [ "$stash" == "0" ] && [ -z "$(ls | grep -i speedtest)" ]; then
             git stash
         fi
         if [ ! -z "$src" ]; then
@@ -78,7 +80,7 @@ download() {
                 git clean -ffdx
             fi
         fi
-        setTags "$dest" "${src:-}" "$branch" "$org"
+        setTags "$dest" "${src:-}" "$branch" "$org" "$stash"
         git reset --hard origin/"$branch"
         git checkout -B "$branch"
         git branch -u origin/"$branch"
