@@ -117,14 +117,15 @@ manageHistory() {
 }
 
 notInstalled() {
-    if [ -x "$(command -v yum)" ] || [ -x "$(command -v dnf)" ]; then
-        rpm -q "$1" &>/dev/null || return 0
-    elif [ -x "$(command -v apt-get)" ]; then
+    if [ -x "$(command -v apt-get)" ]; then
         dpkg -s "$1" &>/dev/null || return 0
+    elif [ -x "$(command -v dnf)" ] || [ -x "$(command -v yum)" ]; then
+        rpm -q "$1" &>/dev/null || return 0
     else
         echo "Unsupported package manager!"
         exit 1
     fi
+
     return 1
 }
 
