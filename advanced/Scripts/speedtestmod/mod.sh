@@ -71,7 +71,11 @@ download() {
         setTags "$dest" "${src:-}" "$branch"
         git reset --hard origin/"$branch"
         git checkout -B "$branch"
-        git branch -u origin/"$branch"
+        if git rev-parse --verify "$branch" >/dev/null 2>&1; then
+            git branch -u "origin/$branch" "$branch"
+        else
+            git checkout --track "origin/$branch"
+        fi
     fi
 
     #if [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag)" ]; then
@@ -306,7 +310,6 @@ main() {
         sudo "$0" "$@"
         exit $?
     fi
-    aborted=0
     set -Eeuxo pipefail
     trap '[ "$?" -eq "0" ] && commit || abort' EXIT
     trap 'abort' INT TERM
@@ -333,6 +336,7 @@ main() {
     exit 0
 }
 
+aborted=0
 rm -f /tmp/pimod.log
 touch /tmp/pimod.log
 main "$@" 2>&1 | tee -a /tmp/pimod.log
