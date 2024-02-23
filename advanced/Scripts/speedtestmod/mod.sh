@@ -192,7 +192,7 @@ install() {
     fi
 
     download /opt mod_pihole https://github.com/ipitio/pi-hole "" ipitio
-    download $admin_dir admin https://github.com/ipitio/AdminLTE web
+    download $admin_dir admin https://github.com/ipitio/AdminLTE AdminLTE
     if [ -f $curr_wp ]; then
         if ! cat $curr_wp | grep -q SpeedTest; then
             cp -af $curr_wp $org_wp
@@ -222,7 +222,7 @@ uninstall() {
         fi
 
         pihole -a -s -1
-        download $admin_dir admin https://github.com/pi-hole/AdminLTE web
+        download $admin_dir admin https://github.com/pi-hole/AdminLTE AdminLTE
         if [ ! -f $last_wp ]; then
             cp -af $curr_wp $last_wp
         fi
@@ -283,7 +283,7 @@ abort() {
         purge
     fi
     if [ -d $admin_dir/admin/.git/refs/remotes/old ]; then
-        download $admin_dir admin old web
+        download $admin_dir admin old AdminLTE
     fi
 
     pihole restartdns
