@@ -1,10 +1,11 @@
 #!/bin/bash
 admin_dir=/var/www/html
 opt_dir=/opt/pihole
+etc_dir=/etc/pihole
 curr_wp=$opt_dir/webpage.sh
 last_wp=$curr_wp.old
 org_wp=$curr_wp.org
-curr_db=/etc/pihole/speedtest.db
+curr_db=$etc_dir/speedtest.db
 last_db=$curr_db.old
 db_table="speedtest"
 
@@ -100,22 +101,22 @@ manageHistory() {
         if [ -f $curr_db ] && ! isEmpty $curr_db; then
             echo "Flushing Database..."
             mv -f $curr_db $last_db
-            if [ -f /etc/pihole/last_speedtest ]; then
-                mv -f /etc/pihole/last_speedtest /etc/pihole/last_speedtest.old
+            if [ -f $etc_dir/last_speedtest ]; then
+                mv -f $etc_dir/last_speedtest $etc_dir/last_speedtest.old
             fi
             if [ -f /var/log/pihole/speedtest.log ]; then
                 mv -f /var/log/pihole/speedtest.log /var/log/pihole/speedtest.log.old
-                rm -f /etc/pihole/speedtest.log
+                rm -f $etc_dir/speedtest.log
             fi
         elif [ -f $last_db ]; then
             echo "Restoring Database..."
             mv -f $last_db $curr_db
-            if [ -f /etc/pihole/last_speedtest.old ]; then
-                mv -f /etc/pihole/last_speedtest.old /etc/pihole/last_speedtest
+            if [ -f $etc_dir/last_speedtest.old ]; then
+                mv -f $etc_dir/last_speedtest.old $etc_dir/last_speedtest
             fi
             if [ -f /var/log/pihole/speedtest.log.old ]; then
                 mv -f /var/log/pihole/speedtest.log.old /var/log/pihole/speedtest.log
-                cp -af /var/log/pihole/speedtest.log /etc/pihole/speedtest.log
+                cp -af /var/log/pihole/speedtest.log $etc_dir/speedtest.log
             fi
         fi
     fi
@@ -160,7 +161,7 @@ install() {
         $PKG_MANAGER install -y "${missingPkgs[@]}"
     fi
 
-    download /etc/pihole mod https://github.com/ipitio/pi-hole "" ipitio
+    download $etc_dir mod https://github.com/ipitio/pi-hole "" ipitio
     download $admin_dir admin https://github.com/ipitio/AdminLTE web
     if [ -f $curr_wp ]; then
         if ! cat $curr_wp | grep -q SpeedTest; then
@@ -170,8 +171,8 @@ install() {
             cp -af $curr_wp $last_wp
         fi
     fi
-    cp -af /etc/pihole/mod/advanced/Scripts/webpage.sh $curr_wp
-    cp -af /etc/pihole/mod/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
+    cp -af $etc_dir/mod/advanced/Scripts/webpage.sh $curr_wp
+    cp -af $etc_dir/mod/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
     chmod +x $curr_wp
     pihole updatechecker local
     pihole -a -s
@@ -198,7 +199,7 @@ uninstall() {
         cp -af $org_wp $curr_wp
         chmod +x $curr_wp
         rm -rf /opt/mod_pihole
-        rm -rf /etc/pihole/mod
+        rm -rf $etc_dir/mod
         pihole updatechecker
     fi
 
@@ -217,7 +218,7 @@ purge() {
     rm -f "$curr_wp".*
     rm -f "$curr_db".*
     rm -f "$curr_db"_*
-    rm -f /etc/pihole/last_speedtest.*
+    rm -f $etc_dir/last_speedtest.*
     if isEmpty $curr_db; then
         rm -f $curr_db
     fi
