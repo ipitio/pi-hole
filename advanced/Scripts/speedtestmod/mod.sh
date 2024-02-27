@@ -1,6 +1,7 @@
 #!/bin/bash
 admin_dir=/var/www/html
-curr_wp=/opt/pihole/webpage.sh
+opt_dir=/opt/pihole
+curr_wp=$opt_dir/webpage.sh
 last_wp=$curr_wp.old
 org_wp=$curr_wp.org
 curr_db=/etc/pihole/speedtest.db
@@ -13,7 +14,7 @@ help() {
     echo "up - update Pi-hole (along with the Mod)"
     echo "un - remove the mod (including all backups)"
     echo "db - flush database (restore for a short while after)"
-    echo "If no option is specified, the Mod will be (re)installed."
+    echo "If no option is specified, the latest version of the Mod will be (re)installed."
 }
 
 setTags() {
@@ -159,11 +160,17 @@ install() {
         $PKG_MANAGER install -y "${missingPkgs[@]}"
     fi
 
-    if notInstalled speedtest && notInstalled speedtest-cli; then
+    if [ ! -f /usr/bin/speedtest ]; then
         if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
             if [ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]; then
                 echo "Adding speedtest source for RPM..."
                 curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash
+            fi
+
+            if yum list speedtest | grep -q "Available Packages"; then
+                $PKG_MANAGER install -y speedtest
+            elif yum list speedtest-cli | grep -q "Available Packages"; then
+                $PKG_MANAGER install -y speedtest-cli
             fi
         elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
             if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
@@ -186,12 +193,45 @@ install() {
                 else
                     curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
                 fi
+
+                sed -i 's/g]/g allow-insecure=yes trusted=yes]/' /etc/apt/sources.list.d/ookla_speedtest-cli.list
+                apt-get update
+            fi
+
+            if apt-cache policy speedtest | grep -q "Candidate"; then
+                $PKG_MANAGER install -y speedtest
+            elif apt-cache policy speedtest-cli | grep -q "Candidate"; then
+                $PKG_MANAGER install -y speedtest-cli
             fi
         fi
-        $PKG_MANAGER install -y speedtest
+
+        if notInstalled speedtest && notInstalled speedtest-cli; then
+            if notInstalled golang; then
+                if [[ "$PKG_MANAGER" == *"apt-get"* ]] && grep -q "Raspbian" /etc/os-release; then
+                    if [ ! -f /etc/apt/sources.list.d/testing.list ] && ! grep -q "testing" /etc/apt/sources.list; then
+                        echo "Adding testing repo to sources.list.d"
+                        echo "deb http://archive.raspbian.org/raspbian/ testing main" >/etc/apt/sources.list.d/testing.list
+                        echo "Package: *\nPin: release a=testing\nPin-Priority: 50" >/etc/apt/preferences.d/limit-testing
+                        $PKG_MANAGER update
+                    fi
+
+                    $PKG_MANAGER install -y -t testing golang
+                else
+                    $PKG_MANAGER install -y golang
+                fi
+            fi
+            download /etc/pihole librespeed https://github.com/librespeed/speedtest-cli
+            cd librespeed
+            if [ -d out ]; then
+                rm -rf out
+            fi
+            ./build.sh
+            mv -f out/* /usr/bin/speedtest
+            chmod +x /usr/bin/speedtest
+        fi
     fi
 
-    download /opt mod_pihole https://github.com/ipitio/pi-hole "" ipitio
+    download /etc/pihole mod https://github.com/ipitio/pi-hole "" ipitio
     download $admin_dir admin https://github.com/ipitio/AdminLTE web
     if [ -f $curr_wp ]; then
         if ! cat $curr_wp | grep -q SpeedTest; then
@@ -201,8 +241,8 @@ install() {
             cp -af $curr_wp $last_wp
         fi
     fi
-    cp -af /opt/mod_pihole/advanced/Scripts/webpage.sh $curr_wp
-    cp -af /opt/mod_pihole/advanced/Scripts/speedtestmod/. /opt/pihole/speedtestmod/
+    cp -af /etc/pihole/mod/advanced/Scripts/webpage.sh $curr_wp
+    cp -af /etc/pihole/mod/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
     chmod +x $curr_wp
     pihole updatechecker local
     pihole -a -s
@@ -229,6 +269,7 @@ uninstall() {
         cp -af $org_wp $curr_wp
         chmod +x $curr_wp
         rm -rf /opt/mod_pihole
+        rm -rf /etc/pihole/mod
         pihole updatechecker
     fi
 
@@ -236,8 +277,8 @@ uninstall() {
 }
 
 purge() {
-    rm -rf "$admin_dir"*_admin
-    rm -rf /opt/pihole/speedtestmod
+    rm -rf "$admin_dir"/*_admin
+    rm -rf $opt_dir/speedtestmod
     if [ -f /etc/systemd/system/pihole-speedtest.timer ]; then
         rm -f /etc/systemd/system/pihole-speedtest.service
         rm -f /etc/systemd/system/pihole-speedtest.timer
@@ -313,6 +354,7 @@ main() {
     set -Eeuxo pipefail
     trap '[ "$?" -eq "0" ] && commit || abort' EXIT
     trap 'abort' INT TERM
+    shopt -s dotglob
 
     local db=$([ "$op" == "up" ] && echo "${3:-}" || [ "$op" == "un" ] && echo "${2:-}" || echo "$op")
     case $op in
