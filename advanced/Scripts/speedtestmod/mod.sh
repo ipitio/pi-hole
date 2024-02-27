@@ -146,7 +146,7 @@ isAvailable() {
         exit 1
     fi
 
-    return 1
+    return 0
 }
 
 install() {
