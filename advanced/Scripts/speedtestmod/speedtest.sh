@@ -164,6 +164,31 @@ download() {
     cd ..
 }
 
+librespeed() {
+    if notInstalled golang; then
+        if grep -q "Raspbian" /etc/os-release; then
+            if [ ! -f /etc/apt/sources.list.d/testing.list ] && ! grep -q "testing" /etc/apt/sources.list; then
+                echo "Adding testing repo to sources.list.d"
+                echo "deb http://archive.raspbian.org/raspbian/ testing main" >/etc/apt/sources.list.d/testing.list
+                echo "Package: *\nPin: release a=testing\nPin-Priority: 50" >/etc/apt/preferences.d/limit-testing
+                $PKG_MANAGER update
+            fi
+
+            $PKG_MANAGER install -y -t testing golang
+        else
+            $PKG_MANAGER install -y golang
+        fi
+    fi
+    download /etc/pihole librespeed https://github.com/librespeed/speedtest-cli
+    cd librespeed
+    if [ -d out ]; then
+        rm -rf out
+    fi
+    ./build.sh
+    mv -f out/* /usr/bin/speedtest
+    chmod +x /usr/bin/speedtest
+}
+
 run() {
     speedtest | jq . >/tmp/speedtest_results || echo "Attempt ${2:-1} Failed!" >/tmp/speedtest_results
     local stop=$(date -u --rfc-3339='seconds')
@@ -261,28 +286,7 @@ run() {
             swaptest speedtest-cli speedtest
         else
             $PKG_MANAGER remove -y speedtest-cli
-            if notInstalled golang; then
-                if [[ "$PKG_MANAGER" == *"apt-get"* ]] && grep -q "Raspbian" /etc/os-release; then
-                    if [ ! -f /etc/apt/sources.list.d/testing.list ] && ! grep -q "testing" /etc/apt/sources.list; then
-                        echo "Adding testing repo to sources.list.d"
-                        echo "deb http://archive.raspbian.org/raspbian/ testing main" >/etc/apt/sources.list.d/testing.list
-                        echo "Package: *\nPin: release a=testing\nPin-Priority: 50" >/etc/apt/preferences.d/limit-testing
-                        $PKG_MANAGER update
-                    fi
-
-                    $PKG_MANAGER install -y -t testing golang
-                else
-                    $PKG_MANAGER install -y golang
-                fi
-            fi
-            download /etc/pihole librespeed https://github.com/librespeed/speedtest-cli
-            cd librespeed
-            if [ -d out ]; then
-                rm -rf out
-            fi
-            ./build.sh
-            mv -f out/* /usr/bin/speedtest
-            chmod +x /usr/bin/speedtest
+            librespeed
         fi
 
         run $1 $((${2:-0} + 1))
@@ -334,28 +338,7 @@ main() {
         elif isAvailable speedtest-cli; then
             $PKG_MANAGER install -y speedtest-cli
         else
-            if notInstalled golang; then
-                if grep -q "Raspbian" /etc/os-release; then
-                    if [ ! -f /etc/apt/sources.list.d/testing.list ] && ! grep -q "testing" /etc/apt/sources.list; then
-                        echo "Adding testing repo to sources.list.d"
-                        echo "deb http://archive.raspbian.org/raspbian/ testing main" >/etc/apt/sources.list.d/testing.list
-                        echo "Package: *\nPin: release a=testing\nPin-Priority: 50" >/etc/apt/preferences.d/limit-testing
-                        $PKG_MANAGER update
-                    fi
-
-                    $PKG_MANAGER install -y -t testing golang
-                else
-                    $PKG_MANAGER install -y golang
-                fi
-            fi
-            download /etc/pihole librespeed https://github.com/librespeed/speedtest-cli
-            cd librespeed
-            if [ -d out ]; then
-                rm -rf out
-            fi
-            ./build.sh
-            mv -f out/* /usr/bin/speedtest
-            chmod +x /usr/bin/speedtest
+            librespeed
         fi
     fi
 
