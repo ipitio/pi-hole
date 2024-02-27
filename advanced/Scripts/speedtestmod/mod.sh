@@ -134,25 +134,6 @@ notInstalled() {
     return 1
 }
 
-isAvailable() {
-    if [ -x "$(command -v apt-get)" ]; then
-        # Package is considered available if there is a "Candidate" line and it does not indicate "(none)"
-        if apt-cache policy "$1" | grep -q "Candidate:" && ! apt-cache policy "$1" | grep -q "Candidate: (none)"; then
-            return 0
-        fi
-    elif [ -x "$(command -v dnf)" ] || [ -x "$(command -v yum)" ]; then
-        local PKG_MANAGER=$(command -v dnf || command -v yum)
-        if $PKG_MANAGER list available "$1" &>/dev/null; then
-            return 0
-        fi
-    else
-        echo "Unsupported package manager!"
-        exit 1
-    fi
-
-    return 1
-}
-
 install() {
     echo "Installing Mod..."
 
@@ -177,69 +158,6 @@ install() {
             apt-get update
         fi
         $PKG_MANAGER install -y "${missingPkgs[@]}"
-    fi
-
-    if [ ! -f /usr/bin/speedtest ]; then
-        if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
-            if [ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]; then
-                echo "Adding speedtest source for RPM..."
-                curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash
-            fi
-        elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
-            if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
-                echo "Adding speedtest source for DEB..."
-                if [ -e /etc/os-release ]; then
-                    . /etc/os-release
-                    local base="ubuntu debian"
-                    local os=${ID}
-                    local dist=${VERSION_CODENAME}
-                    if [ ! -z "${ID_LIKE-}" ] && [[ "${base//\"/}" =~ "${ID_LIKE//\"/}" ]] && [ "${os}" != "ubuntu" ]; then
-                        os=${ID_LIKE%% *}
-                        [ -z "${UBUNTU_CODENAME-}" ] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
-                        dist=${UBUNTU_CODENAME}
-                        [ -z "$dist" ] && dist=${VERSION_CODENAME}
-                    fi
-                    wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
-                    chmod +x /tmp/script.deb.sh
-                    os=$os dist=$dist /tmp/script.deb.sh
-                    rm -f /tmp/script.deb.sh
-                else
-                    curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
-                fi
-
-                sed -i 's/g]/g allow-insecure=yes trusted=yes]/' /etc/apt/sources.list.d/ookla_speedtest-cli.list
-                apt-get update
-            fi
-        fi
-
-        if isAvailable speedtest; then
-            $PKG_MANAGER install -y speedtest
-        elif isAvailable speedtest-cli; then
-            $PKG_MANAGER install -y speedtest-cli
-        else
-            if notInstalled golang; then
-                if grep -q "Raspbian" /etc/os-release; then
-                    if [ ! -f /etc/apt/sources.list.d/testing.list ] && ! grep -q "testing" /etc/apt/sources.list; then
-                        echo "Adding testing repo to sources.list.d"
-                        echo "deb http://archive.raspbian.org/raspbian/ testing main" >/etc/apt/sources.list.d/testing.list
-                        echo "Package: *\nPin: release a=testing\nPin-Priority: 50" >/etc/apt/preferences.d/limit-testing
-                        $PKG_MANAGER update
-                    fi
-
-                    $PKG_MANAGER install -y -t testing golang
-                else
-                    $PKG_MANAGER install -y golang
-                fi
-            fi
-            download /etc/pihole librespeed https://github.com/librespeed/speedtest-cli
-            cd librespeed
-            if [ -d out ]; then
-                rm -rf out
-            fi
-            ./build.sh
-            mv -f out/* /usr/bin/speedtest
-            chmod +x /usr/bin/speedtest
-        fi
     fi
 
     download /etc/pihole mod https://github.com/ipitio/pi-hole "" ipitio
