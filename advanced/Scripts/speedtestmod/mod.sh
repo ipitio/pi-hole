@@ -134,6 +134,21 @@ notInstalled() {
     return 1
 }
 
+isAvailable() {
+    if [ -x "$(command -v apt-get)" ]; then
+        # package is available if "Candidate" string exists and value is not "(none)"
+        apt-cache policy "$1" | grep -q "Candidate" && { apt-cache policy "$1" | grep -q "Candidate: (none)" && return 1; } || return 1
+    elif [ -x "$(command -v dnf)" ] || [ -x "$(command -v yum)" ]; then
+        local PKG_MANAGER=$(command -v dnf || command -v yum)
+        $PKG_MANAGER list available "$1" | grep -q "Available Packages" && { $PKG_MANAGER list available "$1" | grep -q "Available Packages: 0" && return 1; } || return 1
+    else
+        echo "Unsupported package manager!"
+        exit 1
+    fi
+
+    return 1
+}
+
 install() {
     echo "Installing Mod..."
 
@@ -166,12 +181,6 @@ install() {
                 echo "Adding speedtest source for RPM..."
                 curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash
             fi
-
-            if yum list speedtest | grep -q "Available Packages"; then
-                $PKG_MANAGER install -y speedtest
-            elif yum list speedtest-cli | grep -q "Available Packages"; then
-                $PKG_MANAGER install -y speedtest-cli
-            fi
         elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
             if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
                 echo "Adding speedtest source for DEB..."
@@ -197,17 +206,15 @@ install() {
                 sed -i 's/g]/g allow-insecure=yes trusted=yes]/' /etc/apt/sources.list.d/ookla_speedtest-cli.list
                 apt-get update
             fi
-
-            if apt-cache policy speedtest | grep -q "Candidate"; then
-                $PKG_MANAGER install -y speedtest
-            elif apt-cache policy speedtest-cli | grep -q "Candidate"; then
-                $PKG_MANAGER install -y speedtest-cli
-            fi
         fi
 
-        if notInstalled speedtest && notInstalled speedtest-cli; then
+        if isAvailable speedtest; then
+            $PKG_MANAGER install -y speedtest
+        elif isAvailable speedtest-cli; then
+            $PKG_MANAGER install -y speedtest-cli
+        else
             if notInstalled golang; then
-                if [[ "$PKG_MANAGER" == *"apt-get"* ]] && grep -q "Raspbian" /etc/os-release; then
+                if grep -q "Raspbian" /etc/os-release; then
                     if [ ! -f /etc/apt/sources.list.d/testing.list ] && ! grep -q "testing" /etc/apt/sources.list; then
                         echo "Adding testing repo to sources.list.d"
                         echo "deb http://archive.raspbian.org/raspbian/ testing main" >/etc/apt/sources.list.d/testing.list

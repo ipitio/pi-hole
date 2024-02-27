@@ -21,13 +21,13 @@ speedtest() {
         if [[ -z "${serverid}" ]]; then
             /usr/bin/speedtest --accept-gdpr --accept-license -f json
         else
-            /usr/bin/speedtest -s $serverid --accept-gdpr --accept-license -f json
+            /usr/bin/speedtest -s $serverid --accept-gdpr --accept-license -f json || /usr/bin/speedtest --accept-gdpr --accept-license -f json
         fi
     else
         if [[ -z "${serverid}" ]]; then
             /usr/bin/speedtest --json --share --secure
         else
-            /usr/bin/speedtest --server $serverid --json --share --secure
+            /usr/bin/speedtest --server $serverid --json --share --secure || /usr/bin/speedtest --json --share --secure
         fi
     fi
 }
@@ -51,13 +51,30 @@ savetest() {
     [ "$isp" == "No Internet" ] && exit 1 || exit 0
 }
 
-swaptest() {
+isAvailable() {
     if [ -x "$(command -v apt-get)" ]; then
-        apt-get install -y $1 $2-
-    elif [ -x "$(command -v dnf)" ]; then
-        dnf install -y --allowerasing $1
+        # package is available if "Candidate" string exists and value is not "(none)"
+        apt-cache policy "$1" | grep -q "Candidate" && { apt-cache policy "$1" | grep -q "Candidate: (none)" && return 1; } || return 1
+    elif [ -x "$(command -v dnf)" ] || [ -x "$(command -v yum)" ]; then
+        local PKG_MANAGER=$(command -v dnf || command -v yum)
+        $PKG_MANAGER list available "$1" | grep -q "Available Packages" && { $PKG_MANAGER list available "$1" | grep -q "Available Packages: 0" && return 1; } || return 1
     else
-        yum install -y --allowerasing $1
+        echo "Unsupported package manager!"
+        exit 1
+    fi
+
+    return 1
+}
+
+swaptest() {
+    if isAvailable $1; then
+        if [ -x "$(command -v apt-get)" ]; then
+            apt-get install -y $1 $2-
+        elif [ -x "$(command -v dnf)" ]; then
+            dnf install -y --allowerasing $1
+        else
+            yum install -y --allowerasing $1
+        fi
     fi
 }
 
@@ -233,7 +250,7 @@ run() {
                     apt-get update
                 fi
 
-                if apt-cache policy speedtest | grep -q "Candidate"; then
+                if isAvailable speedtest; then
                     $PKG_MANAGER install -y speedtest
                 fi
             fi
