@@ -54,16 +54,16 @@ savetest() {
 isAvailable() {
     if [ -x "$(command -v apt-get)" ]; then
         # package is available if "Candidate" string exists and value is not "(none)"
-        apt-cache policy "$1" | grep -q "Candidate" && { apt-cache policy "$1" | grep -q "Candidate: (none)" && return 1; } || return 1
+        apt-cache policy "$1" | grep -q "Candidate" && { apt-cache policy "$1" | grep -q "Candidate: (none)" && return 1 || return 0; } || return 1
     elif [ -x "$(command -v dnf)" ] || [ -x "$(command -v yum)" ]; then
         local PKG_MANAGER=$(command -v dnf || command -v yum)
-        $PKG_MANAGER list available "$1" | grep -q "Available Packages" && { $PKG_MANAGER list available "$1" | grep -q "Available Packages: 0" && return 1; } || return 1
+        $PKG_MANAGER list available "$1" | grep -q "Available Packages" && { $PKG_MANAGER list available "$1" | grep -q "Available Packages: 0" && return 1 || return 0; } || return 1
     else
         echo "Unsupported package manager!"
         exit 1
     fi
 
-    return 1
+    return 0
 }
 
 swaptest() {
