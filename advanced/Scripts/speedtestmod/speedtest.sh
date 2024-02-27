@@ -45,6 +45,15 @@ savetest() {
     local share_url=${10:-"#"}
     sqlite3 /etc/pihole/speedtest.db "$create_table"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start_time}', '${stop_time}', '${isp}', '${from_ip}', '${server}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
+
+    local rm_empty='
+  def nonempty: . and length > 0 and (type != "object" or . != {}) and (type != "array" or any(.[]; . != ""));
+  if type == "array" then map(walk(if type == "object" then with_entries(select(.value | nonempty)) else . end)) else walk(if type == "object" then with_entries(select(.value | nonempty)) else . end) end
+'
+    local temp_file=$(mktemp)
+    local json_file="/tmp/speedtest_results"
+    jq "$rm_empty" "$json_file" > "$temp_file" && mv -f "$temp_file" "$json_file"
+    rm -f "$temp_file"
     mv -f /tmp/speedtest_results /var/log/pihole/speedtest.log
     cp -af /var/log/pihole/speedtest.log /etc/pihole/speedtest.log
     rm -f "$out"
