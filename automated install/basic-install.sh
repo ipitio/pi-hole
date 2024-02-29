@@ -83,21 +83,21 @@ PI_HOLE_INSTALL_DIR="/opt/pihole"
 PI_HOLE_CONFIG_DIR="/etc/pihole"
 PI_HOLE_BIN_DIR="/usr/local/bin"
 FTL_CONFIG_FILE="${PI_HOLE_CONFIG_DIR}/pihole-FTL.conf"
-if [ -z "${useUpdateVars:-}" ]; then
+if [ -z "$useUpdateVars" ]; then
     useUpdateVars=false
 fi
 
 adlistFile="/etc/pihole/adlists.list"
 # Pi-hole needs an IP address; to begin, these variables are empty since we don't know what the IP is until this script can run
-IPV4_ADDRESS=${IPV4_ADDRESS:-}
-IPV6_ADDRESS=${IPV6_ADDRESS:-}
+IPV4_ADDRESS=${IPV4_ADDRESS}
+IPV6_ADDRESS=${IPV6_ADDRESS}
 # Give settings their default values. These may be changed by prompts later in the script.
 QUERY_LOGGING=true
 INSTALL_WEB_INTERFACE=true
 PRIVACY_LEVEL=0
 CACHE_SIZE=10000
 
-if [ -z "${USER:-}" ]; then
+if [ -z "${USER}" ]; then
     USER="$(id -un)"
 fi
 

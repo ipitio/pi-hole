@@ -264,7 +264,7 @@ main() {
         sudo "$0" "$@"
         exit $?
     fi
-    set -Eeuxo pipefail
+    set -Eexo pipefail
     trap '[ "$?" -eq "0" ] && commit || abort' EXIT
     trap 'abort' INT TERM
     shopt -s dotglob
