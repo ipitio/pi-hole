@@ -166,22 +166,25 @@ install() {
     download /etc .pihole https://github.com/ipitio/pi-hole Pi-hole ipitio
     download $admin_dir admin https://github.com/ipitio/AdminLTE web
 
+    SKIP_INSTALL=true
     source "$core_dir/automated install/basic-install.sh"
     installScripts
     cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
-    pihole updatechecker local
     pihole -a -s
+    pihole updatechecker local
 }
 
 uninstall() {
     if [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
         echo "Restoring Pi-hole..."
 
-        pihole -a -s -1
         download /etc .pihole https://github.com/pi-hole/pi-hole Pi-hole
         download $admin_dir admin https://github.com/pi-hole/AdminLTE web
+
+        SKIP_INSTALL=true
         source "$core_dir/automated install/basic-install.sh"
         installScripts
+        pihole -a -s -1
         pihole updatechecker
     fi
 
