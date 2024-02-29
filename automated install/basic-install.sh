@@ -1332,7 +1332,9 @@ installScripts() {
         #  -Dm755 create all leading components of destination except the last, then copy the source to the destination and setting the permissions to 755
         #
         # This first one is the directory
-        install -o "${USER}" -Dm755 -d "${PI_HOLE_INSTALL_DIR}"
+        if [[ ! -d "${PI_HOLE_INSTALL_DIR}" ]]; then
+            install -o "${USER}" -Dm755 -d "${PI_HOLE_INSTALL_DIR}"
+        fi
         # The rest are the scripts Pi-hole needs
         install -o "${USER}" -Dm755 -t "${PI_HOLE_INSTALL_DIR}" gravity.sh
         install -o "${USER}" -Dm755 -t "${PI_HOLE_INSTALL_DIR}" ./advanced/Scripts/*.sh
