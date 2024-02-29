@@ -97,7 +97,7 @@ INSTALL_WEB_INTERFACE=true
 PRIVACY_LEVEL=0
 CACHE_SIZE=10000
 
-if [ -z "${USER}" ]; then
+if [ -z "${USER:-}" ]; then
     USER="$(id -un)"
 fi
 
