@@ -83,7 +83,7 @@ PI_HOLE_INSTALL_DIR="/opt/pihole"
 PI_HOLE_CONFIG_DIR="/etc/pihole"
 PI_HOLE_BIN_DIR="/usr/local/bin"
 FTL_CONFIG_FILE="${PI_HOLE_CONFIG_DIR}/pihole-FTL.conf"
-if [ -z "$useUpdateVars" ]; then
+if [ -z "${useUpdateVars:-}" ]; then
     useUpdateVars=false
 fi
 
