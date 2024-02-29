@@ -161,6 +161,7 @@ install() {
         $PKG_MANAGER install -y "${missingPkgs[@]}"
     fi
 
+    download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
     download $etc_dir mod https://github.com/ipitio/pi-hole "" ipitio
     download $admin_dir admin https://github.com/ipitio/AdminLTE web
     if [ -f $curr_wp ]; then
@@ -209,6 +210,8 @@ uninstall() {
 purge() {
     rm -rf "$admin_dir"/*_admin
     rm -rf $opt_dir/speedtestmod
+    rm -rf $etc_dir/speedtest
+    rm -rf $etc_dir/mod
     if [ -f /etc/systemd/system/pihole-speedtest.timer ]; then
         rm -f /etc/systemd/system/pihole-speedtest.service
         rm -f /etc/systemd/system/pihole-speedtest.timer
@@ -259,7 +262,7 @@ abort() {
 
     pihole restartdns
     aborted=1
-    printf "Please try again or try manually.\n\n$(date)\n"
+    printf "Please try again before reporting an issue.\n\n$(date)\n"
 }
 
 commit() {
