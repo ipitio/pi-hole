@@ -171,7 +171,7 @@ installMod() {
     installScripts
     cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
     pihole -a -s
-    pihole updatechecker local
+    pihole updatechecker
 }
 
 uninstall() {
@@ -185,7 +185,6 @@ uninstall() {
         SKIP_INSTALL=true
         source "$core_dir/automated install/basic-install.sh"
         installScripts
-        pihole updatechecker
     fi
 
     manageHistory ${1:-}
@@ -209,6 +208,8 @@ purge() {
     if isEmpty $curr_db; then
         rm -f $curr_db
     fi
+
+    pihole updatechecker
 }
 
 update() {
@@ -284,12 +285,11 @@ main() {
     up)
         uninstall $db
         update ${2:-}
-        install
+        installMod
         ;;
     *)
-        uninstall
+        uninstall $db
         installMod
-        manageHistory $db
         ;;
     esac
     exit 0

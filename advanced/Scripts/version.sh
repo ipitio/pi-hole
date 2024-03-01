@@ -66,6 +66,7 @@ getLocalBranch(){
         "Pi-hole"   )  echo "${CORE_BRANCH:=N/A}";;
         "web"  )  [ "${INSTALL_WEB_INTERFACE}" = true ] && echo "${WEB_BRANCH:=N/A}";;
         "FTL"       )  echo "${FTL_BRANCH:=N/A}";;
+        "speedtest" )  echo "${SPEEDTEST_BRANCH:=N/A}";;
     esac
 }
 
