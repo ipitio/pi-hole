@@ -136,7 +136,7 @@ notInstalled() {
     return 1
 }
 
-install() {
+installMod() {
     echo "Installing Mod..."
 
     if [ ! -f /usr/local/bin/pihole ]; then
@@ -286,7 +286,7 @@ main() {
         ;;
     *)
         uninstall
-        install
+        installMod
         manageHistory $db
         ;;
     esac
