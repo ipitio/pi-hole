@@ -162,14 +162,14 @@ installMod() {
         $PKG_MANAGER install -y "${missingPkgs[@]}"
     fi
 
-    download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
     download /etc .pihole https://github.com/ipitio/pi-hole Pi-hole ipitio
-    download $admin_dir admin https://github.com/ipitio/AdminLTE web
-
     SKIP_INSTALL=true
     source "$core_dir/automated install/basic-install.sh"
     installScripts
     cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
+
+    download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
+    download $admin_dir admin https://github.com/ipitio/AdminLTE web
     pihole -a -s
     pihole updatechecker
 }
