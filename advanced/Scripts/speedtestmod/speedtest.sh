@@ -137,6 +137,7 @@ download() {
         cd "$path"
         rm -rf "$name"
         git clone --depth=1 -b "$branch" "$url" "$name"
+        git config --global --add safe.directory "$path"/"$name"
         setTags "$name" "${src:-}" "$branch"
         if [ ! -z "$src" ]; then
             if [[ "$localTag" == *.* ]] && [[ "$localTag" < "$latestTag" ]]; then
@@ -145,10 +146,11 @@ download() {
             fi
         fi
     else # replace
+        git config --global --add safe.directory "$dest"
         cd "$dest"
         if [ ! -z "$src" ]; then
             if [ "$url" != "old" ]; then
-                git config --global --add safe.directory "$dest"
+                git remote -v | grep -q "old" || git remote rename origin old
                 git remote -v | grep -q "old" || git remote rename origin old
                 git remote -v | grep -q "origin" && git remote remove origin
                 git remote add -t "$branch" origin "$url"
@@ -309,6 +311,10 @@ main() {
         exit $?
     fi
 
+    if [ ! -d /etc/pihole/speedtest ]; then
+        download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
+    fi
+
     PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
     if [ ! -f /usr/bin/speedtest ]; then
         if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
@@ -355,5 +361,8 @@ main() {
     echo "Running Test..."
     run $1 # Number of attempts
 }
+
+# if /etc/pihole/speedtest dir doesn't exist, create it
+
 
 main ${1:-3} >"$out"
