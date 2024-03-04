@@ -147,8 +147,8 @@ notInstalled() {
 
 swapScripts() {
     SKIP_INSTALL=true
-    source "$core_dir/automated install/basic-install.sh"
     set +u
+    source "$core_dir/automated install/basic-install.sh"
     installScripts
     set -u
 }
