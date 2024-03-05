@@ -91,14 +91,19 @@ download() {
     fi
 
     if [ "$branch" == "master" ] && [ ! -z "$src" ]; then
-        # Get a list of all tags, exclude "vDev", sort them using version sort,
-        # and filter out those that are greater than $latestTag.
-        # Then pick the highest version from the remaining list.
-        last_tag_before_head=$(git tag -l | grep '^v' | grep -v 'vDev' | sort -V | awk -v latestTag="$latestTag" '$1 <= latestTag' | tail -n1)
+        if [[ "$op" == "un" ]]; then
+            # Get last tag before/at $latestTag installed
+            last_tag_before_head=$(git tag -l | grep '^v' | grep -v 'vDev' | sort -V | awk -v latestTag="$latestTag" '$1 <= latestTag' | tail -n1)
 
-        # If no such tag is found, fall back to $latestTag
-        if [ -z "$last_tag_before_head" ]; then
-            last_tag_before_head=$latestTag
+            # If no such tag is found, fall back to $latestTag
+            if [ -z "$last_tag_before_head" ]; then
+                last_tag_before_head=$latestTag
+            fi
+        else
+            # Get last tag before/at HEAD
+            if ! last_tag_before_head=$(git describe --tags --abbrev=0 HEAD 2>/dev/null); then
+                last_tag_before_head=$latestTag
+            fi
         fi
 
         # Check if HEAD is already at this tag, if not, check out the tag
