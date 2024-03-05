@@ -46,14 +46,14 @@ download() {
         git clean -ffdx
     fi
 
-    [ -z "$src" ] || git fetch origin $branch:refs/remotes/origin/$branch -q
+    git fetch origin $branch:refs/remotes/origin/$branch -q
     git reset --hard origin/"$branch"
     git checkout -B "$branch"
     git rev-parse --verify "$branch" >/dev/null 2>&1 && git branch -u "origin/$branch" "$branch" || git checkout --track "origin/$branch"
     git tag -l | xargs git tag -d >/dev/null 2>&1
     git fetch --tags -f -q
-    latestTag=$(git ls-remote --tags "$url" | awk -F/ '{print $3}' | grep -v '\^{}' | sort -V | tail -n1)
-    [[ "$latestTag" == *.* ]] || latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
+    [ "$url" == "old" ] || latestTag=$(git ls-remote --tags "$url" | awk -F/ '{print $3}' | grep -v '\^{}' | sort -V | tail -n1)
+    [[ "${latestTag:-}" == *.* ]] || latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
 
     if [[ "$url" != *"arevindh"* ]] && [ ! -z "$src" ] && [[ "$url" != *"ipitio"* ]] && ! git remote -v | grep -q "old.*ipitio"; then
         local localVersion=$(pihole -v | grep "$src" | cut -d ' ' -f 6)
@@ -61,7 +61,7 @@ download() {
 
         # if the local version is less than the latest tag then use the tag before it
         if [[ "$localVersion" == *.* ]] && [[ "$localVersion" < "$latestTag" ]]; then
-            latestTag=$(git ls-remote --tags "$url" | awk -F/ '{print $3}' | grep -v '\^{}' | sort -V | awk -v lv="$localVersion" '$1 < lv {print $1}' | tail -n1)
+            [ "$url" == "old" ] || latestTag=$(git ls-remote --tags "$url" | awk -F/ '{print $3}' | grep -v '\^{}' | sort -V | awk -v lv="$localVersion" '$1 < lv {print $1}' | tail -n1)
             [[ "$latestTag" == *.* ]] || latestTag=$(git tag -l | grep -v '\^{}' | sort -V | awk -v lv="$localVersion" '$1 < lv {print $1}' | tail -n1)
             [ ! -f "$(git rev-parse --git-dir)"/shallow ] || git fetch --unshallow
         fi
