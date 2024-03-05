@@ -91,13 +91,17 @@ download() {
     fi
 
     if [ "$branch" == "master" ]; then
-        # Get a list of all tags, exclude "vDev", sort them using version sort,
-        # and filter out those that are greater than $latestTag.
-        # Then pick the highest version from the remaining list.
-        last_tag_before_head=$(git tag -l | grep '^v' | grep -v 'vDev' | sort -V | awk -v latestTag="$latestTag" '$1 <= latestTag' | tail -n1)
+        if [ "$op" == "un" ]; then
+            # Get a list of all tags, exclude "vDev", sort them using version sort,
+            # and filter out those that are greater than $latestTag.
+            # Then pick the highest version from the remaining list.
+            last_tag_before_head=$(git tag -l | grep '^v' | grep -v 'vDev' | sort -V | awk -v latestTag="$latestTag" '$1 <= latestTag' | tail -n1)
 
-        # If no such tag is found, fall back to $latestTag
-        if [ -z "$last_tag_before_head" ]; then
+            # If no such tag is found, fall back to $latestTag
+            if [ -z "$last_tag_before_head" ]; then
+                last_tag_before_head=$latestTag
+            fi
+        else
             last_tag_before_head=$latestTag
         fi
 
@@ -293,7 +297,7 @@ commit() {
 
 main() {
     printf "Thanks for using Speedtest Mod!\nScript by @ipitio\n\n$(date)\n\n"
-    local op=${1:-}
+    op=${1:-}
 
     if [ "$op" == "-h" ] || [ "$op" == "--help" ]; then
         help
