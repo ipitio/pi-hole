@@ -90,7 +90,8 @@ download() {
         fi
     fi
 
-    if [ "$branch" == "master" ] && [ ! -z "$src" ]; then
+    # if the branch is master and url doesn't include "ipitio" then check out the latest tag
+    if [ "$branch" == "master" ] && [[ "$url" != *"ipitio"* ]]; then
         if [[ "$op" == "un" ]]; then
             # Get last tag before/at $latestTag installed
             last_tag_before_head=$(git tag -l | grep '^v' | grep -v 'vDev' | sort -V | awk -v latestTag="$latestTag" '$1 <= latestTag' | tail -n1)
