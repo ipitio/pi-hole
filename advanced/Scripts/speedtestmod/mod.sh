@@ -46,7 +46,7 @@ download() {
         git clean -ffdx
     fi
 
-    git fetch origin $branch:refs/remotes/origin/$branch -q
+    [ -z "$src" ] || git fetch origin $branch:refs/remotes/origin/$branch -q
     git reset --hard origin/"$branch"
     git checkout -B "$branch"
     git rev-parse --verify "$branch" >/dev/null 2>&1 && git branch -u "origin/$branch" "$branch" || git checkout --track "origin/$branch"
@@ -55,7 +55,7 @@ download() {
     latestTag=$(git ls-remote --tags "$url" | awk -F/ '{print $3}' | grep -v '\^{}' | sort -V | tail -n1)
     [[ "$latestTag" == *.* ]] || latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
 
-    if [[ "$url" != *"arevindh"* ]] && [[ "$url" != *"ipitio"* ]] && [ ! -z "$src" ]; then
+    if [[ "$url" != *"arevindh"* ]] && [ ! -z "$src" ] && [[ "$url" != *"ipitio"* ]] && ! git remote -v | grep -q "old.*ipitio"; then
         local localVersion=$(pihole -v | grep "$src" | cut -d ' ' -f 6)
         [ "$localVersion" != "HEAD" ] || localVersion=$(pihole -v | grep "$src" | cut -d ' ' -f 7)
 
