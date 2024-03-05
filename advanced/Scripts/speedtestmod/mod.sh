@@ -29,7 +29,7 @@ setTags() {
         latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
     fi
 
-    if [[ "$op" == "un" ]] && [ ! -z "$name" ]; then
+    if [ ! -z "$name" ]; then
         local localTag=$(pihole -v | grep "$name" | cut -d ' ' -f 6)
 
         if [ "$localTag" == "HEAD" ]; then
@@ -59,7 +59,7 @@ download() {
         rm -rf "$name"
         git clone --depth=1 -b "$branch" "$url" "$name"
         git config --global --add safe.directory "$dest"
-        setTags "$name" "${src:-}" "$branch"
+        setTags "$name" "$src" "$branch"
     elif [ ! -d "$dest/.git" ]; then
         mv -f "$dest" "$dest.old"
         download "$@"
@@ -79,7 +79,7 @@ download() {
             fi
         fi
 
-        setTags "$dest" "${src:-}" "$branch"
+        setTags "$dest" "$src" "$branch"
         git reset --hard origin/"$branch"
         git checkout -B "$branch"
 
@@ -90,26 +90,18 @@ download() {
         fi
     fi
 
-    # if the branch is master and url doesn't include "ipitio" then check out the latest tag
     if [ "$branch" == "master" ] && [[ "$url" != *"ipitio"* ]]; then
-        if [[ "$op" == "un" ]]; then
-            # Get last tag before/at $latestTag installed
-            last_tag_before_head=$(git tag -l | grep '^v' | grep -v 'vDev' | sort -V | awk -v latestTag="$latestTag" '$1 <= latestTag' | tail -n1)
+        # Get last tag before/at $latestTag installed
+        last_tag_before_current=$(git tag -l | grep '^v' | grep -v 'vDev' | sort -V | awk -v latestTag="$latestTag" '$1 <= latestTag' | tail -n1)
 
-            # If no such tag is found, fall back to $latestTag
-            if [ -z "$last_tag_before_head" ]; then
-                last_tag_before_head=$latestTag
-            fi
-        else
-            # Get last tag before/at HEAD
-            if ! last_tag_before_head=$(git describe --tags --abbrev=0 HEAD 2>/dev/null); then
-                last_tag_before_head=$latestTag
-            fi
+        # If no such tag is found, fall back to $latestTag
+        if [ -z "$last_tag_before_current" ]; then
+            last_tag_before_current=$latestTag
         fi
 
         # Check if HEAD is already at this tag, if not, check out the tag
-        if [ "$(git rev-parse HEAD)" != "$(git rev-parse $last_tag_before_head 2>/dev/null)" ]; then
-            git -c advice.detachedHead=false checkout "$last_tag_before_head"
+        if [ "$(git rev-parse HEAD)" != "$(git rev-parse $last_tag_before_current 2>/dev/null)" ]; then
+            git -c advice.detachedHead=false checkout "$last_tag_before_current"
         fi
     fi
     cd ..
