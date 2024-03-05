@@ -20,16 +20,18 @@ help() {
 setTags() {
     local path=${1:-}
     local name=${2:-}
-    local branch="${3:-master}"
+    local url=${3:-}
+    local branch="${4:-master}"
 
     if [ ! -z "$path" ]; then
         cd "$path"
         git fetch origin $branch:refs/remotes/origin/$branch -q
+        git tag -l | xargs git tag -d
         git fetch --tags -f -q
         latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
     fi
 
-    if [ ! -z "$name" ]; then
+    if [[ "$url" != *"arevindh"* ]] && [ ! -z "$name" ]; then
         local localTag=$(pihole -v | grep "$name" | cut -d ' ' -f 6)
 
         if [ "$localTag" == "HEAD" ]; then
@@ -59,7 +61,7 @@ download() {
         rm -rf "$name"
         git clone --depth=1 -b "$branch" "$url" "$name"
         git config --global --add safe.directory "$dest"
-        setTags "$name" "$src" "$branch"
+        setTags "$name" "$src" "$url" "$branch"
     elif [ ! -d "$dest/.git" ]; then
         mv -f "$dest" "$dest.old"
         download "$@"
@@ -79,7 +81,7 @@ download() {
             fi
         fi
 
-        setTags "$dest" "$src" "$branch"
+        setTags "$dest" "$src" "$url" "$branch"
         git reset --hard origin/"$branch"
         git checkout -B "$branch"
 
@@ -291,7 +293,7 @@ commit() {
 
 main() {
     printf "Thanks for using Speedtest Mod!\nScript by @ipitio\n\n$(date)\n\n"
-    op=${1:-}
+    local op=${1:-}
 
     if [ "$op" == "-h" ] || [ "$op" == "--help" ]; then
         help
