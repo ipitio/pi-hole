@@ -29,8 +29,8 @@ setTags() {
         latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
     fi
 
-    if [ ! -z "$name" ]; then
-        localTag=$(pihole -v | grep "$name" | cut -d ' ' -f 6)
+    if [[ "$op" == "un" ]] && [ ! -z "$name" ]; then
+        local localTag=$(pihole -v | grep "$name" | cut -d ' ' -f 6)
 
         if [ "$localTag" == "HEAD" ]; then
             localTag=$(pihole -v | grep "$name" | cut -d ' ' -f 7)
@@ -91,17 +91,13 @@ download() {
     fi
 
     if [ "$branch" == "master" ]; then
-        if [ "$op" == "un" ]; then
-            # Get a list of all tags, exclude "vDev", sort them using version sort,
-            # and filter out those that are greater than $latestTag.
-            # Then pick the highest version from the remaining list.
-            last_tag_before_head=$(git tag -l | grep '^v' | grep -v 'vDev' | sort -V | awk -v latestTag="$latestTag" '$1 <= latestTag' | tail -n1)
+        # Get a list of all tags, exclude "vDev", sort them using version sort,
+        # and filter out those that are greater than $latestTag.
+        # Then pick the highest version from the remaining list.
+        last_tag_before_head=$(git tag -l | grep '^v' | grep -v 'vDev' | sort -V | awk -v latestTag="$latestTag" '$1 <= latestTag' | tail -n1)
 
-            # If no such tag is found, fall back to $latestTag
-            if [ -z "$last_tag_before_head" ]; then
-                last_tag_before_head=$latestTag
-            fi
-        else
+        # If no such tag is found, fall back to $latestTag
+        if [ -z "$last_tag_before_head" ]; then
             last_tag_before_head=$latestTag
         fi
 
