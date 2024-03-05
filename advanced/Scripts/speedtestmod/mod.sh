@@ -55,7 +55,7 @@ download() {
     latestTag=$(git ls-remote --tags "$url" | awk -F/ '{print $3}' | grep -v '\^{}' | sort -V | tail -n1)
     [[ "$latestTag" == *.* ]] || latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
 
-    if [[ "$url" != *"arevindh"* ]] && [ ! -z "$src" ]; then
+    if [[ "$url" != *"arevindh"* ]] && [[ "$url" != *"ipitio"* ]] && [ ! -z "$src" ]; then
         local localVersion=$(pihole -v | grep "$src" | cut -d ' ' -f 6)
         [ "$localVersion" != "HEAD" ] || localVersion=$(pihole -v | grep "$src" | cut -d ' ' -f 7)
 
