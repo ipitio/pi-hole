@@ -90,7 +90,7 @@ download() {
         fi
     fi
 
-    if [ "$branch" == "master" ]; then
+    if [ "$branch" == "master" ] && [ ! -z "$src" ]; then
         # Get a list of all tags, exclude "vDev", sort them using version sort,
         # and filter out those that are greater than $latestTag.
         # Then pick the highest version from the remaining list.
@@ -332,9 +332,12 @@ main() {
     exit 0
 }
 
-aborted=0
-rm -f /tmp/pimod.log
-touch /tmp/pimod.log
-main "$@" 2>&1 | tee -a /tmp/pimod.log
-mv -f /tmp/pimod.log /var/log/pihole/mod.log
-exit $aborted
+# allow to source this script without running it
+if [[ "${SKIP_MOD:-}" != true ]]; then
+    aborted=0
+    rm -f /tmp/pimod.log
+    touch /tmp/pimod.log
+    main "$@" 2>&1 | tee -a /tmp/pimod.log
+    mv -f /tmp/pimod.log /var/log/pihole/mod.log
+    exit $aborted
+fi
