@@ -15,7 +15,6 @@ download real,
 upload real,
 share_url text
 );"
-
 SKIP_MOD=true
 source /opt/pihole/speedtestmod/mod.sh
 
@@ -46,9 +45,6 @@ savetest() {
     local download=${8:-0}
     local upload=${9:-0}
     local share_url=${10:-"#"}
-    sqlite3 /etc/pihole/speedtest.db "$create_table"
-    sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start_time}', '${stop_time}', '${isp}', '${from_ip}', '${server}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
-
     local rm_empty='
   def nonempty: . and length > 0 and (type != "object" or . != {}) and (type != "array" or any(.[]; . != ""));
   if type == "array" then map(walk(if type == "object" then with_entries(select(.value | nonempty)) else . end)) else walk(if type == "object" then with_entries(select(.value | nonempty)) else . end) end
@@ -61,6 +57,8 @@ savetest() {
     mv -f /tmp/speedtest_results /var/log/pihole/speedtest.log
     cp -af /var/log/pihole/speedtest.log /etc/pihole/speedtest.log
     rm -f "$out"
+    sqlite3 /etc/pihole/speedtest.db "$create_table"
+    sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start_time}', '${stop_time}', '${isp}', '${from_ip}', '${server}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
     [ "$isp" == "No Internet" ] && exit 1 || exit 0
 }
 

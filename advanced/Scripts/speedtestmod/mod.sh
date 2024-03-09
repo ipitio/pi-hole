@@ -16,9 +16,10 @@ download() {
     local path=$1
     local name=$2
     local url=$3
-    local src=${4:-}
+    local localVersion=${4:-}
     local branch="${5:-master}"
     local dest=$path/$name
+    local tags=$(git ls-remote --tags "$url" | awk -F/ '{print $3}' | grep -v '\^{}' | sort -V)
 
     [ -d "$dest" ] && [ ! -d "$dest/.git" ] && mv -f "$dest" "$dest.old" || :
     [ -d "$dest" ] || git clone --depth=1 -b "$branch" "$url" "$dest" -q
@@ -35,20 +36,8 @@ download() {
         git clean -ffdx
     fi
 
-    if [ "$url" == "old" ] && [[ "$src" == *.* ]]; then
-        latestTag=$src
-    else
-        latestTag=$(git ls-remote --tags "$url" | awk -F/ '{print $3}' | grep -v '\^{}' | sort -V | tail -n1)
-
-        if [[ "$url" != *"arevindh"* ]] && [[ "$url" != *"ipitio"* ]] && ! git remote -v | grep -q "old.*ipitio"; then
-            local localVersion=$(getLocalVersion "$src")
-
-            # use the local version if it's less than the latest tag
-            if [[ "$localVersion" == *.* ]] && [[ "$localVersion" < "$latestTag" ]]; then
-                [ "$url" == "old" ] && latestTag=$localVersion || latestTag=$(git ls-remote --tags "$url" | awk -F'/' '{print $3}' | grep -v '\^{}' | sort -V | awk -v lv="$localVersion" '$1 <= lv' | tail -n1)
-            fi
-        fi
-    fi
+    [[ "$localVersion" == *.* ]] && local latestTag=$localVersion || local latestTag=$(getLocalVersion "$localVersion")
+    [ "$url" != "old" ] && [[ "$url" != *"arevindh"* ]] && [[ "$url" != *"ipitio"* ]] && ! git remote -v | grep -q "old.*ipitio" && [[ "$localVersion" < "$latestTag" ]] && latestTag=$(awk -v lv="$localVersion" '$1 <= lv' <<< "$tags" | tail -n1) || latestTag=$(tail -n1 <<< "$tags")
 
     if [ "$branch" == "master" ] && [[ "$url" != *"ipitio"* ]] && [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag 2>/dev/null)" ]; then
         git fetch origin tag $latestTag --depth=1 -q
@@ -166,7 +155,6 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     uninstall() {
         if [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
             echo "Restoring Pi-hole..."
-
             pihole -a -s -1
             download $html_dir admin https://github.com/pi-hole/AdminLTE web
             download /etc .pihole https://github.com/pi-hole/pi-hole Pi-hole
