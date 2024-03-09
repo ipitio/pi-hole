@@ -67,20 +67,14 @@ savetest() {
 isAvailable() {
     if [ -x "$(command -v apt-get)" ]; then
         # Check if there is a candidate and it is not "(none)"
-        if apt-cache policy "$1" | grep -q "Candidate:" && ! apt-cache policy "$1" | grep -q "Candidate: (none)"; then
-            return 0
-        fi
+        apt-cache policy "$1" | grep -q "Candidate:" && ! apt-cache policy "$1" | grep -q "Candidate: (none)" && return 0 || return 1
     elif [ -x "$(command -v dnf)" ] || [ -x "$(command -v yum)" ]; then
         local PKG_MANAGER=$(command -v dnf || command -v yum)
-        if $PKG_MANAGER list available "$1" &>/dev/null; then
-            return 0
-        fi
+        $PKG_MANAGER list available "$1" &>/dev/null && return 0 || return 1
     else
         echo "Unsupported package manager!"
         exit 1
     fi
-
-    return 1
 }
 
 swaptest() {
@@ -126,9 +120,7 @@ librespeed() {
     fi
     download /etc/pihole librespeed https://github.com/librespeed/speedtest-cli
     cd librespeed
-    if [ -d out ]; then
-        rm -rf out
-    fi
+    [ ! -d out ] || rm -rf out
     ./build.sh
     mv -f out/* /usr/bin/speedtest
     chmod +x /usr/bin/speedtest
@@ -151,9 +143,7 @@ run() {
             local from_ip=$(jq -r '.interface.externalIp' <<<"$res")
             local server_ping=$(jq -r '.ping.latency' <<<"$res")
             local share_url=$(jq -r '.result.url' <<<"$res")
-            if [ -z "$server_dist" ]; then
-                server_dist="-1"
-            fi
+            [ ! -z "$server_dist" ] || server_dist="-1"
         else # speedtest-cli
             local server_name=$(jq -r '.server.sponsor' <<<"$res")
             local download=$(jq -r '.download' <<<"$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
@@ -162,9 +152,7 @@ run() {
             local from_ip=$(jq -r '.client.ip' <<<"$res")
             local server_ping=$(jq -r '.ping' <<<"$res")
             local share_url=$(jq -r '.share' <<<"$res")
-            if [ -z "$server_dist" ]; then
-                server_dist=$(jq -r '.server.d' <<<"$res")
-            fi
+            [ ! -z "$server_dist" ] || server_dist=$(jq -r '.server.d' <<<"$res")
         fi
 
         savetest "$start" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
@@ -184,9 +172,7 @@ run() {
         savetest "$start" "$stop"
     else
         if notInstalled speedtest && notInstalled speedtest-cli; then
-            if [ -f /usr/bin/speedtest ]; then
-                rm -f /usr/bin/speedtest
-            fi
+            [ ! -f /usr/bin/speedtest ] || rm -f /usr/bin/speedtest
 
             if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
                 if [ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]; then
@@ -244,9 +230,7 @@ main() {
         exit $?
     fi
 
-    if [ ! -d /etc/pihole/speedtest ]; then
-        download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
-    fi
+    [ -d /etc/pihole/speedtest ] || download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
 
     PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
     if [ ! -f /usr/bin/speedtest ]; then
