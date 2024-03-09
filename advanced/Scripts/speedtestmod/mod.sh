@@ -221,7 +221,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         for dir in $core_dir $html_dir/admin $etc_dir/speedtest; do
             if [ -d $dir/.git/refs/remotes/old ]; then
                 cd $dir
-                git remote remove old
+                git remote -v | grep -q "old" && git remote remove old || :
             fi
         done
         printf "Done!\n\n$(date)\n"
