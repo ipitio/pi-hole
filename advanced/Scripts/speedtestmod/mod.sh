@@ -45,6 +45,19 @@ download() {
     cd ..
 }
 
+notInstalled() {
+    if [ -x "$(command -v apt-get)" ]; then
+        dpkg -s "$1" &>/dev/null || return 0
+    elif [ -x "$(command -v dnf)" ] || [ -x "$(command -v yum)" ]; then
+        rpm -q "$1" &>/dev/null || return 0
+    else
+        echo "Unsupported package manager!"
+        exit 1
+    fi
+
+    return 1
+}
+
 # allow to source the above helper functions without running the whole script
 if [[ "${SKIP_MOD:-}" != true ]]; then
     aborted=0
@@ -94,19 +107,6 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 fi
             fi
         fi
-    }
-
-    notInstalled() {
-        if [ -x "$(command -v apt-get)" ]; then
-            dpkg -s "$1" &>/dev/null || return 0
-        elif [ -x "$(command -v dnf)" ] || [ -x "$(command -v yum)" ]; then
-            rpm -q "$1" &>/dev/null || return 0
-        else
-            echo "Unsupported package manager!"
-            exit 1
-        fi
-
-        return 1
     }
 
     swapScripts() {
