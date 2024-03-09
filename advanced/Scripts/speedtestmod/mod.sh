@@ -35,31 +35,28 @@ download() {
         git clean -ffdx
     fi
 
-    git fetch origin $branch:refs/remotes/origin/$branch -q
-    git reset --hard origin/"$branch" -q
-    git checkout -B "$branch" -q
-    git rev-parse --verify "$branch" >/dev/null 2>&1 && git branch -u "origin/$branch" "$branch" -q || git checkout --track "origin/$branch" -q
-    git tag -l | xargs git tag -d >/dev/null 2>&1
-    git fetch --tags -f -q
-
     if [ "$url" == "old" ] && [[ "$src" == *.* ]]; then
         latestTag=$src
     else
         latestTag=$(git ls-remote --tags "$url" | awk -F/ '{print $3}' | grep -v '\^{}' | sort -V | tail -n1)
-        [[ "${latestTag:-}" == *.* ]] || latestTag=$(git describe --tags $(git rev-list --tags --max-count=1))
 
         if [[ "$url" != *"arevindh"* ]] && [[ "$url" != *"ipitio"* ]] && ! git remote -v | grep -q "old.*ipitio"; then
             local localVersion=$(getLocalVersion "$src")
 
-            # if the local version is less than the latest tag then use the tag before it
+            # use the local version if it's less than the latest tag
             if [[ "$localVersion" == *.* ]] && [[ "$localVersion" < "$latestTag" ]]; then
                 [ "$url" == "old" ] && latestTag=$localVersion || latestTag=$(git ls-remote --tags "$url" | awk -F'/' '{print $3}' | grep -v '\^{}' | sort -V | awk -v lv="$localVersion" '$1 <= lv' | tail -n1)
-                [[ "$latestTag" == *.* ]] || $(git tag -l | sort -V | awk -v lv="$localVersion" '$1 <= lv' | tail -n1)
             fi
         fi
     fi
 
-    [ "$branch" == "master" ] && [[ "$url" != *"ipitio"* ]] && [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag 2>/dev/null)" ] && git -c advice.detachedHead=false checkout "$latestTag" || :
+    if [ "$branch" == "master" ] && [[ "$url" != *"ipitio"* ]] && [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag 2>/dev/null)" ]; then
+        git fetch origin tag $latestTag --depth=1 -q
+        git -c advice.detachedHead=false checkout "$latestTag" -q
+    else
+        git fetch origin --depth=1 $branch:refs/remotes/origin/$branch -q
+        git checkout -B "$branch" -q
+    fi
     cd ..
 }
 
