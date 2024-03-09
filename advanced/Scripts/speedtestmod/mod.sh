@@ -139,7 +139,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             $PKG_MANAGER install -y "${missingPkgs[@]}" > /dev/null
         fi
 
-        download /etc .pihole https://github.com/ipitio/pi-hole Pi-hole
+        download /etc .pihole https://github.com/ipitio/pi-hole Pi-hole ipitio
         swapScripts
         cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
         pihole -a -s
