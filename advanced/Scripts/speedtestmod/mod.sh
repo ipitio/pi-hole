@@ -19,7 +19,7 @@ download() {
     local localVersion=${4:-}
     local branch="${5:-master}"
     local dest=$path/$name
-    local tags=$(git ls-remote --tags "$url" | awk -F/ '{print $3}' | grep -v '\^{}' | sort -V)
+    local tags=$(git ls-remote --tags "$url" | awk -F/ '{print $3}' | grep '^v[0-9]' | grep -v '\^{}' | sort -V)
 
     [ -d "$dest" ] && [ ! -d "$dest/.git" ] && mv -f "$dest" "$dest.old" || :
     [ -d "$dest" ] || git clone --depth=1 -b "$branch" "$url" "$dest" -q
