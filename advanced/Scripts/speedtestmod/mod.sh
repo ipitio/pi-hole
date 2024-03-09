@@ -36,16 +36,11 @@ download() {
         git clean -ffdx
     fi
 
+    git fetch origin --depth=1 $branch:refs/remotes/origin/$branch -q
+    git checkout -B "$branch" -q
     [[ "$localVersion" == *.* ]] && local latestTag=$localVersion || local latestTag=$(getLocalVersion "$localVersion")
     [ "$url" != "old" ] && [[ "$url" != *"arevindh"* ]] && [[ "$url" != *"ipitio"* ]] && ! git remote -v | grep -q "old.*ipitio" && [[ "$localVersion" < "$latestTag" ]] && latestTag=$(awk -v lv="$localVersion" '$1 <= lv' <<< "$tags" | tail -n1) || latestTag=$(tail -n1 <<< "$tags")
-
-    if [ "$branch" == "master" ] && [[ "$url" != *"ipitio"* ]] && [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag 2>/dev/null)" ]; then
-        git fetch origin tag $latestTag --depth=1 -q
-        git -c advice.detachedHead=false checkout "$latestTag" -q
-    else
-        git fetch origin --depth=1 $branch:refs/remotes/origin/$branch -q
-        git checkout -B "$branch" -q
-    fi
+    [ "$branch" == "master" ] && [[ "$url" != *"ipitio"* ]] && [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag 2>/dev/null)" ] && git fetch origin tag $latestTag --depth=1 -q && git -c advice.detachedHead=false checkout "$latestTag" -q
     cd ..
 }
 
