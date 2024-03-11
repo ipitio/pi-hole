@@ -219,7 +219,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
     commit() {
         for dir in $core_dir $html_dir/admin $etc_dir/speedtest; do
-            cd $dir
+            [ ! -d $dir ] && continue || cd $dir
             git remote -v | grep -q "old" && git remote remove old || :
             git clean -ffdx
         done
