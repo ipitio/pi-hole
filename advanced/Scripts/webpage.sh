@@ -635,6 +635,8 @@ if [[ "\$interval_seconds" == "nan" ]]; then
         /usr/local/bin/pihole -a -s "\$schedule"
     fi
 
+    download /etc/pihole speedtest https://github.com/arevindh/pihole-speedtest
+    /usr/local/bin/pihole updatechecker
     exit 0
 fi
 
