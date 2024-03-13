@@ -83,126 +83,12 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         [ -f $db ] && sqlite3 "$db" "select * from $db_table limit 1;" &>/dev/null && [ ! -z "$(sqlite3 "$db" "select * from $db_table limit 1;")" ] && return 1 || return 0
     }
 
-    manageHistory() {
-        if [ -f $curr_db ] && ! isEmpty $curr_db; then
-            echo "Flushing Database..."
-            mv -f $curr_db $last_db
-            [ ! -f $etc_dir/last_speedtest ] || mv -f $etc_dir/last_speedtest $etc_dir/last_speedtest.old
-
-            if [ -f /var/log/pihole/speedtest.log ]; then
-                mv -f /var/log/pihole/speedtest.log /var/log/pihole/speedtest.log.old
-                rm -f $etc_dir/speedtest.log
-            fi
-        elif [ -f $last_db ]; then
-            echo "Restoring Database..."
-            mv -f $last_db $curr_db
-            [ ! -f $etc_dir/last_speedtest.old ] || mv -f $etc_dir/last_speedtest.old $etc_dir/last_speedtest
-
-            if [ -f /var/log/pihole/speedtest.log.old ]; then
-                mv -f /var/log/pihole/speedtest.log.old /var/log/pihole/speedtest.log
-                \cp -af /var/log/pihole/speedtest.log $etc_dir/speedtest.log
-            fi
-        fi
-    }
-
     swapScripts() {
         SKIP_INSTALL=true
         set +u
         source "$core_dir/automated install/basic-install.sh"
         installScripts
         set -u
-    }
-
-    installMod() {
-        if [ ! -f /usr/local/bin/pihole ]; then
-            echo "Installing Pi-hole..."
-            curl -sSL https://install.pi-hole.net | sudo bash
-        fi
-
-        echo "Installing Mod..."
-        local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
-        local PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
-        local PKGS=(bc sqlite3 jq tmux wget "php$PHP_VERSION-sqlite3")
-        local missingPkgs=()
-
-        for pkg in "${PKGS[@]}"; do
-            ! notInstalled "$pkg" || missingPkgs+=("$pkg")
-        done
-
-        if [ ${#missingPkgs[@]} -gt 0 ]; then
-            [[ "$PKG_MANAGER" != *"apt-get"* ]] || apt-get update >/dev/null
-            $PKG_MANAGER install -y "${missingPkgs[@]}" &>/dev/null
-        fi
-
-        [ ! -d $core_dir ] || \cp -af $core_dir $core_dir.bak
-        [ ! -d $html_dir/admin ] || \cp -af $html_dir/admin $html_dir/admin.bak
-        download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
-        download /etc .pihole https://github.com/ipitio/pi-hole Pi-hole ipitio
-        swapScripts
-        \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
-        pihole -a -s
-        download $html_dir admin https://github.com/ipitio/AdminLTE web
-        pihole updatechecker
-    }
-
-    uninstall() {
-        if [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
-            echo "Restoring Pi-hole..."
-            pihole -a -s -1
-
-            if [ -d $html_dir/admin.bak ] && $1; then
-                [ -e $html_dir/admin ] && rm -rf $html_dir/admin
-                mv -f $html_dir/admin.bak $html_dir/admin
-            else
-                download $html_dir admin https://github.com/pi-hole/AdminLTE web
-            fi
-
-            if [ -d $core_dir.bak ] && $1; then
-                [ -e $core_dir ] && rm -rf $core_dir
-                mv -f $core_dir.bak $core_dir
-            else
-                download /etc .pihole https://github.com/pi-hole/pi-hole Pi-hole
-            fi
-
-            [ ! -d $etc_dir/speedtest] || rm -rf $etc_dir/speedtest
-            st_ver=$(pihole -v -s | cut -d ' ' -f 6)
-            [ "$st_ver" != "HEAD" ] || st_ver=$(pihole -v -s | cut -d ' ' -f 7)
-            swapScripts
-        fi
-    }
-
-    purge() {
-        if [ -f /etc/systemd/system/pihole-speedtest.timer ]; then
-            rm -f /etc/systemd/system/pihole-speedtest.service
-            rm -f /etc/systemd/system/pihole-speedtest.timer
-            systemctl daemon-reload
-        fi
-
-        rm -rf "$html_dir"/*_admin
-        rm -rf $opt_dir/speedtestmod
-        rm -rf $etc_dir/mod
-        rm -f "$curr_wp".*
-        rm -f "$curr_db".*
-        rm -f "$curr_db"_*
-        rm -f $etc_dir/last_speedtest.*
-        ! isEmpty $curr_db || rm -f $curr_db
-        pihole updatechecker
-    }
-
-    update() {
-        if [[ -d /run/systemd/system ]]; then
-            echo "Updating Pi-hole..."
-            PIHOLE_SKIP_OS_CHECK=true sudo -E pihole -up
-        else
-            echo "Systemd not found. Skipping Pi-hole update..."
-        fi
-
-        if [ "${1:-}" == "un" ]; then
-            purge
-            exit 0
-        fi
-
-        installMod
     }
 
     abort() {
@@ -266,12 +152,109 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             esac
         done
 
-        ! $db || manageHistory
+        if $db; then
+            if [ -f $curr_db ] && ! isEmpty $curr_db; then
+                echo "Flushing Database..."
+                mv -f $curr_db $last_db
+                [ ! -f $etc_dir/last_speedtest ] || mv -f $etc_dir/last_speedtest $etc_dir/last_speedtest.old
+
+                if [ -f /var/log/pihole/speedtest.log ]; then
+                    mv -f /var/log/pihole/speedtest.log /var/log/pihole/speedtest.log.old
+                    rm -f $etc_dir/speedtest.log
+                fi
+            elif [ -f $last_db ]; then
+                echo "Restoring Database..."
+                mv -f $last_db $curr_db
+                [ ! -f $etc_dir/last_speedtest.old ] || mv -f $etc_dir/last_speedtest.old $etc_dir/last_speedtest
+
+                if [ -f /var/log/pihole/speedtest.log.old ]; then
+                    mv -f /var/log/pihole/speedtest.log.old /var/log/pihole/speedtest.log
+                    \cp -af /var/log/pihole/speedtest.log $etc_dir/speedtest.log
+                fi
+            fi
+        fi
 
         if $up || $un || [ "$#" -eq 0 ]; then
-            uninstall $un
-            ! $up || update
-            $un && purge || installMod
+            if [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
+                echo "Restoring Pi-hole..."
+                pihole -a -s -1
+
+                if $un && [ -d $html_dir/admin.bak ]; then
+                    [ -e $html_dir/admin ] && rm -rf $html_dir/admin
+                    mv -f $html_dir/admin.bak $html_dir/admin
+                else
+                    download $html_dir admin https://github.com/pi-hole/AdminLTE web
+                fi
+
+                if $un && [ -d $core_dir.bak ]; then
+                    [ -e $core_dir ] && rm -rf $core_dir
+                    mv -f $core_dir.bak $core_dir
+                else
+                    download /etc .pihole https://github.com/pi-hole/pi-hole Pi-hole
+                fi
+
+                [ ! -d $etc_dir/speedtest] || rm -rf $etc_dir/speedtest
+                st_ver=$(pihole -v -s | cut -d ' ' -f 6)
+                [ "$st_ver" != "HEAD" ] || st_ver=$(pihole -v -s | cut -d ' ' -f 7)
+                swapScripts
+            fi
+
+            if $up; then
+                if [[ -d /run/systemd/system ]]; then
+                    echo "Updating Pi-hole..."
+                    PIHOLE_SKIP_OS_CHECK=true sudo -E pihole -up
+                else
+                    echo "Systemd not found. Skipping Pi-hole update..."
+                fi
+            fi
+
+            if $un; then
+                if [ -f /etc/systemd/system/pihole-speedtest.timer ]; then
+                    rm -f /etc/systemd/system/pihole-speedtest.service
+                    rm -f /etc/systemd/system/pihole-speedtest.timer
+                    systemctl daemon-reload
+                fi
+
+                rm -rf "$html_dir"/*_admin
+                rm -rf $opt_dir/speedtestmod
+                rm -rf $etc_dir/mod
+                rm -f "$curr_wp".*
+                rm -f "$curr_db".*
+                rm -f "$curr_db"_*
+                rm -f $etc_dir/last_speedtest.*
+                ! isEmpty $curr_db || rm -f $curr_db
+            else
+                if [ ! -f /usr/local/bin/pihole ]; then
+                    echo "Installing Pi-hole..."
+                    curl -sSL https://install.pi-hole.net | sudo bash
+                fi
+
+                echo "Installing Mod..."
+                local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
+                local PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
+                local PKGS=(bc sqlite3 jq tmux wget "php$PHP_VERSION-sqlite3")
+                local missingPkgs=()
+
+                for pkg in "${PKGS[@]}"; do
+                    ! notInstalled "$pkg" || missingPkgs+=("$pkg")
+                done
+
+                if [ ${#missingPkgs[@]} -gt 0 ]; then
+                    [[ "$PKG_MANAGER" != *"apt-get"* ]] || apt-get update >/dev/null
+                    $PKG_MANAGER install -y "${missingPkgs[@]}" &>/dev/null
+                fi
+
+                [ ! -d $core_dir ] || \cp -af $core_dir $core_dir.bak
+                [ ! -d $html_dir/admin ] || \cp -af $html_dir/admin $html_dir/admin.bak
+                download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
+                download /etc .pihole https://github.com/ipitio/pi-hole Pi-hole ipitio
+                swapScripts
+                \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
+                pihole -a -s
+                download $html_dir admin https://github.com/ipitio/AdminLTE web
+            fi
+
+            pihole updatechecker
         fi
 
         exit 0
