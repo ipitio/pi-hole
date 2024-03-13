@@ -84,25 +84,23 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     manageHistory() {
-        if [ "${1:-}" == "db" ]; then
-            if [ -f $curr_db ] && ! isEmpty $curr_db; then
-                echo "Flushing Database..."
-                mv -f $curr_db $last_db
-                [ ! -f $etc_dir/last_speedtest ] || mv -f $etc_dir/last_speedtest $etc_dir/last_speedtest.old
+        if [ -f $curr_db ] && ! isEmpty $curr_db; then
+            echo "Flushing Database..."
+            mv -f $curr_db $last_db
+            [ ! -f $etc_dir/last_speedtest ] || mv -f $etc_dir/last_speedtest $etc_dir/last_speedtest.old
 
-                if [ -f /var/log/pihole/speedtest.log ]; then
-                    mv -f /var/log/pihole/speedtest.log /var/log/pihole/speedtest.log.old
-                    rm -f $etc_dir/speedtest.log
-                fi
-            elif [ -f $last_db ]; then
-                echo "Restoring Database..."
-                mv -f $last_db $curr_db
-                [ ! -f $etc_dir/last_speedtest.old ] || mv -f $etc_dir/last_speedtest.old $etc_dir/last_speedtest
+            if [ -f /var/log/pihole/speedtest.log ]; then
+                mv -f /var/log/pihole/speedtest.log /var/log/pihole/speedtest.log.old
+                rm -f $etc_dir/speedtest.log
+            fi
+        elif [ -f $last_db ]; then
+            echo "Restoring Database..."
+            mv -f $last_db $curr_db
+            [ ! -f $etc_dir/last_speedtest.old ] || mv -f $etc_dir/last_speedtest.old $etc_dir/last_speedtest
 
-                if [ -f /var/log/pihole/speedtest.log.old ]; then
-                    mv -f /var/log/pihole/speedtest.log.old /var/log/pihole/speedtest.log
-                    \cp -af /var/log/pihole/speedtest.log $etc_dir/speedtest.log
-                fi
+            if [ -f /var/log/pihole/speedtest.log.old ]; then
+                mv -f /var/log/pihole/speedtest.log.old /var/log/pihole/speedtest.log
+                \cp -af /var/log/pihole/speedtest.log $etc_dir/speedtest.log
             fi
         fi
     }
@@ -128,7 +126,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         local missingPkgs=()
 
         for pkg in "${PKGS[@]}"; do
-            notInstalled "$pkg" && missingPkgs+=("$pkg") || :
+            ! notInstalled "$pkg" || missingPkgs+=("$pkg")
         done
 
         if [ ${#missingPkgs[@]} -gt 0 ]; then
@@ -152,14 +150,14 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             echo "Restoring Pi-hole..."
             pihole -a -s -1
 
-            if [ -d $html_dir/admin.bak ]; then
+            if [ -d $html_dir/admin.bak ] && $1; then
                 [ -e $html_dir/admin ] && rm -rf $html_dir/admin
                 mv -f $html_dir/admin.bak $html_dir/admin
             else
                 download $html_dir admin https://github.com/pi-hole/AdminLTE web
             fi
 
-            if [ -d $core_dir.bak ]; then
+            if [ -d $core_dir.bak ] && $1; then
                 [ -e $core_dir ] && rm -rf $core_dir
                 mv -f $core_dir.bak $core_dir
             else
@@ -171,8 +169,6 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             [ "$st_ver" != "HEAD" ] || st_ver=$(pihole -v -s | cut -d ' ' -f 7)
             swapScripts
         fi
-
-        manageHistory ${1:-}
     }
 
     purge() {
@@ -189,7 +185,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         rm -f "$curr_db".*
         rm -f "$curr_db"_*
         rm -f $etc_dir/last_speedtest.*
-        isEmpty $curr_db && rm -f $curr_db || :
+        ! isEmpty $curr_db || rm -f $curr_db
         pihole updatechecker
     }
 
@@ -233,7 +229,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     commit() {
         for dir in $core_dir $html_dir/admin $etc_dir/speedtest; do
             [ ! -d $dir ] && continue || cd $dir
-            git remote -v | grep -q "old" && git remote remove old || :
+            ! git remote -v | grep -q "old" || git remote remove old
             git clean -ffdx
         done
         printf "Done!\n\n$(date)\n"
@@ -258,17 +254,24 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         trap 'abort' INT TERM
         shopt -s dotglob
 
-        local db=$([ "$op" == "up" ] && echo "${3:-}" || [ "$op" == "un" ] && echo "${2:-}" || echo "$op")
+        local up=false
+        local un=false
+        local db=false
 
-        if [ "$op" == "db" ]; then
-            manageHistory $db
-        else
-            uninstall $db
-            case $op in
-            un) purge ;;
-            up) update ${2:-} ;;
-            *) installMod ;;
+        for arg in "$@"; do
+            case $arg in
+            up) up=true ;;
+            un) un=true ;;
+            db) db=true ;;
             esac
+        done
+
+        ! $db || manageHistory
+
+        if $up || $un || [ "$#" -eq 0 ]; then
+            uninstall $un
+            ! $up || update
+            $un && purge || installMod
         fi
 
         exit 0
