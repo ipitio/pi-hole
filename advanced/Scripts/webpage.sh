@@ -612,6 +612,7 @@ generate_cron_schedule() {
         addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "$(echo "scale=3; $total_seconds / 3600" | bc)"
     fi
 
+    [ -d /opt/pihole/speedtestmod ] || return
     sudo bash -c "cat > $(printf %q "$schedule_script")" << EOF
 #!/bin/bash
 # Schedule script to handle complex cron schedules
