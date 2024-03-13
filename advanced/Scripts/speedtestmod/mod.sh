@@ -175,6 +175,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         fi
 
         if $up || $un || [ "$#" -eq 0 ]; then
+            local working_dir=$(pwd)
+            cd ~
+
             if [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
                 echo "Restoring Pi-hole..."
                 pihole -a -s -1
@@ -193,7 +196,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     download /etc .pihole https://github.com/pi-hole/pi-hole Pi-hole
                 fi
 
-                [ ! -d $etc_dir/speedtest] || rm -rf $etc_dir/speedtest
+                [ ! -d $etc_dir/speedtest ] || rm -rf $etc_dir/speedtest
                 st_ver=$(pihole -v -s | cut -d ' ' -f 6)
                 [ "$st_ver" != "HEAD" ] || st_ver=$(pihole -v -s | cut -d ' ' -f 7)
                 swapScripts
@@ -255,6 +258,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
 
             pihole updatechecker
+            [ -d $working_dir ] && cd $working_dir
         fi
 
         exit 0
