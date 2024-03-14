@@ -218,12 +218,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     systemctl daemon-reload
                 fi
 
-                rm -rf "$html_dir"/*_admin
                 rm -rf $opt_dir/speedtestmod
-                rm -rf $etc_dir/mod
-                rm -f "$curr_wp".*
                 rm -f "$curr_db".*
-                rm -f "$curr_db"_*
                 rm -f $etc_dir/last_speedtest.*
                 ! isEmpty $curr_db || rm -f $curr_db
             else
