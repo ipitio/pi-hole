@@ -203,7 +203,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
 
             if $up; then
-                if [[ -d /run/systemd/system ]]; then
+                if [ -d /run/systemd/system ]; then
                     echo "Updating Pi-hole..."
                     PIHOLE_SKIP_OS_CHECK=true sudo -E pihole -up
                 else
@@ -249,7 +249,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
                 [ ! -d $core_dir ] || \cp -af $core_dir $core_dir.bak
                 [ ! -d $html_dir/admin ] || \cp -af $html_dir/admin $html_dir/admin.bak
-                download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
+                [ ! -d /run/systemd/system ] || download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
                 download /etc .pihole https://github.com/ipitio/pi-hole Pi-hole ipitio
                 swapScripts
                 \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
