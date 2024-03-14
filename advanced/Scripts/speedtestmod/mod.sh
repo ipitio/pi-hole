@@ -249,7 +249,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
                 [ ! -d $core_dir ] || \cp -af $core_dir $core_dir.bak
                 [ ! -d $html_dir/admin ] || \cp -af $html_dir/admin $html_dir/admin.bak
-                [ ! -d /run/systemd/system ] || download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
+                download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
+                touch $etc_dir/speedtest/updated
                 download /etc .pihole https://github.com/ipitio/pi-hole Pi-hole ipitio
                 swapScripts
                 \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
