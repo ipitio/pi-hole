@@ -243,14 +243,17 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     $PKG_MANAGER install -y "${missingPkgs[@]}" &>/dev/null
                 fi
 
-                [ -d $core_dir.bak ] || mkdir -p $core_dir.bak
-                [ ! -d $core_dir ] || tar -C $core_dir -c . | tar -C $core_dir.bak -xp --overwrite
+                for repo in $core_dir $html_dir/admin; do
+                    if [ -d $repo ]; then
+                        [ -d $repo.bak ] || mkdir -p $repo.bak
+                        tar -C $repo -c . | tar -C $repo.bak -xp --overwrite
+                    fi
+                done
+
                 download /etc .pihole https://github.com/ipitio/pi-hole Pi-hole ipitio
                 swapScripts
                 \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
                 pihole -a -s
-                [ -d $html_dir/admin.bak ] || mkdir -p $html_dir/admin.bak
-                [ ! -d $html_dir/admin ] || tar -C $html_dir/admin -c . | tar -C $html_dir/admin.bak -xp --overwrite
                 download $html_dir admin https://github.com/ipitio/AdminLTE web
                 download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
                 touch $etc_dir/speedtest/updated # checkfile for Docker
