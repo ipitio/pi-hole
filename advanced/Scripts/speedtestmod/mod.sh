@@ -72,8 +72,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     help() {
         echo "(Re)install Latest Speedtest Mod."
         echo "Usage: sudo $0 [up] [un] [db]"
-        echo "up - update the mod (and Pi-hole if not in Docker)"
-        echo "un - remove the mod (and any database backups)"
+        echo "up - (re)install the latest version of the mod and, if not in Docker, run Pi-hole's update script"
+        echo "un - uninstall the mod (and remove any database backups)"
         echo "db - flush the database (if it's not empty, otherwise restore it)"
         echo "If no option is specified, the latest version of the Mod will be (re)installed."
     }
@@ -113,7 +113,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     commit() {
-        for dir in $core_dir $html_dir/admin $etc_dir/speedtest; do
+        for dir in $core_dir $html_dir/admin; do
             [ ! -d $dir ] && continue || cd $dir
             ! git remote -v | grep -q "old" || git remote remove old
             git clean -ffdx
@@ -183,14 +183,14 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 pihole -a -s -1
 
                 if $un && [ -d $html_dir/admin.bak ]; then
-                    [ -e $html_dir/admin ] && rm -rf $html_dir/admin
+                    [ ! -e $html_dir/admin ] || rm -rf $html_dir/admin
                     mv -f $html_dir/admin.bak $html_dir/admin
                 else
                     download $html_dir admin https://github.com/pi-hole/AdminLTE web
                 fi
 
                 if $un && [ -d $core_dir.bak ]; then
-                    [ -e $core_dir ] && rm -rf $core_dir
+                    [ ! -e $core_dir ] || rm -rf $core_dir
                     mv -f $core_dir.bak $core_dir
                 else
                     download /etc .pihole https://github.com/pi-hole/pi-hole Pi-hole
@@ -231,7 +231,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 echo "Installing Mod..."
                 local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
                 local PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
-                local PKGS=(bc sqlite3 jq tmux wget "php$PHP_VERSION-sqlite3")
+                local PKGS=(bc sqlite3 jq tar tmux wget "php$PHP_VERSION-sqlite3")
                 local missingPkgs=()
 
                 for pkg in "${PKGS[@]}"; do
@@ -243,15 +243,15 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     $PKG_MANAGER install -y "${missingPkgs[@]}" &>/dev/null
                 fi
 
-                [ ! -d $core_dir ] || \cp -af $core_dir $core_dir.bak
-                [ ! -d $html_dir/admin ] || \cp -af $html_dir/admin $html_dir/admin.bak
-                download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
-                touch $etc_dir/speedtest/updated
+                [ ! -d $core_dir ] || tar -C $core_dir -c . | tar -C $core_dir.bak -xp --overwrite
                 download /etc .pihole https://github.com/ipitio/pi-hole Pi-hole ipitio
                 swapScripts
                 \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
                 pihole -a -s
+                [ ! -d $html_dir/admin ] || tar -C $html_dir/admin -c . | tar -C $html_dir/admin.bak -xp --overwrite
                 download $html_dir admin https://github.com/ipitio/AdminLTE web
+                download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
+                touch $etc_dir/speedtest/updated # checkfile for Docker
             fi
 
             pihole updatechecker
