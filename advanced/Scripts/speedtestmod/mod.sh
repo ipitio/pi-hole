@@ -91,6 +91,15 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         set -u
     }
 
+    restore() {
+        [ -d $1.bak ] || return 1
+        [ ! -e $1 ] || rm -rf $1
+        mv -f $1.bak $1
+        cd $1
+        git tag -l | xargs git tag -d >/dev/null 2>&1
+        git fetch --tags -f -q
+    }
+
     purge() {
         if [ -f /etc/systemd/system/pihole-speedtest.timer ]; then
             rm -f /etc/systemd/system/pihole-speedtest.service
@@ -194,21 +203,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             if [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
                 echo "Restoring Pi-hole..."
                 pihole -a -s -1
-
-                if $un && [ -d $html_dir/admin.bak ]; then
-                    [ ! -e $html_dir/admin ] || rm -rf $html_dir/admin
-                    mv -f $html_dir/admin.bak $html_dir/admin
-                else
-                    download $html_dir admin https://github.com/pi-hole/AdminLTE web
-                fi
-
-                if $un && [ -d $core_dir.bak ]; then
-                    [ ! -e $core_dir ] || rm -rf $core_dir
-                    mv -f $core_dir.bak $core_dir
-                else
-                    download /etc .pihole https://github.com/pi-hole/pi-hole Pi-hole
-                fi
-
+                [[ $un == true ]] && restore $html_dir/admin || download $html_dir admin https://github.com/pi-hole/AdminLTE web
+                [[ $un == true ]] && restore $core_dir || download /etc .pihole https://github.com/pi-hole/pi-hole Pi-hole
                 [ ! -d $etc_dir/speedtest ] || rm -rf $etc_dir/speedtest
                 st_ver=$(pihole -v -s | cut -d ' ' -f 6)
                 [ "$st_ver" != "HEAD" ] || st_ver=$(pihole -v -s | cut -d ' ' -f 7)
