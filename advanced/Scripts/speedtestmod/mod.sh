@@ -91,6 +91,19 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         set -u
     }
 
+    purge() {
+        if [ -f /etc/systemd/system/pihole-speedtest.timer ]; then
+            rm -f /etc/systemd/system/pihole-speedtest.service
+            rm -f /etc/systemd/system/pihole-speedtest.timer
+            systemctl daemon-reload
+        fi
+
+        rm -rf $opt_dir/speedtestmod
+        rm -f "$curr_db".*
+        rm -f $etc_dir/last_speedtest.*
+        ! isEmpty $curr_db || rm -f $curr_db
+    }
+
     abort() {
         echo "Process Aborting..."
         aborted=1
@@ -212,16 +225,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
 
             if $un; then
-                if [ -f /etc/systemd/system/pihole-speedtest.timer ]; then
-                    rm -f /etc/systemd/system/pihole-speedtest.service
-                    rm -f /etc/systemd/system/pihole-speedtest.timer
-                    systemctl daemon-reload
-                fi
-
-                rm -rf $opt_dir/speedtestmod
-                rm -f "$curr_db".*
-                rm -f $etc_dir/last_speedtest.*
-                ! isEmpty $curr_db || rm -f $curr_db
+                purge
             else
                 if [ ! -f /usr/local/bin/pihole ]; then
                     echo "Installing Pi-hole..."
@@ -243,11 +247,13 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     $PKG_MANAGER install -y "${missingPkgs[@]}" &>/dev/null
                 fi
 
+                [ -d $core_dir.bak ] || mkdir -p $core_dir.bak
                 [ ! -d $core_dir ] || tar -C $core_dir -c . | tar -C $core_dir.bak -xp --overwrite
                 download /etc .pihole https://github.com/ipitio/pi-hole Pi-hole ipitio
                 swapScripts
                 \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
                 pihole -a -s
+                [ -d $html_dir/admin.bak ] || mkdir -p $html_dir/admin.bak
                 [ ! -d $html_dir/admin ] || tar -C $html_dir/admin -c . | tar -C $html_dir/admin.bak -xp --overwrite
                 download $html_dir admin https://github.com/ipitio/AdminLTE web
                 download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
