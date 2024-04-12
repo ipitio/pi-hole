@@ -64,12 +64,17 @@ getTag() {
     echo $tag
 }
 
+setCnf() {
+    grep -q "^$1=" $3 && sed -i "s|^$1=.*|$1=$2|" $3 || echo "$1=$2" >>$3
+}
+
 # allow to source the above helper functions without running the whole script
 if [[ "${SKIP_MOD:-}" != true ]]; then
     html_dir=/var/www/html
     core_dir=/etc/.pihole
     opt_dir=/opt/pihole
     etc_dir=/etc/pihole
+    mod_dir=/etc/pihole-speedtest
     curr_wp=$opt_dir/webpage.sh
     curr_db=$etc_dir/speedtest.db
     last_db=$curr_db.old
@@ -125,6 +130,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         fi
 
         rm -rf $opt_dir/speedtestmod
+        rm -rf $core_dir.bak
+        rm -rf $html_dir/admin.bak
         rm -f "$curr_db".*
         rm -f $etc_dir/last_speedtest.*
         rm -f /tmp/st_vers
@@ -148,7 +155,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
         fi
 
-        [ -d $etc_dir/speedtest ] && [ -d $etc_dir/speedtest/.git/refs/remotes/old ] && download $etc_dir speedtest "" $st_ver || :
+        [ -d $mod_dir ] && [ -d $mod_dir/.git/refs/remotes/old ] && download $etc_dir speedtest "" $st_ver || :
         [ ! -d $html_dir/admin/.git/refs/remotes/old ] || download $html_dir admin "" $admin_ver
         [ -f $last_db ] && [ ! -f $curr_db ] && mv $last_db $curr_db || :
         [ -f $curr_wp ] && ! cat $curr_wp | grep -q SpeedTest && purge || :
@@ -231,14 +238,14 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 pihole -a -s -1
 
                 # get stock versions from the backup file
-                if [ -f $etc_dir/speedtest/versions ]; then
-                    org_core_ver=$(awk -F= -v r="$core_dir" '$1 == r {print $2}' $etc_dir/speedtest/versions)
-                    org_admin_ver=$(awk -F= -v r="$html_dir/admin" '$1 == r {print $2}' $etc_dir/speedtest/versions)
+                if [ -f $mod_dir/cnf ]; then
+                    org_core_ver=$(awk -F= -v r="$core_dir" '$1 == r {print $2}' $mod_dir/cnf)
+                    org_admin_ver=$(awk -F= -v r="$html_dir/admin" '$1 == r {print $2}' $mod_dir/cnf)
                 fi
 
                 ! $online && restore $html_dir/admin || download $html_dir admin https://github.com/pi-hole/AdminLTE $org_admin_ver
                 ! $online && restore $core_dir || download /etc .pihole https://github.com/pi-hole/pi-hole $org_core_ver
-                [ ! -d $etc_dir/speedtest ] || rm -rf $etc_dir/speedtest
+                [ ! -d $mod_dir ] || rm -rf $mod_dir
                 swapScripts
             fi
 
@@ -274,49 +281,40 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     $PKG_MANAGER install -y "${missingPkgs[@]}" &>/dev/null
                 fi
 
-                temp_file=/tmp/st_vers
-                [ -f $temp_file ] || touch $temp_file
+                download /etc pihole-speedtest https://github.com/arevindh/pihole-speedtest $st_ver
+
+                if $backup; then
+                    download /etc .pihole.mod https://github.com/ipitio/pi-hole $mod_core_ver ipitio
+                    download $html_dir admin.mod https://github.com/ipitio/AdminLTE $mod_admin_ver
+                fi
+
+                local stockTag=$(getTag $mod_dir)
+                [ -f $mod_dir/cnf ] || touch $mod_dir/cnf
+                setCnf $mod_dir $stockTag $mod_dir/cnf
 
                 for repo in $core_dir $html_dir/admin; do
                     if [ -d $repo ]; then
-                        local stockTag=$(getTag $repo)
-                        if [ -f $temp_file ]; then
-                            local oldTag=$(awk -F= -v r="$repo" '$1 == r {print $2}' $temp_file)
-                            [ "$oldTag" == "$stockTag" ] || sed -i "s|$repo=$oldTag|$repo=$stockTag|" $temp_file
-                        else
-                            echo "$repo=$stockTag" >>$temp_file
-                        fi
-
+                        stockTag=$(getTag $repo)
+                        setCnf $repo $stockTag $mod_dir/cnf
                         [ "$repo" == "$core_dir" ] && core_ver=$stockTag || admin_ver=$stockTag
 
                         if $backup; then
-                            [ -d $repo.bak ] || mkdir -p $repo.bak
-                            # if the bak dir is empty or the stockTag of the current repo is different from the one in the backup, then backup
-                            if [ -z "$(ls -A $repo.bak)" ] || [ "$(getTag $repo.bak)" != "$stockTag" ]; then
-                                rm -rf $repo.bak/*
-                                tar -C $repo -c . | tar -C $repo.bak -xp
+                            if [ ! -d $repo.bak ] || [ "$(getTag $repo.bak)" != "$stockTag" ]; then
+                                rm -rf $repo.bak
+                                mv -f $repo $repo.bak
                             fi
+
+                            rm -rf $repo
+                            mv -f $repo.mod $repo
                         fi
                     fi
                 done
 
-                download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest $st_ver
-                stockTag=$(getTag $etc_dir/speedtest)
-
-                # record the installed version
-                if [ -f $temp_file ]; then
-                    local oldTag=$(awk -F= -v r="$etc_dir/speedtest" '$1 == r {print $2}' $temp_file)
-                    [ "$oldTag" == "$stockTag" ] || sed -i "s|$etc_dir/speedtest=$oldTag|$etc_dir/speedtest=$stockTag|" $temp_file
-                else
-                    echo "$etc_dir/speedtest=$stockTag" >>$temp_file
-                fi
-
-                \cp -f $temp_file $etc_dir/speedtest/versions
-                download /etc .pihole https://github.com/ipitio/pi-hole $mod_core_ver ipitio
+                $backup || download /etc .pihole https://github.com/ipitio/pi-hole $mod_core_ver ipitio
                 swapScripts
                 \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
                 pihole -a -s
-                download $html_dir admin https://github.com/ipitio/AdminLTE $mod_admin_ver
+                $backup || download $html_dir admin https://github.com/ipitio/AdminLTE $mod_admin_ver
             fi
 
             pihole updatechecker
