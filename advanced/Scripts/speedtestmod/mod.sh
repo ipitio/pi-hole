@@ -236,7 +236,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
 
             if ! $install && [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
-                echo "Restoring Pi-hole${online:+ online}..."
+                echo "Restoring Pi-hole$( $online && echo " online..." || echo "..." )"
                 pihole -a -s -1
 
                 if [ -f $mod_dir/cnf ]; then
