@@ -98,7 +98,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         echo "ba, backup    - preserve stock Pi-hole files for faster offline restore"
         echo "un, uninstall - purge all modifications, except db"
         echo "re, reinstall - keep current version of the mod, if installed"
-        echo "-h, --help - display this help message"
+        echo "-h, --help    - display this help message"
     }
 
     isEmpty() {

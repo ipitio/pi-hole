@@ -624,6 +624,10 @@ schedule=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")
 SKIP_MOD=true
 source /opt/pihole/speedtestmod/mod.sh
 
+if [[ \$(/usr/local/bin/pihole -v) == *"N/A"* ]]; then
+    /usr/local/bin/pihole updatechecker
+fi
+
 # if schedule is set and interval is "nan", set the speedtest interval to the schedule
 if [[ "\$interval_seconds" == "nan" ]]; then
     if [[ "\${schedule-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
