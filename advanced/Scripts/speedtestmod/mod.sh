@@ -71,7 +71,8 @@ setCnf() {
 # allow to source the above helper functions without running the whole script
 if [[ "${SKIP_MOD:-}" != true ]]; then
     set +u
-    SKIP_INSTALL=true && source "$core_dir/automated install/basic-install.sh"
+    SKIP_INSTALL=true
+    source "$core_dir/automated install/basic-install.sh"
     set -u
 
     html_dir=/var/www/html
