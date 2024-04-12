@@ -70,6 +70,10 @@ setCnf() {
 
 # allow to source the above helper functions without running the whole script
 if [[ "${SKIP_MOD:-}" != true ]]; then
+    set +u
+    SKIP_INSTALL=true && source "$core_dir/automated install/basic-install.sh"
+    set -u
+
     html_dir=/var/www/html
     core_dir=/etc/.pihole
     opt_dir=/opt/pihole
@@ -106,9 +110,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     swapScripts() {
-        SKIP_INSTALL=true
         set +u
-        source "$core_dir/automated install/basic-install.sh"
         installScripts
         set -u
     }
@@ -234,10 +236,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
 
             if ! $install && [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
-                echo "Restoring Pi-hole..."
+                echo "Restoring Pi-hole${online:+ online}..."
                 pihole -a -s -1
 
-                # get stock versions from the backup file
                 if [ -f $mod_dir/cnf ]; then
                     org_core_ver=$(awk -F= -v r="$core_dir" '$1 == r {print $2}' $mod_dir/cnf)
                     org_admin_ver=$(awk -F= -v r="$html_dir/admin" '$1 == r {print $2}' $mod_dir/cnf)
@@ -259,6 +260,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
 
             if ! $install && $uninstall; then
+                echo "Purging Mod..."
                 purge
             else
                 if [ ! -f /usr/local/bin/pihole ]; then
@@ -266,7 +268,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     curl -sSL https://install.pi-hole.net | sudo bash
                 fi
 
-                echo "Installing Mod..."
+                echo "Downloading Mod..."
                 local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
                 local PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
                 local PKGS=(bc sqlite3 jq tar tmux wget "php$PHP_VERSION-sqlite3")
@@ -286,6 +288,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 if $backup; then
                     download /etc .pihole.mod https://github.com/ipitio/pi-hole $mod_core_ver ipitio
                     download $html_dir admin.mod https://github.com/ipitio/AdminLTE $mod_admin_ver
+                    echo "Backing up Pi-hole..."
                 fi
 
                 local stockTag=$(getTag $mod_dir)
@@ -311,6 +314,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 done
 
                 $backup || download /etc .pihole https://github.com/ipitio/pi-hole $mod_core_ver ipitio
+                echo "Installing Mod..."
                 swapScripts
                 \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
                 pihole -a -s
