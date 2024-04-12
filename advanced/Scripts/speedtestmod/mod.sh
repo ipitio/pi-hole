@@ -221,7 +221,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
         fi
 
-        if $install || $update || $uninstall || [ "$#" -eq 0 ]; then
+        if ! $database || [ "$#" -gt 1 ]; then
             local working_dir=$(pwd)
             cd ~
 
