@@ -624,9 +624,9 @@ schedule=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")
 SKIP_MOD=true
 source /opt/pihole/speedtestmod/mod.sh
 
-if [ ! -f /etc/pihole/speedtest/updated ]; then
+if [ ! -f /etc/pihole/speedtest/versions ]; then
     download /etc/pihole speedtest https://github.com/arevindh/pihole-speedtest
-    touch /etc/pihole/speedtest/updated
+    [ -f /tmp/st_vers ] && mv -f /tmp/st_vers /etc/pihole/speedtest/versions || touch /etc/pihole/speedtest/versions
     /usr/local/bin/pihole updatechecker
 fi
 

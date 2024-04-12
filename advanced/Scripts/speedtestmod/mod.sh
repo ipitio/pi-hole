@@ -57,6 +57,13 @@ notInstalled() {
     return 1
 }
 
+getTag() {
+    cd $1
+    local tag=$(git tag | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
+    cd - &>/dev/null
+    echo $tag
+}
+
 # allow to source the above helper functions without running the whole script
 if [[ "${SKIP_MOD:-}" != true ]]; then
     html_dir=/var/www/html
@@ -67,20 +74,30 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     curr_db=$etc_dir/speedtest.db
     last_db=$curr_db.old
     db_table="speedtest"
-    st_ver=$db_table
+    st_ver=""
+    core_ver="Pi-hole"
+    admin_ver="web"
+    org_core_ver=$core_ver
+    org_admin_ver=$admin_ver
+    mod_core_ver=$core_ver
+    mod_admin_ver=$admin_ver
 
     help() {
         echo "(Re)install Latest Speedtest Mod."
-        echo "Usage: sudo $0 [up] [un] [db]"
-        echo "up - (re)install the latest version of the mod and, if not in Docker, run Pi-hole's update script"
-        echo "un - uninstall the mod (and remove any database backups)"
-        echo "db - flush the database (if it's not empty, otherwise restore it)"
-        echo "If no option is specified, the latest version of the Mod will be (re)installed."
+        echo "Usage: sudo ./mod.sh [options]"
+        echo ""
+        echo "db, database  - flush/restore the database if it's not/empty (and exit if this is the only arg given)"
+        echo "on, online    - force online restore of stock Pi-hole files even if a backup exists"
+        echo "in, install   - skip restore of stock Pi-hole (for when not updating Pi-hole nor switching repos)"
+        echo "up, update    - also update Pi-hole, unless Systemd is not being used (ie. not in Docker)"
+        echo "ba, backup    - preserve stock Pi-hole files for faster offline restore"
+        echo "un, uninstall - purge all modifications, except db"
+        echo "re, reinstall - keep current version of the mod, if installed"
+        echo "-h, --help - display this help message"
     }
 
     isEmpty() {
-        db=$1
-        [ -f $db ] && sqlite3 "$db" "select * from $db_table limit 1;" &>/dev/null && [ ! -z "$(sqlite3 "$db" "select * from $db_table limit 1;")" ] && return 1 || return 0
+        [ -f $1 ] && sqlite3 "$1" "select * from $db_table limit 1;" &>/dev/null && [ ! -z "$(sqlite3 "$1" "select * from $db_table limit 1;")" ] && return 1 || return 0
     }
 
     swapScripts() {
@@ -110,15 +127,19 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         rm -rf $opt_dir/speedtestmod
         rm -f "$curr_db".*
         rm -f $etc_dir/last_speedtest.*
+        rm -f /tmp/st_vers
         ! isEmpty $curr_db || rm -f $curr_db
     }
 
     abort() {
         echo "Process Aborting..."
         aborted=1
+        [ ! -z "$st_ver" ] || st_ver="speedtest"
+        [ ! -z "$core_ver" ] || core_ver="Pi-hole"
+        [ ! -z "$admin_ver" ] || admin_ver="web"
 
         if [ -d $core_dir/.git/refs/remotes/old ]; then
-            download /etc .pihole "" Pi-hole
+            download /etc .pihole "" $core_ver
             swapScripts
 
             if [ -d $core_dir/advanced/Scripts/speedtestmod ]; then
@@ -128,9 +149,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         fi
 
         [ -d $etc_dir/speedtest ] && [ -d $etc_dir/speedtest/.git/refs/remotes/old ] && download $etc_dir speedtest "" $st_ver || :
-        [ ! -d $html_dir/admin/.git/refs/remotes/old ] || download $html_dir admin "" web
-        [ -f $curr_wp ] && ! cat $curr_wp | grep -q SpeedTest && purge || :
+        [ ! -d $html_dir/admin/.git/refs/remotes/old ] || download $html_dir admin "" $admin_ver
         [ -f $last_db ] && [ ! -f $curr_db ] && mv $last_db $curr_db || :
+        [ -f $curr_wp ] && ! cat $curr_wp | grep -q SpeedTest && purge || :
         printf "Please try again before reporting an issue.\n\n$(date)\n"
     }
 
@@ -145,36 +166,33 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
     main() {
         printf "Thanks for using Speedtest Mod!\nScript by @ipitio\n\n$(date)\n\n"
-        local op=${1:-}
-
-        if [ "$op" == "-h" ] || [ "$op" == "--help" ]; then
-            help
-            exit 0
-        fi
-
-        if [ $EUID != 0 ]; then
-            sudo "$0" "$@"
-            exit $?
-        fi
 
         set -Eeuxo pipefail
         trap '[ "$?" -eq "0" ] && commit || abort' EXIT
         trap 'abort' INT TERM
         shopt -s dotglob
 
-        local up=false
-        local un=false
-        local db=false
+        local update=false
+        local uninstall=false
+        local database=false
+        local online=false
+        local install=false
+        local backup=false
+        local reinstall=false
 
         for arg in "$@"; do
             case $arg in
-            up) up=true ;;
-            un) un=true ;;
-            db) db=true ;;
+            up | update     ) update=true ;;
+            ba | backup     ) backup=true ;;
+            re | reinstall  ) reinstall=true ;;
+            un | uninstall  ) uninstall=true ;;
+            in | install    ) install=true ;;
+            on | online     ) online=true ;;
+            db | database   ) database=true ;;
             esac
         done
 
-        if $db; then
+        if $database; then
             if [ -f $curr_db ] && ! isEmpty $curr_db; then
                 echo "Flushing Database..."
                 mv -f $curr_db $last_db
@@ -196,22 +214,35 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
         fi
 
-        if $up || $un || [ "$#" -eq 0 ]; then
+        if $install || $update || $uninstall || [ "$#" -eq 0 ]; then
             local working_dir=$(pwd)
             cd ~
 
-            if [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
-                echo "Restoring Pi-hole..."
-                pihole -a -s -1
-                [[ $un == true ]] && restore $html_dir/admin || download $html_dir admin https://github.com/pi-hole/AdminLTE web
-                [[ $un == true ]] && restore $core_dir || download /etc .pihole https://github.com/pi-hole/pi-hole Pi-hole
-                [ ! -d $etc_dir/speedtest ] || rm -rf $etc_dir/speedtest
+            if $reinstall; then
+                echo "Reinstalling Mod..."
+                mod_core_ver=$(getTag $core_dir)
+                mod_admin_ver=$(getTag $html_dir/admin)
                 st_ver=$(pihole -v -s | cut -d ' ' -f 6)
                 [ "$st_ver" != "HEAD" ] || st_ver=$(pihole -v -s | cut -d ' ' -f 7)
+            fi
+
+            if ! $install && [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
+                echo "Restoring Pi-hole..."
+                pihole -a -s -1
+
+                # get stock versions from the backup file
+                if [ -f $etc_dir/speedtest/versions ]; then
+                    org_core_ver=$(awk -F= -v r="$core_dir" '$1 == r {print $2}' $etc_dir/speedtest/versions)
+                    org_admin_ver=$(awk -F= -v r="$html_dir/admin" '$1 == r {print $2}' $etc_dir/speedtest/versions)
+                fi
+
+                ! $online && restore $html_dir/admin || download $html_dir admin https://github.com/pi-hole/AdminLTE $org_admin_ver
+                ! $online && restore $core_dir || download /etc .pihole https://github.com/pi-hole/pi-hole $org_core_ver
+                [ ! -d $etc_dir/speedtest ] || rm -rf $etc_dir/speedtest
                 swapScripts
             fi
 
-            if $up; then
+            if ! $install && $update; then
                 if [ -d /run/systemd/system ]; then
                     echo "Updating Pi-hole..."
                     PIHOLE_SKIP_OS_CHECK=true sudo -E pihole -up
@@ -220,7 +251,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 fi
             fi
 
-            if $un; then
+            if ! $install && $uninstall; then
                 purge
             else
                 if [ ! -f /usr/local/bin/pihole ]; then
@@ -243,20 +274,49 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     $PKG_MANAGER install -y "${missingPkgs[@]}" &>/dev/null
                 fi
 
+                temp_file=/tmp/st_vers
+                [ -f $temp_file ] || touch $temp_file
+
                 for repo in $core_dir $html_dir/admin; do
                     if [ -d $repo ]; then
-                        [ -d $repo.bak ] || mkdir -p $repo.bak
-                        tar -C $repo -c . | tar -C $repo.bak -xp --overwrite
+                        local stockTag=$(getTag $repo)
+                        if [ -f $temp_file ]; then
+                            local oldTag=$(awk -F= -v r="$repo" '$1 == r {print $2}' $temp_file)
+                            [ "$oldTag" == "$stockTag" ] || sed -i "s|$repo=$oldTag|$repo=$stockTag|" $temp_file
+                        else
+                            echo "$repo=$stockTag" >>$temp_file
+                        fi
+
+                        [ "$repo" == "$core_dir" ] && core_ver=$stockTag || admin_ver=$stockTag
+
+                        if $backup; then
+                            [ -d $repo.bak ] || mkdir -p $repo.bak
+                            # if the bak dir is empty or the stockTag of the current repo is different from the one in the backup, then backup
+                            if [ -z "$(ls -A $repo.bak)" ] || [ "$(getTag $repo.bak)" != "$stockTag" ]; then
+                                rm -rf $repo.bak/*
+                                tar -C $repo -c . | tar -C $repo.bak -xp
+                            fi
+                        fi
                     fi
                 done
 
-                download /etc .pihole https://github.com/ipitio/pi-hole Pi-hole ipitio
+                download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest $st_ver
+                stockTag=$(getTag $etc_dir/speedtest)
+
+                # record the installed version
+                if [ -f $temp_file ]; then
+                    local oldTag=$(awk -F= -v r="$etc_dir/speedtest" '$1 == r {print $2}' $temp_file)
+                    [ "$oldTag" == "$stockTag" ] || sed -i "s|$etc_dir/speedtest=$oldTag|$etc_dir/speedtest=$stockTag|" $temp_file
+                else
+                    echo "$etc_dir/speedtest=$stockTag" >>$temp_file
+                fi
+
+                \cp -f $temp_file $etc_dir/speedtest/versions
+                download /etc .pihole https://github.com/ipitio/pi-hole $mod_core_ver ipitio
                 swapScripts
                 \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
                 pihole -a -s
-                download $html_dir admin https://github.com/ipitio/AdminLTE web
-                download $etc_dir speedtest https://github.com/arevindh/pihole-speedtest
-                touch $etc_dir/speedtest/updated # checkfile for Docker
+                download $html_dir admin https://github.com/ipitio/AdminLTE $mod_admin_ver
             fi
 
             pihole updatechecker
@@ -265,6 +325,19 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
         exit 0
     }
+
+    # if any argument is -h or --help, show the help message
+    for arg in "$@"; do
+        if [ "$arg" == "-h" ] || [ "$arg" == "--help" ]; then
+            help
+            exit 0
+        fi
+    done
+
+    if [ $EUID != 0 ]; then
+        sudo "$0" "$@"
+        exit $?
+    fi
 
     rm -f /tmp/pimod.log
     touch /tmp/pimod.log
