@@ -31,7 +31,7 @@ download() {
         git remote -v | grep -q "origin" && git remote remove origin
         git remote add -t "$branch" origin "$url"
     elif [ -d .git/refs/remotes/old ]; then
-        git remote remove origin
+        git remote -v | grep -q "origin" && git remote remove origin
         git remote rename old origin
         url=$(git remote get-url origin)
     fi
