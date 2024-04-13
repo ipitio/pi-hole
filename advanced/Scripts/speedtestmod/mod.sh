@@ -210,7 +210,6 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
     main() {
         set -Eeuo pipefail
-        trap '[ "$?" -eq "0" ] && commit || abort' EXIT
         trap 'abort' INT TERM
         shopt -s dotglob
 
@@ -223,8 +222,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         local database=false
         local verbose=false
         local dashes=0
-        local SHORT=-uboirndvxh
-        local LONG=update,backup,online,install,reinstall,uninstall,database,version,verbose,help
+        local SHORT=-uboirtndvxh
+        local LONG=update,backup,online,install,reinstall,testing,uninstall,database,version,verbose,help
         declare -a EXTRA_ARGS
         declare -a POSITIONAL
         PARSED=$(getopt --options ${SHORT} --longoptions ${LONG} --name "$0" -- "$@")
@@ -260,6 +259,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             esac
         done
 
+        trap '[ "$?" -eq "0" ] && commit || abort' EXIT
         printf "Thanks for using Speedtest Mod!\nScript by @ipitio\n\n$(date)\n\n"
         ! $verbose || set -x
 
