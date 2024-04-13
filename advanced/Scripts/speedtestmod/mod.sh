@@ -90,6 +90,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     org_admin_ver=$admin_ver
     mod_core_ver=$core_ver
     mod_admin_ver=$admin_ver
+    cleanup=true
 
     set +u
     SKIP_INSTALL=true
@@ -157,36 +158,40 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     abort() {
-        echo "Process Aborting..."
-        aborted=1
-        [ ! -z "$st_ver" ] || st_ver="speedtest"
-        [ ! -z "$core_ver" ] || core_ver="Pi-hole"
-        [ ! -z "$admin_ver" ] || admin_ver="web"
+        if $cleanup; then
+            echo "Process Aborting..."
+            aborted=1
+            [ ! -z "$st_ver" ] || st_ver="speedtest"
+            [ ! -z "$core_ver" ] || core_ver="Pi-hole"
+            [ ! -z "$admin_ver" ] || admin_ver="web"
 
-        if [ -d $core_dir/.git/refs/remotes/old ]; then
-            download /etc .pihole "" $core_ver
-            swapScripts
+            if [ -d $core_dir/.git/refs/remotes/old ]; then
+                download /etc .pihole "" $core_ver
+                swapScripts
 
-            if [ -d $core_dir/advanced/Scripts/speedtestmod ]; then
-                \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
-                pihole -a -s
+                if [ -d $core_dir/advanced/Scripts/speedtestmod ]; then
+                    \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
+                    pihole -a -s
+                fi
             fi
-        fi
 
-        [ -d $mod_dir ] && [ -d $mod_dir/.git/refs/remotes/old ] && download $etc_dir speedtest "" $st_ver || :
-        [ ! -d $html_dir/admin/.git/refs/remotes/old ] || download $html_dir admin "" $admin_ver
-        [ -f $last_db ] && [ ! -f $curr_db ] && mv $last_db $curr_db || :
-        [ -f $curr_wp ] && ! cat $curr_wp | grep -q SpeedTest && purge || :
-        printf "Please try again before reporting an issue.\n\n$(date)\n"
+            [ -d $mod_dir ] && [ -d $mod_dir/.git/refs/remotes/old ] && download $etc_dir speedtest "" $st_ver || :
+            [ ! -d $html_dir/admin/.git/refs/remotes/old ] || download $html_dir admin "" $admin_ver
+            [ -f $last_db ] && [ ! -f $curr_db ] && mv $last_db $curr_db || :
+            [ -f $curr_wp ] && ! cat $curr_wp | grep -q SpeedTest && purge || :
+            printf "Please try again before reporting an issue.\n\n$(date)\n"
+        fi
     }
 
     commit() {
-        for dir in $core_dir $html_dir/admin; do
-            [ ! -d $dir ] && continue || cd $dir
-            ! git remote -v | grep -q "old" || git remote remove old
-            git clean -ffdx
-        done
-        printf "Done!\n\n$(date)\n"
+        if $cleanup; then
+            for dir in $core_dir $html_dir/admin; do
+                [ ! -d $dir ] && continue || cd $dir
+                ! git remote -v | grep -q "old" || git remote remove old
+                git clean -ffdx
+            done
+            printf "Done!\n\n$(date)\n"
+        fi
     }
 
     main() {
@@ -223,9 +228,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 -r | --reinstall    ) reinstall=true ;;
                 -n | --uninstall    ) uninstall=true ;;
                 -d | --database     ) database=true ;;
-                -v | --version      ) getTag $mod_dir; exit 0 ;;
+                -v | --version      ) getTag $mod_dir; cleanup=false; exit 0 ;;
                 -x | --verbose      ) verbose=true ;;
-                -h | --help         ) help; exit 0 ;;
+                -h | --help         ) help; cleanup=false; exit 0 ;;
                 --                  ) dashes=1 ;;
                 *   ) [[ $dashes -eq 0 ]] && POSITIONAL+=("$1") || EXTRA_ARGS+=("$1") ;;
             esac
@@ -239,7 +244,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             up  ) update=true ;;
             un  ) uninstall=true ;;
             db  ) database=true ;;
-            *   ) help; exit 0 ;;
+            *   ) help; cleanup=false; exit 0 ;;
             esac
         done
 
@@ -380,6 +385,6 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     rm -f /tmp/pimod.log
     touch /tmp/pimod.log
     main "$@" 2>&1 | tee -a /tmp/pimod.log
-    mv -f /tmp/pimod.log /var/log/pihole/mod.log
+    $cleanup && mv -f /tmp/pimod.log /var/log/pihole/mod.log || rm -f /tmp/pimod.log
     exit $aborted
 fi
