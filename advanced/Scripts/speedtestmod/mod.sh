@@ -192,7 +192,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     main() {
         printf "Thanks for using Speedtest Mod!\nScript by @ipitio\n\n$(date)\n\n"
 
-        set -Eeuxo pipefail
+        set -Eeuo pipefail
         trap '[ "$?" -eq "0" ] && commit || abort' EXIT
         trap 'abort' INT TERM
         shopt -s dotglob
@@ -242,6 +242,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             *   ) help; exit 0 ;;
             esac
         done
+
+        ! $verbose || set -x
 
         if $database; then
             if [ -f $curr_db ] && ! isEmpty $curr_db; then
