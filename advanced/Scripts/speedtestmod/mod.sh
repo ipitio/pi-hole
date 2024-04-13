@@ -1,5 +1,17 @@
 #!/bin/bash
 aborted=0
+stable=true
+
+getVersion() {
+    local localTag=""
+
+    if [ -x "$(command -v pihole)" ]; then
+        localTag=$(pihole -v | grep "$1" | cut -d ' ' -f 6)
+        [ "$localTag" != "HEAD" ] || localTag=$(pihole -v | grep "$1" | cut -d ' ' -f 7)
+    fi
+
+    echo $localTag
+}
 
 download() {
     local path=$1
@@ -32,15 +44,14 @@ download() {
         latestTag=$localVersion
         localTag=$latestTag
     elif [ ! -z "$localVersion" ]; then
-        localTag=$(pihole -v | grep "$localVersion" | cut -d ' ' -f 6)
-        [ "$localTag" != "HEAD" ] || localTag=$(pihole -v | grep "$localVersion" | cut -d ' ' -f 7)
+        localTag=$(getVersion "$localVersion")
     fi
 
     git fetch origin --depth=1 $branch:refs/remotes/origin/$branch -q
     git reset --hard origin/"$branch" -q
     git checkout -B "$branch" -q
     [ "$aborted" == "0" ] && { [[ "$url" != *"arevindh"* ]] && [[ "$url" != *"ipitio"* ]] && ! git remote -v | grep -q "old.*ipitio" && [[ "$localTag" < "$latestTag" ]] && latestTag=$(awk -v lv="$localTag" '$1 <= lv' <<<"$tags" | tail -n1) || :; } || latestTag=$localTag
-    [ "$branch" == "master" ] && [[ "$url" != *"ipitio"* ]] && [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag 2>/dev/null)" ] && git fetch origin tag $latestTag --depth=1 -q && git -c advice.detachedHead=false checkout "$latestTag" -q || :
+    $stable && [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag 2>/dev/null)" ] && git fetch origin tag $latestTag --depth=1 -q && git -c advice.detachedHead=false checkout "$latestTag" -q || :
     cd ..
 }
 
@@ -101,7 +112,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         echo "The Mod Script"
         echo "Usage: sudo bash /path/to/mod.sh [options]"
         echo "  or: curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/mod.sh | sudo bash [-s -- options]"
-        echo "(Re)install the latest version of the Speedtest Mod, and/or the following options:"
+        echo "(Re)install the latest release of the Speedtest Mod, and/or the following options:"
         echo ""
         echo "Options:"
         echo "  -u, --update, up       also update Pi-hole, unless Systemd is not being used (ie. not in Docker)"
@@ -109,6 +120,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         echo "  -o, --online           force online restore of stock Pi-hole files even if a backup exists"
         echo "  -i, --install          skip restore of stock Pi-hole (for when not updating Pi-hole nor switching repos)"
         echo "  -r, --reinstall        keep current version of the mod, if installed"
+        echo "  -t, --testing          install the latest commit"
         echo "  -n, --uninstall, un    remove the mod and its files, but keep the database"
         echo "  -d, --database, db     flush/restore the database if it's not/empty (and exit if this is the only arg given)"
         echo "  -v, --version          display the version of the mod"
@@ -225,6 +237,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 -o | --online       ) online=true ;;
                 -i | --install      ) install=true ;;
                 -r | --reinstall    ) reinstall=true ;;
+                -t | --testing      ) stable=false ;;
                 -n | --uninstall    ) uninstall=true ;;
                 -d | --database     ) database=true ;;
                 -v | --version      ) getTag $mod_dir; cleanup=false; exit 0 ;;
@@ -277,10 +290,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
             if $reinstall; then
                 echo "Reinstalling Mod..."
-                mod_core_ver=$(getTag $core_dir)
-                mod_admin_ver=$(getTag $html_dir/admin)
-                st_ver=$(pihole -v -s | cut -d ' ' -f 6)
-                [ "$st_ver" != "HEAD" ] || st_ver=$(pihole -v -s | cut -d ' ' -f 7)
+                mod_core_ver=$(getVersion "Pi-hole")
+                mod_admin_ver=$(getVersion "web")
+                st_ver=$(getVersion "speedtest")
             fi
 
             if ! $install && [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
