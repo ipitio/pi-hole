@@ -52,7 +52,8 @@ download() {
     git checkout -B "$branch" -q
     [ "$aborted" == "0" ] && { [[ "$url" != *"arevindh"* ]] && [[ "$url" != *"ipitio"* ]] && ! git remote -v | grep -q "old.*ipitio" && [[ "$localTag" < "$latestTag" ]] && latestTag=$(awk -v lv="$localTag" '$1 <= lv' <<<"$tags" | tail -n1) || :; } || latestTag=$localTag
     local unstable=false
-    [[ "$url" == *"arevindh"* ]] || [[ "$url" == *"ipitio"* ]] && ! $stable && unstable=true
+    [[ "$url" != *"ipitio"* ]] || unstable=true
+    [[ "$url" == *"arevindh"* ]] && ! $stable && unstable=true
     [ "$branch" == "master" ] && ! $unstable && [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag 2>/dev/null)" ] && git fetch origin tag $latestTag --depth=1 -q && git -c advice.detachedHead=false checkout "$latestTag" -q || :
     cd ..
 }
@@ -231,19 +232,27 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
         while [[ $# -gt 0 ]]; do
             case "$1" in
-                -u | --update       ) update=true ;;
-                -b | --backup       ) backup=true ;;
-                -o | --online       ) online=true ;;
-                -i | --install      ) install=true ;;
-                -r | --reinstall    ) reinstall=true ;;
-                -t | --testing      ) stable=false ;;
-                -n | --uninstall    ) uninstall=true ;;
-                -d | --database     ) database=true ;;
-                -v | --version      ) getTag $mod_dir; cleanup=false; exit 0 ;;
-                -x | --verbose      ) verbose=true ;;
-                -h | --help         ) help; cleanup=false; exit 0 ;;
-                --                  ) dashes=1 ;;
-                *   ) [[ $dashes -eq 0 ]] && POSITIONAL+=("$1") || EXTRA_ARGS+=("$1") ;;
+            -u | --update) update=true ;;
+            -b | --backup) backup=true ;;
+            -o | --online) online=true ;;
+            -i | --install) install=true ;;
+            -r | --reinstall) reinstall=true ;;
+            -t | --testing) stable=false ;;
+            -n | --uninstall) uninstall=true ;;
+            -d | --database) database=true ;;
+            -v | --version)
+                getTag $mod_dir
+                cleanup=false
+                exit 0
+                ;;
+            -x | --verbose) verbose=true ;;
+            -h | --help)
+                help
+                cleanup=false
+                exit 0
+                ;;
+            --) dashes=1 ;;
+            *) [[ $dashes -eq 0 ]] && POSITIONAL+=("$1") || EXTRA_ARGS+=("$1") ;;
             esac
             shift
         done
@@ -252,10 +261,14 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
         for arg in "$@"; do
             case $arg in
-            up  ) update=true ;;
-            un  ) uninstall=true ;;
-            db  ) database=true ;;
-            *   ) help; cleanup=false; exit 0 ;;
+            up) update=true ;;
+            un) uninstall=true ;;
+            db) database=true ;;
+            *)
+                help
+                cleanup=false
+                exit 0
+                ;;
             esac
         done
 
@@ -297,7 +310,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
 
             if ! $install && [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
-                echo "Restoring Pi-hole$( $online && echo " online..." || echo "..." )"
+                echo "Restoring Pi-hole$($online && echo " online..." || echo "...")"
                 pihole -a -s -1
 
                 if [ -f $mod_dir/cnf ]; then
