@@ -219,7 +219,6 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         eval set -- "${PARSED}"
 
         while [[ $# -gt 0 ]]; do
-            echo "parsing arg: $1"
             case "$1" in
                 -u | --update       ) update=true ;;
                 -b | --backup       ) backup=true ;;
