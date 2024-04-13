@@ -146,7 +146,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
     swapScripts() {
         set +u
-        installScripts
+        installScripts >/dev/null 2>&1
         set -u
     }
 
