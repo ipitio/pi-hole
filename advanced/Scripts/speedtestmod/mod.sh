@@ -70,11 +70,6 @@ setCnf() {
 
 # allow to source the above helper functions without running the whole script
 if [[ "${SKIP_MOD:-}" != true ]]; then
-    set +u
-    SKIP_INSTALL=true
-    source "$core_dir/automated install/basic-install.sh"
-    set -u
-
     html_dir=/var/www/html
     core_dir=/etc/.pihole
     opt_dir=/opt/pihole
@@ -92,18 +87,32 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     mod_core_ver=$core_ver
     mod_admin_ver=$admin_ver
 
+    set +u
+    SKIP_INSTALL=true
+    source "$core_dir/automated install/basic-install.sh"
+    set -u
+
     help() {
-        echo "(Re)install Latest Speedtest Mod."
-        echo "Usage: sudo ./mod.sh [options]"
+        echo "The Mod Script"
+        echo "Usage: sudo bash /path/to/mod.sh [options]"
+        echo "  or: curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/mod.sh | sudo bash [-s options]"
+        echo "(Re)install the latest version of the Speedtest Mod, and/or the following options:"
         echo ""
-        echo "db, database  - flush/restore the database if it's not/empty (and exit if this is the only arg given)"
-        echo "on, online    - force online restore of stock Pi-hole files even if a backup exists"
-        echo "in, install   - skip restore of stock Pi-hole (for when not updating Pi-hole nor switching repos)"
-        echo "up, update    - also update Pi-hole, unless Systemd is not being used (ie. not in Docker)"
-        echo "ba, backup    - preserve stock Pi-hole files for faster offline restore"
-        echo "un, uninstall - purge all modifications, except db"
-        echo "re, reinstall - keep current version of the mod, if installed"
-        echo "-h, --help    - display this help message"
+        echo "Options:"
+        echo "  up, update      also update Pi-hole, unless Systemd is not being used (ie. not in Docker)"
+        echo "  ba, backup      preserve stock Pi-hole files for faster offline restore"
+        echo "  on, online      force online restore of stock Pi-hole files even if a backup exists"
+        echo "  in, install     skip restore of stock Pi-hole (for when not updating Pi-hole nor switching repos)"
+        echo "  re, reinstall   keep current version of the mod, if installed"
+        echo "  un, uninstall   remove the mod and its files, but keep the database"
+        echo "  db, database    flush/restore the database if it's not/empty (and exit if this is the only arg given)"
+        echo "  -h, --help      display this help message"
+        echo ""
+        echo "Examples:"
+        echo "  sudo bash /path/to/mod.sh up ba on"
+        echo "  sudo bash /path/to/mod.sh in re db"
+        echo "  sudo bash /path/to/mod.sh uninstall"
+        echo "  curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/mod.sh | sudo bash -s up"
     }
 
     isEmpty() {
