@@ -58,10 +58,14 @@ notInstalled() {
 }
 
 getTag() {
-    cd $1
-    local tag=$(git tag | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
-    cd - &>/dev/null
-    echo $tag
+    if [ -d $1 ]; then
+        cd $1
+        local tag=$(git tag | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
+        cd - &>/dev/null
+        echo $tag
+    else
+        echo "not found on system"
+    fi
 }
 
 setCnf() {
@@ -95,24 +99,26 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     help() {
         echo "The Mod Script"
         echo "Usage: sudo bash /path/to/mod.sh [options]"
-        echo "  or: curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/mod.sh | sudo bash [-s options]"
+        echo "  or: curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/mod.sh | sudo bash [-s -- options]"
         echo "(Re)install the latest version of the Speedtest Mod, and/or the following options:"
         echo ""
         echo "Options:"
-        echo "  up, update      also update Pi-hole, unless Systemd is not being used (ie. not in Docker)"
-        echo "  ba, backup      preserve stock Pi-hole files for faster offline restore"
-        echo "  on, online      force online restore of stock Pi-hole files even if a backup exists"
-        echo "  in, install     skip restore of stock Pi-hole (for when not updating Pi-hole nor switching repos)"
-        echo "  re, reinstall   keep current version of the mod, if installed"
-        echo "  un, uninstall   remove the mod and its files, but keep the database"
-        echo "  db, database    flush/restore the database if it's not/empty (and exit if this is the only arg given)"
-        echo "  -h, --help      display this help message"
+        echo "  -u, --update, up       also update Pi-hole, unless Systemd is not being used (ie. not in Docker)"
+        echo "  -b, --backup           preserve stock Pi-hole files for faster offline restore"
+        echo "  -o, --online           force online restore of stock Pi-hole files even if a backup exists"
+        echo "  -i, --install          skip restore of stock Pi-hole (for when not updating Pi-hole nor switching repos)"
+        echo "  -r, --reinstall        keep current version of the mod, if installed"
+        echo "  -n, --uninstall, un    remove the mod and its files, but keep the database"
+        echo "  -d, --database, db     flush/restore the database if it's not/empty (and exit if this is the only arg given)"
+        echo "  -v, --version          display the version of the mod"
+        echo "  -x, --verbose          show the commands being run"
+        echo "  -h, --help             display this help message"
         echo ""
         echo "Examples:"
-        echo "  sudo bash /path/to/mod.sh up ba on"
-        echo "  sudo bash /path/to/mod.sh in re db"
-        echo "  sudo bash /path/to/mod.sh uninstall"
-        echo "  curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/mod.sh | sudo bash -s up"
+        echo "  sudo bash /path/to/mod.sh -ubo"
+        echo "  sudo bash /path/to/mod.sh -i -r -d"
+        echo "  sudo bash /path/to/mod.sh --uninstall"
+        echo "  curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/mod.sh | sudo bash -s -- -u"
     }
 
     isEmpty() {
@@ -192,22 +198,48 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         shopt -s dotglob
 
         local update=false
-        local uninstall=false
-        local database=false
+        local backup=false
         local online=false
         local install=false
-        local backup=false
         local reinstall=false
+        local uninstall=false
+        local database=false
+        local verbose=false
+        local dashes=0
+        local SHORT=-uboirndvxh
+        local LONG=update,backup,online,install,reinstall,uninstall,database,version,verbose,help
+        declare -a EXTRA_ARGS
+        declare -a POSITIONAL
+        PARSED=$(getopt --options ${SHORT} --longoptions ${LONG} --name "$0" -- "$@")
+        eval set -- "${PARSED}"
+
+        while [[ $# -gt 0 ]]; do
+            echo "parsing arg: $1"
+            case "$1" in
+                -u | --update       ) update=true ;;
+                -b | --backup       ) backup=true ;;
+                -o | --online       ) online=true ;;
+                -i | --install      ) install=true ;;
+                -r | --reinstall    ) reinstall=true ;;
+                -n | --uninstall    ) uninstall=true ;;
+                -d | --database     ) database=true ;;
+                -v | --version      ) getTag $mod_dir; exit 0 ;;
+                -x | --verbose      ) verbose=true ;;
+                -h | --help         ) help; exit 0 ;;
+                --                  ) dashes=1 ;;
+                *   ) [[ $dashes -eq 0 ]] && POSITIONAL+=("$1") || EXTRA_ARGS+=("$1") ;;
+            esac
+            shift
+        done
+
+        set -- "${POSITIONAL[@]}"
 
         for arg in "$@"; do
             case $arg in
-            up | update     ) update=true ;;
-            ba | backup     ) backup=true ;;
-            re | reinstall  ) reinstall=true ;;
-            un | uninstall  ) uninstall=true ;;
-            in | install    ) install=true ;;
-            on | online     ) online=true ;;
-            db | database   ) database=true ;;
+            up  ) update=true ;;
+            un  ) uninstall=true ;;
+            db  ) database=true ;;
+            *   ) help; exit 0 ;;
             esac
         done
 
@@ -337,14 +369,6 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
         exit 0
     }
-
-    # if any argument is -h or --help, show the help message
-    for arg in "$@"; do
-        if [ "$arg" == "-h" ] || [ "$arg" == "--help" ]; then
-            help
-            exit 0
-        fi
-    done
 
     if [ $EUID != 0 ]; then
         sudo "$0" "$@"
