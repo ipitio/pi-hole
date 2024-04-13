@@ -51,7 +51,9 @@ download() {
     git reset --hard origin/"$branch" -q
     git checkout -B "$branch" -q
     [ "$aborted" == "0" ] && { [[ "$url" != *"arevindh"* ]] && [[ "$url" != *"ipitio"* ]] && ! git remote -v | grep -q "old.*ipitio" && [[ "$localTag" < "$latestTag" ]] && latestTag=$(awk -v lv="$localTag" '$1 <= lv' <<<"$tags" | tail -n1) || :; } || latestTag=$localTag
-    $stable && [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag 2>/dev/null)" ] && git fetch origin tag $latestTag --depth=1 -q && git -c advice.detachedHead=false checkout "$latestTag" -q || :
+    local unstable=false
+    [[ "$url" == *"arevindh"* ]] || [[ "$url" == *"ipitio"* ]] && ! $stable && unstable=true
+    [ "$branch" == "master" ] && ! $unstable && [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag 2>/dev/null)" ] && git fetch origin tag $latestTag --depth=1 -q && git -c advice.detachedHead=false checkout "$latestTag" -q || :
     cd ..
 }
 
@@ -128,9 +130,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         echo "  -h, --help             display this help message"
         echo ""
         echo "Examples:"
-        echo "  sudo bash /path/to/mod.sh -ubo"
-        echo "  sudo bash /path/to/mod.sh -i -r -d"
-        echo "  sudo bash /path/to/mod.sh --uninstall"
+        echo "  sudo bash /opt/pihole/speedtestmod/mod.sh -ubo"
+        echo "  sudo bash /opt/pihole/speedtestmod/mod.sh -i -r -d"
+        echo "  sudo bash /opt/pihole/speedtestmod/mod.sh --uninstall"
         echo "  curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/mod.sh | sudo bash -s -- -u"
     }
 
