@@ -27,7 +27,10 @@ download() {
     git config --global --add safe.directory "$dest"
 
     if [ "$aborted" == "0" ]; then
-        git remote -v | grep -q "old" || git remote rename origin old
+        if ! git remote -v | grep -q "old" && git remote -v | grep -q "origin"; then
+            git remote rename origin old
+        fi
+
         git remote -v | grep -q "origin" && git remote remove origin
         git remote add -t "$branch" origin "$url"
     elif [ -d .git/refs/remotes/old ]; then
