@@ -68,6 +68,7 @@ download() {
         [[ "$latestTag" == *.* ]] && git fetch origin tag $latestTag --depth=1 -q || git fetch origin $latestTag --depth=1 -q
         git -c advice.detachedHead=false checkout "$latestTag" -q
     fi
+
     cd ..
 }
 

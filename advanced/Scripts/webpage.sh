@@ -618,7 +618,6 @@ generate_cron_schedule() {
 # Schedule script to handle complex cron schedules
 last_run_file="/etc/pihole/last_speedtest"
 interval_seconds=$total_seconds
-
 schedule=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")
 
 # if schedule is set and interval is "nan", set the speedtest interval to the schedule
