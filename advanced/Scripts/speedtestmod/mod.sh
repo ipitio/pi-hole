@@ -5,7 +5,7 @@ stable=true
 getTag() {
     local tag=""
 
-    if [ ! -z $1 ] && [ -d $1 ]; then
+    if [ -d $1 ]; then
         cd $1
         tag=$(git rev-parse HEAD 2>/dev/null)
         cd - &>/dev/null
