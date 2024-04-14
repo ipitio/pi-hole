@@ -17,11 +17,7 @@ function get_local_branch() {
 function get_local_version() {
     # Return active version
     cd "${1}" 2> /dev/null || return 1
-    local_v=$(git tag --sort=-version:refname | head -n 1)
-    if [[ "${local_v}" == "vDev" ]]; then
-        local_v=$(git tag --sort=-version:refname | head -n 2 | tail -n 1)
-    fi
-    echo "${local_v}" || return 1
+    git describe --tags --always 2> /dev/null || return 1
 }
 
 function get_local_hash() {
