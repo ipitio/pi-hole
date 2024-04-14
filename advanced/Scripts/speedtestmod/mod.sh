@@ -58,17 +58,14 @@ download() {
     fi
 
     if [ ! -z "$localVersion" ]; then
-        read -r -a repos <<<"Pi-hole web speedtest"
-        read -r -a localVersions <<<"$localVersion"
+        local repos=("Pi-hole" "web" "speedtest")
         local found=false
 
-        for word1 in "${repos[@]}"; do
-            for word2 in "${localVersions[@]}"; do
-                if [ "$word1" == "$word2" ]; then
-                    found=true
-                    break 2
-                fi
-            done
+        for repo in "${repos[@]}"; do
+            if [[ "$localVersion" == *"$repo"* ]]; then
+                found=true
+                break 2
+            fi
         done
 
         if ! $found; then
