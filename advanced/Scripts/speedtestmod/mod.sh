@@ -58,7 +58,7 @@ download() {
     fi
 
     if [ ! -z "$localVersion" ]; then
-        if ! echo "Pi-hole web speedtest" | grep -ow $localVersion | wc -w; then
+        if ! echo "Pi-hole web speedtest" | grep -o $localVersion | wc -w; then
             latestTag=$localVersion
             localTag=$latestTag
         else
