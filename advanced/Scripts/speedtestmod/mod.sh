@@ -3,27 +3,18 @@ aborted=0
 stable=true
 
 getTag() {
+    local tag=""
+
     if [ -d $1 ]; then
         cd $1
-        local tag=$(git rev-parse HEAD 2>/dev/null)
+        tag=$(git rev-parse HEAD 2>/dev/null)
         cd - &>/dev/null
-        echo $tag
-    else
-        echo ""
-    fi
-}
-
-getVersion() {
-    local localTag=""
-
-    if [ -x "$(command -v pihole)" ]; then
-        localTag=$(pihole -v | grep "$1" | cut -d ' ' -f 6)
-        [ "$localTag" != "HEAD" ] || localTag=$(pihole -v | grep "$1" | cut -d ' ' -f 7)
-    elif [ ! -z "${2:-}" ]; then
-        localTag=$(getTag $2)
+    elif [ -x "$(command -v pihole)" ]; then
+        tag=$(pihole -v | grep "$1" | cut -d ' ' -f 6)
+        [ "$tag" != "HEAD" ] || tag=$(pihole -v | grep "$1" | cut -d ' ' -f 7)
     fi
 
-    echo $localTag
+    echo $tag
 }
 
 download() {
@@ -56,11 +47,11 @@ download() {
     local latestTag=$(tail -n1 <<<"$tags")
     local localTag=$latestTag
 
-    if [ "$1" != "Pi-hole" ] && [ "$1" != "web" ] && [ "$1" != "speedtest" ]; then
+    if [ "$localVersion" != "Pi-hole" ] && [ "$localVersion" != "web" ] && [ "$localVersion" != "speedtest" ]; then
         latestTag=$localVersion
         localTag=$latestTag
     elif [ ! -z "$localVersion" ]; then
-        localTag=$(getVersion "$localVersion")
+        localTag=$(getTag "$localVersion")
     fi
 
     git fetch origin --depth=1 $branch:refs/remotes/origin/$branch -q
@@ -70,7 +61,11 @@ download() {
     local unstable=false
     [[ "$url" != *"ipitio"* ]] || unstable=true
     [[ "$url" == *"arevindh"* ]] && ! $stable && unstable=true || :
-    [ "$branch" == "master" ] && ! $unstable && [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag 2>/dev/null)" ] && git fetch origin tag $latestTag --depth=1 -q && git -c advice.detachedHead=false checkout "$latestTag" -q || :
+
+    if [ "$branch" == "master" ] && ! $unstable && [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag 2>/dev/null)" ]; then
+        [[ "$latestTag" == *.* ]] && git fetch origin tag $latestTag --depth=1 -q || git fetch origin $latestTag --depth=1 -q
+        git -c advice.detachedHead=false checkout "$latestTag" -q
+    fi
     cd ..
 }
 
@@ -311,9 +306,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
             if $reinstall; then
                 echo "Reinstalling Mod..."
-                mod_core_ver=$(getVersion "Pi-hole" $core_dir)
-                mod_admin_ver=$(getVersion "web" $html_dir/admin)
-                st_ver=$(getVersion "speedtest" $mod_dir)
+                mod_core_ver=$(getTag $core_dir)
+                mod_admin_ver=$(getTag $html_dir/admin)
+                st_ver=$(getTag $mod_dir)
             fi
 
             if ! $install && [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
