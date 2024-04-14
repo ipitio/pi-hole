@@ -25,6 +25,7 @@ download() {
     local branch="${5:-master}"
     local reinstall=${6:-false}
     local dest=$path/$name
+    local unstable=false
 
     [ -d "$dest" ] && [ ! -d "$dest/.git" ] && mv -f "$dest" "$dest.old" || :
     [ -d "$dest" ] || git clone --depth=1 -b "$branch" "$url" "$dest" -q
@@ -41,9 +42,20 @@ download() {
     fi
 
     url=$(git remote get-url origin)
+    [[ "$url" == *"ipitio"* ]] && $stable && unstable=true || : # invert -t for me
+    [[ "$url" == *"arevindh"* ]] && ! $stable && unstable=true || :
+    [ "$reinstall" != "true" ] || unstable=false
     local tags=$(git ls-remote --tags "$url" | awk -F/ '{print $3}' | grep '^v[0-9]' | grep -v '\^{}' | sort -V)
     local latestTag=$(tail -n1 <<<"$tags")
     local localTag=$latestTag
+    git fetch origin --depth=1 $branch:refs/remotes/origin/$branch -q
+    git reset --hard origin/"$branch" -q
+    git checkout -B "$branch" -q
+
+    if $unstable; then
+        latestTag=$(git rev-parse HEAD)
+        localTag=$latestTag
+    fi
 
     if [ ! -z "$localVersion" ]; then
         if ! echo "Pi-hole web speedtest" | grep -ow $localVersion | wc -w; then
@@ -53,10 +65,6 @@ download() {
             localTag=$(getTag "$localVersion")
         fi
     fi
-
-    git fetch origin --depth=1 $branch:refs/remotes/origin/$branch -q
-    git reset --hard origin/"$branch" -q
-    git checkout -B "$branch" -q
 
     local latestCommit=$latestTag
     local localCommit=$localTag
@@ -73,10 +81,6 @@ download() {
     [ "$aborted" == "0" ] && { [[ "$url" != *"arevindh"* ]] && [[ "$url" != *"ipitio"* ]] && ! git remote -v | grep -q "old.*ipitio" && [ "$needOlder" == "0" ] && latestCommit=$(awk -v lv="$localTag" '$1 <= lv' <<<"$tags" | tail -n1) || :; } || latestCommit=$localCommit
     [[ "$latestCommit" != *.* ]] || latestCommit=$(git ls-remote -t $url | grep $latestCommit$ | awk '{print $1;}')
 
-    local unstable=false
-    [[ "$url" == *"ipitio"* ]] && $stable && unstable=true || : # invert -t for me
-    [[ "$url" == *"arevindh"* ]] && ! $stable && unstable=true || :
-    [ "$reinstall" != "true" ] || unstable=false
     ! $unstable && [ "$(git rev-parse HEAD)" != "$latestCommit" ] && git -c advice.detachedHead=false checkout $latestCommit -q || :
     cd ..
 }
