@@ -81,13 +81,13 @@ download() {
     [[ "$latestCommit" != *.* ]] || latestCommit=$(git ls-remote -t $url | grep $latestCommit$ | awk '{print $1;}')
     [[ "$localCommit" != *.* ]] || localCommit=$(git ls-remote -t $url | grep $localCommit$ | awk '{print $1;}')
     [ "$(git rev-parse HEAD)" == "$latestCommit" ] || git fetch origin $latestCommit --depth=1 -q
-    ! [ "$(git rev-parse HEAD)" == "$localCommit" ] && [ ! -z "$localCommit" ] && git fetch origin $localCommit --depth=1 -q || localCommit=$latestCommit
+    [ "$(git rev-parse HEAD)" != "$localCommit" ] && [ ! -z "$localCommit" ] && git fetch origin $localCommit --depth=1 -q || localCommit=$latestCommit
 
     local needOlder=$(
         git merge-base --is-ancestor $localCommit $latestCommit 2>/dev/null
         echo $?
     )
-    [ "$localCommit" != "$latestCommit" ] || needOlder=1
+    [ "$localCommit" != "$latestCommit" ] || needOlder=1 # if the commits are the same, we don't need older
     [ "$aborted" == "0" ] && { [[ "$url" != *"arevindh"* ]] && [[ "$url" != *"ipitio"* ]] && ! git remote -v | grep -q "old.*ipitio" && [ "$needOlder" == "0" ] && latestCommit=$(awk -v lv="$localTag" '$1 <= lv' <<<"$tags" | tail -n1) || :; } || latestCommit=$localCommit
     [[ "$latestCommit" != *.* ]] || latestCommit=$(git ls-remote -t $url | grep $latestCommit$ | awk '{print $1;}')
 
@@ -140,7 +140,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     help() {
         echo "The Mod Script"
         echo "Usage: sudo bash /path/to/mod.sh [options]"
-        echo "  or: curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/mod.sh | sudo bash [-s -- options]"
+        echo "  or: curl -sSLN //link/to/mod.sh | sudo bash [-s -- options]"
         echo "(Re)install the latest release of the Speedtest Mod, and/or the following options:"
         echo ""
         echo "Options:"
