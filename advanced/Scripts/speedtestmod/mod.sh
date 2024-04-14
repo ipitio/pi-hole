@@ -2,12 +2,25 @@
 aborted=0
 stable=true
 
+getTag() {
+    if [ -d $1 ]; then
+        cd $1
+        local tag=$(git rev-parse HEAD 2>/dev/null)
+        cd - &>/dev/null
+        echo $tag
+    else
+        echo ""
+    fi
+}
+
 getVersion() {
     local localTag=""
 
     if [ -x "$(command -v pihole)" ]; then
         localTag=$(pihole -v | grep "$1" | cut -d ' ' -f 6)
         [ "$localTag" != "HEAD" ] || localTag=$(pihole -v | grep "$1" | cut -d ' ' -f 7)
+    elif [ ! -z "${2:-}" ]; then
+        localTag=$(getTag $2)
     fi
 
     echo $localTag
@@ -43,7 +56,7 @@ download() {
     local latestTag=$(tail -n1 <<<"$tags")
     local localTag=$latestTag
 
-    if [[ "$localVersion" == *.* ]]; then
+    if [ "$1" != "Pi-hole" ] && [ "$1" != "web" ] && [ "$1" != "speedtest" ]; then
         latestTag=$localVersion
         localTag=$latestTag
     elif [ ! -z "$localVersion" ]; then
@@ -56,7 +69,7 @@ download() {
     [ "$aborted" == "0" ] && { [[ "$url" != *"arevindh"* ]] && [[ "$url" != *"ipitio"* ]] && ! git remote -v | grep -q "old.*ipitio" && [[ "$localTag" < "$latestTag" ]] && latestTag=$(awk -v lv="$localTag" '$1 <= lv' <<<"$tags" | tail -n1) || :; } || latestTag=$localTag
     local unstable=false
     [[ "$url" != *"ipitio"* ]] || unstable=true
-    [[ "$url" == *"arevindh"* ]] && ! $stable && unstable=true
+    [[ "$url" == *"arevindh"* ]] && ! $stable && unstable=true || :
     [ "$branch" == "master" ] && ! $unstable && [ "$(git rev-parse HEAD)" != "$(git rev-parse $latestTag 2>/dev/null)" ] && git fetch origin tag $latestTag --depth=1 -q && git -c advice.detachedHead=false checkout "$latestTag" -q || :
     cd ..
 }
@@ -72,17 +85,6 @@ notInstalled() {
     fi
 
     return 1
-}
-
-getTag() {
-    if [ -d $1 ]; then
-        cd $1
-        local tag=$(git tag | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
-        cd - &>/dev/null
-        echo $tag
-    else
-        echo "not found on system"
-    fi
 }
 
 setCnf() {
@@ -169,6 +171,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         rm -rf $opt_dir/speedtestmod
         rm -rf $core_dir.bak
         rm -rf $html_dir/admin.bak
+        rm -rf $core_dir.mod
+        rm -rf $html_dir/admin.mod
         rm -f "$curr_db".*
         rm -f $etc_dir/last_speedtest.*
         rm -f /tmp/st_vers
@@ -307,9 +311,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
             if $reinstall; then
                 echo "Reinstalling Mod..."
-                mod_core_ver=$(getVersion "Pi-hole")
-                mod_admin_ver=$(getVersion "web")
-                st_ver=$(getVersion "speedtest")
+                mod_core_ver=$(getVersion "Pi-hole" $core_dir)
+                mod_admin_ver=$(getVersion "web" $html_dir/admin)
+                st_ver=$(getVersion "speedtest" $mod_dir)
             fi
 
             if ! $install && [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
