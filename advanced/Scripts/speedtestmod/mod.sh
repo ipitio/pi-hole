@@ -5,7 +5,7 @@ stable=true
 getTag() {
     local tag=""
 
-    if [ -d $1 ]; then
+    if [ ! -z $1 ] && [ -d $1 ]; then
         cd $1
         tag=$(git rev-parse HEAD 2>/dev/null)
         cd - &>/dev/null
@@ -47,11 +47,13 @@ download() {
     local latestTag=$(tail -n1 <<<"$tags")
     local localTag=$latestTag
 
-    if [ "$localVersion" != "Pi-hole" ] && [ "$localVersion" != "web" ] && [ "$localVersion" != "speedtest" ]; then
-        latestTag=$localVersion
-        localTag=$latestTag
-    elif [ ! -z "$localVersion" ]; then
-        localTag=$(getTag "$localVersion")
+    if [ ! -z "$localVersion" ]; then
+        if [ "$localVersion" != "Pi-hole" ] && [ "$localVersion" != "web" ] && [ "$localVersion" != "speedtest" ]; then
+            latestTag=$localVersion
+            localTag=$latestTag
+        else
+            localTag=$(getTag "$localVersion")
+        fi
     fi
 
     git fetch origin --depth=1 $branch:refs/remotes/origin/$branch -q
