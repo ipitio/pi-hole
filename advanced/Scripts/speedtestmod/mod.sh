@@ -19,7 +19,7 @@ download() {
     local path=$1
     local name=$2
     local url=$3
-    local desiredVersion=${4:-}
+    local desiredVersion="${4:-}"
     local branch="${5:-master}"
     local latestTag="${6:-true}"
     local dest=$path/$name
@@ -323,8 +323,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     admin_ver=$(awk -F= -v r="$html_dir/admin" '$1 == r {print $2}' $mod_dir/cnf)
                 fi
 
-                ! $online && restore $html_dir/admin || download $html_dir admin https://github.com/pi-hole/AdminLTE $admin_ver
-                ! $online && restore $core_dir || download /etc .pihole https://github.com/pi-hole/pi-hole $core_ver
+                ! $online && restore $html_dir/admin || download $html_dir admin https://github.com/pi-hole/AdminLTE "$admin_ver"
+                ! $online && restore $core_dir || download /etc .pihole https://github.com/pi-hole/pi-hole "$core_ver"
                 [ ! -d $mod_dir ] || rm -rf $mod_dir
                 swapScripts
             fi
@@ -366,11 +366,11 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 fi
 
                 echo "Installing Mod..."
-                download /etc pihole-speedtest https://github.com/arevindh/pihole-speedtest $st_ver master $stable
+                download /etc pihole-speedtest https://github.com/arevindh/pihole-speedtest "$st_ver" master $stable
 
                 if $backup; then
-                    download /etc .pihole.mod https://github.com/ipitio/pi-hole $mod_core_ver ipitio $stable
-                    download $html_dir admin.mod https://github.com/ipitio/AdminLTE $mod_admin_ver master $stable
+                    download /etc .pihole.mod https://github.com/ipitio/pi-hole "$mod_core_ver" ipitio $stable
+                    download $html_dir admin.mod https://github.com/ipitio/AdminLTE "$mod_admin_ver" master $stable
                     echo "Backing up Pi-hole..."
                 fi
 
@@ -395,11 +395,11 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     fi
                 done
 
-                $backup || download /etc .pihole https://github.com/ipitio/pi-hole $mod_core_ver ipitio $stable
+                $backup || download /etc .pihole https://github.com/ipitio/pi-hole "$mod_core_ver" ipitio $stable
                 swapScripts
                 \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
                 pihole -a -s
-                $backup || download $html_dir admin https://github.com/ipitio/AdminLTE $mod_admin_ver master $stable
+                $backup || download $html_dir admin https://github.com/ipitio/AdminLTE "$mod_admin_ver" master $stable
             fi
 
             pihole updatechecker
