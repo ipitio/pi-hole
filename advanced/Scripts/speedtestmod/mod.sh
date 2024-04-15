@@ -1,18 +1,18 @@
 #!/bin/bash
 
 getTag() {
-    local commit=""
+    local foundCommit=""
 
     if [ -d $1 ]; then
         cd $1
-        commit=$(git rev-parse HEAD 2>/dev/null)
+        foundCommit=$(git rev-parse HEAD 2>/dev/null)
         cd - &>/dev/null
     elif [ -x "$(command -v pihole)" ]; then
-        commit=$(pihole -v | grep "$1" | cut -d ' ' -f 6)
-        [ "$commit" != "HEAD" ] || commit=$(pihole -v | grep "$1" | cut -d ' ' -f 7)
+        foundCommit=$(pihole -v | grep "$1" | cut -d ' ' -f 6)
+        [ "$foundCommit" != "HEAD" ] || foundCommit=$(pihole -v | grep "$1" | cut -d ' ' -f 7)
     fi
 
-    echo $commit
+    echo $foundCommit
 }
 
 download() {
