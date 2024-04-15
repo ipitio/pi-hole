@@ -53,7 +53,7 @@ download() {
     fi
 
     url=$(git remote get-url origin)
-    [[ "$url" == *"ipitio"* ]] && latestTag=$(echo "$latestTag" | sed 's/true/false/g' | sed 's/false/true/g')
+    [[ "$url" == *"ipitio"* ]] && latestTag=$(echo "$latestTag" | grep -q "true" && echo "false" || echo "true")
     git fetch origin --depth=1 $branch:refs/remotes/origin/$branch -q
     git reset --hard origin/"$branch" -q
     git checkout -B "$branch" -q
@@ -69,7 +69,12 @@ download() {
     fi
 
     [[ "$desiredVersion" != *.* ]] || desiredVersion=$(git ls-remote -t $url | grep $desiredVersion$ | awk '{print $1;}')
-    [ "$currentCommit" == "$desiredVersion" ] || git -c advice.detachedHead=false checkout $desiredVersion -q
+
+    if [ "$currentCommit" != "$desiredVersion" ]; then
+        git fetch origin --depth=1 $desiredVersion -q
+        git -c advice.detachedHead=false checkout $desiredVersion -q
+    fi
+
     cd ..
 }
 
