@@ -50,26 +50,23 @@ download() {
         git remote rename old origin
     fi
 
+    url=$(git remote get-url origin)
+    [[ "$url" == *"ipitio"* ]] && snapToTag=$(echo "$snapToTag" | grep -q "true" && echo "false" || echo "true")
     git fetch origin --depth=1 $branch:refs/remotes/origin/$branch -q
     git reset --hard origin/"$branch" -q
     git checkout -B "$branch" -q
-    git tag | xargs git tag -d >/dev/null 2>&1
-    git fetch --tags -q
     local currentCommit=$(getTag "$dest")
 
     if [ -z "$desiredVersion" ]; then # if empty, get the latest version
-        url=$(git remote get-url origin)
-        [[ "$url" == *"ipitio"* ]] && snapToTag=$(echo "$snapToTag" | grep -q "true" && echo "false" || echo "true")
-
         if [ "$snapToTag" == "true" ]; then
-            local latestTag=$(git show-ref --tags | awk -F/ '{print $3}' | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
+            local latestTag=$(git ls-remote -t "$url" | awk -F/ '{print $3}' | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
             [ ! -z "$latestTag" ] && desiredVersion=$latestTag || desiredVersion=$currentCommit
         fi
     elif $aborting; then
         desiredVersion=$(getTag "$desiredVersion")
     fi
 
-    [[ "$desiredVersion" != *.* ]] || desiredVersion=$(git show-ref --tags | grep $desiredVersion$ | awk '{print $1;}')
+    [[ "$desiredVersion" != *.* ]] || desiredVersion=$(git ls-remote -t "$url" | grep $desiredVersion$ | awk '{print $1;}')
 
     if [ "$currentCommit" != "$desiredVersion" ]; then
         git fetch origin --depth=1 $desiredVersion -q
@@ -311,28 +308,30 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             local working_dir=$(pwd)
             cd ~
 
-            if $reinstall; then
-                echo "Reinstalling Mod..."
-                mod_core_ver=$(getTag $core_dir)
-                mod_admin_ver=$(getTag $html_dir/admin)
-                st_ver=$(getTag $mod_dir)
-            fi
-
-            if ! $install && [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
-                echo "Restoring Pi-hole$($online && echo " online..." || echo "...")"
-                pihole -a -s -1
-
-                local core_ver=""
-                local admin_ver=""
-                if [ -f $mod_dir/cnf ]; then
-                    core_ver=$(awk -F= -v r="$core_dir" '$1 == r {print $2}' $mod_dir/cnf)
-                    admin_ver=$(awk -F= -v r="$html_dir/admin" '$1 == r {print $2}' $mod_dir/cnf)
+            if [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
+                if $reinstall; then
+                    echo "Reinstalling Mod..."
+                    mod_core_ver=$(getTag 'Pi-hole')
+                    mod_admin_ver=$(getTag 'web')
+                    st_ver=$(getTag 'speedtest')
                 fi
 
-                ! $online && restore $html_dir/admin || download $html_dir admin https://github.com/pi-hole/AdminLTE "$admin_ver"
-                ! $online && restore $core_dir || download /etc .pihole https://github.com/pi-hole/pi-hole "$core_ver"
-                [ ! -d $mod_dir ] || rm -rf $mod_dir
-                swapScripts
+                if ! $install; then
+                    echo "Restoring Pi-hole$($online && echo " online..." || echo "...")"
+                    pihole -a -s -1
+
+                    local core_ver=""
+                    local admin_ver=""
+                    if [ -f $mod_dir/cnf ]; then
+                        core_ver=$(awk -F= -v r="$core_dir" '$1 == r {print $2}' $mod_dir/cnf)
+                        admin_ver=$(awk -F= -v r="$html_dir/admin" '$1 == r {print $2}' $mod_dir/cnf)
+                    fi
+
+                    ! $online && restore $html_dir/admin || download $html_dir admin https://github.com/pi-hole/AdminLTE "$admin_ver"
+                    ! $online && restore $core_dir || download /etc .pihole https://github.com/pi-hole/pi-hole "$core_ver"
+                    [ ! -d $mod_dir ] || rm -rf $mod_dir
+                    swapScripts
+                fi
             fi
 
             if ! $install && $update; then
