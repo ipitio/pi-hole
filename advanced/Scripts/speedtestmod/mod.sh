@@ -9,7 +9,7 @@ getTag() {
         cd - &>/dev/null
     elif [ -x "$(command -v pihole)" ]; then
         foundCommit=$(pihole -v | grep "$1" | cut -d ' ' -f 6)
-        [ "$foundCommit" != "HEAD" ] || foundCommit=$(pihole -v | grep "$1" | cut -d ' ' -f 7)
+        [ "$foundCommit" != "HEAD" ] && [ "$foundCommit" != "$(git rev-parse --abbrev-ref HEAD)" ] || foundCommit=$(pihole -v | grep "$1" | cut -d ' ' -f 7)
     fi
 
     echo $foundCommit
@@ -21,9 +21,14 @@ download() {
     local url=$3
     local desiredVersion="${4:-}"
     local branch="${5:-master}"
-    local latestTag="${6:-true}"
+    local snapToTag="${6:-true}"
     local dest=$path/$name
     local aborting=false
+
+    [ -d "$dest" ] && [ ! -d "$dest/.git" ] && mv -f "$dest" "$dest.old" || :
+    [ -d "$dest" ] || git clone --depth=1 -b "$branch" "$url" "$dest" -q
+    cd "$dest"
+    git config --global --add safe.directory "$dest"
 
     if [ ! -z "$desiredVersion" ]; then
         local repos=("Pi-hole" "web" "speedtest")
@@ -34,14 +39,7 @@ download() {
                 break
             fi
         done
-
-        ! $aborting || desiredVersion=$(getTag "$desiredVersion")
     fi
-
-    [ -d "$dest" ] && [ ! -d "$dest/.git" ] && mv -f "$dest" "$dest.old" || :
-    [ -d "$dest" ] || git clone --depth=1 -b "$branch" "$url" "$dest" -q
-    cd "$dest"
-    git config --global --add safe.directory "$dest"
 
     if ! $aborting; then
         ! git remote -v | grep -q "old" && git remote -v | grep -q "origin" && git remote rename origin old || :
@@ -52,8 +50,6 @@ download() {
         git remote rename old origin
     fi
 
-    url=$(git remote get-url origin)
-    [[ "$url" == *"ipitio"* ]] && latestTag=$(echo "$latestTag" | grep -q "true" && echo "false" || echo "true")
     git fetch origin --depth=1 $branch:refs/remotes/origin/$branch -q
     git reset --hard origin/"$branch" -q
     git checkout -B "$branch" -q
@@ -62,8 +58,15 @@ download() {
     local currentCommit=$(getTag "$dest")
 
     if [ -z "$desiredVersion" ]; then # if empty, get the latest version
-        local currentTag=$(git show-ref --tags | awk -F/ '{print $3}' | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
-        [ "$latestTag" == "true" ] && [ ! -z "$currentTag" ] && desiredVersion=$currentTag || desiredVersion=$currentCommit
+        url=$(git remote get-url origin)
+        [[ "$url" == *"ipitio"* ]] && snapToTag=$(echo "$snapToTag" | grep -q "true" && echo "false" || echo "true")
+
+        if [ "$snapToTag" == "true" ]; then
+            local latestTag=$(git show-ref --tags | awk -F/ '{print $3}' | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
+            [ ! -z "$latestTag" ] && desiredVersion=$latestTag || desiredVersion=$currentCommit
+        fi
+    elif $aborting; then
+        desiredVersion=$(getTag "$desiredVersion")
     fi
 
     [[ "$desiredVersion" != *.* ]] || desiredVersion=$(git show-ref --tags | grep $desiredVersion$ | awk '{print $1;}')
@@ -346,13 +349,12 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 purge
             else
                 if $chk_dep; then
-                    echo "Checking Dependencies..."
-
                     if [ ! -f /usr/local/bin/pihole ]; then
                         echo "Installing Pi-hole..."
                         curl -sSL https://install.pi-hole.net | sudo bash
                     fi
 
+                    echo "Checking Dependencies..."
                     local PHP_VERSION=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
                     local PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
                     local PKGS=(bc sqlite3 jq tar tmux wget "php$PHP_VERSION-sqlite3")
@@ -364,11 +366,12 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
                     if [ ${#missingPkgs[@]} -gt 0 ]; then
                         [[ "$PKG_MANAGER" != *"apt-get"* ]] || apt-get update >/dev/null
-                        $PKG_MANAGER install -y "${missingPkgs[@]}" &>/dev/null
+                        echo "Installing Missing..."
+                        $PKG_MANAGER install -y "${missingPkgs[@]}"
                     fi
                 fi
 
-                echo "Installing Mod..."
+                echo "Swapping Repos..."
                 download /etc pihole-speedtest https://github.com/arevindh/pihole-speedtest "$st_ver" master $stable
 
                 if $backup; then
@@ -399,6 +402,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 done
 
                 $backup || download /etc .pihole https://github.com/ipitio/pi-hole "$mod_core_ver" ipitio $stable
+                echo "Installing Mod..."
                 swapScripts
                 \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
                 pihole -a -s
