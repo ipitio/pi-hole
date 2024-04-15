@@ -52,6 +52,8 @@ download() {
         git remote rename old origin
     fi
 
+    url=$(git remote get-url origin)
+    [[ "$url" == *"ipitio"* ]] && latestTag=$(echo "$latestTag" | grep -q "true" && echo "false" || echo "true")
     git fetch origin --depth=1 $branch:refs/remotes/origin/$branch -q
     git reset --hard origin/"$branch" -q
     git checkout -B "$branch" -q
