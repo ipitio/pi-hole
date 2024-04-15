@@ -5,7 +5,7 @@ getVersion() {
 
     if [ -d $1 ]; then
         cd $1
-        foundVersion=$(tag --points-at)
+        foundVersion=$(git tag --points-at)
         [ -z "$foundVersion" ] && foundVersion=$(git rev-parse HEAD 2>/dev/null) || foundVersion=$(echo "$foundVersion" | sort -V | tail -n1)
         cd - &>/dev/null
     elif [ -x "$(command -v pihole)" ]; then
@@ -62,7 +62,7 @@ download() {
     if [ -z "$desiredVersion" ]; then # if empty, get the latest version
         if [ "$snapToTag" == "true" ]; then
             local latestTag=$(git ls-remote -t "$url" | awk -F/ '{print $3}' | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
-            [ ! -z "$latestTag" ] && desiredVersion=$latestTag || desiredVersion=$currentCommit
+            [ ! -z "$latestTag" ] && desiredVersion=$latestTag || desiredVersion=$currentVersion
         fi
     elif $aborting; then
         desiredVersion=$(getVersion "$desiredVersion")
@@ -70,7 +70,7 @@ download() {
 
     [[ "$desiredVersion" != *.* ]] || desiredVersion=$(git ls-remote -t "$url" | grep $desiredVersion$ | awk '{print $1;}')
 
-    if [ "$currentCommit" != "$desiredVersion" ]; then
+    if [ "$currentVersion" != "$desiredVersion" ]; then
         git fetch origin --depth=1 $desiredVersion -q
         git -c advice.detachedHead=false checkout $desiredVersion -q
     fi
