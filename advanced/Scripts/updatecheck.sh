@@ -19,7 +19,7 @@ function get_local_version() {
     cd "${1}" 2> /dev/null || return 1
 
     local local_commit=$(git rev-parse HEAD)
-    local local_vs=$(git show-ref --tags -d | grep "$localCommit" | awk '{print $2}' | grep -o 'v.*$' | sort -V)
+    local local_vs=$(git show-ref --tags -d | grep "$local_commit" | awk '{print $2}' | grep -o 'v.*$' | sort -V)
 
     if [ -z "$local_vs" ]; then
         echo "$local_commit"
