@@ -366,11 +366,11 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 fi
 
                 echo "Installing Mod..."
-                download /etc pihole-speedtest https://github.com/arevindh/pihole-speedtest $st_ver "" $stable
+                download /etc pihole-speedtest https://github.com/arevindh/pihole-speedtest $st_ver master $stable
 
                 if $backup; then
                     download /etc .pihole.mod https://github.com/ipitio/pi-hole $mod_core_ver ipitio $stable
-                    download $html_dir admin.mod https://github.com/ipitio/AdminLTE $mod_admin_ver "" $stable
+                    download $html_dir admin.mod https://github.com/ipitio/AdminLTE $mod_admin_ver master $stable
                     echo "Backing up Pi-hole..."
                 fi
 
@@ -399,7 +399,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 swapScripts
                 \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
                 pihole -a -s
-                $backup || download $html_dir admin https://github.com/ipitio/AdminLTE $mod_admin_ver "" $stable
+                $backup || download $html_dir admin https://github.com/ipitio/AdminLTE $mod_admin_ver master $stable
             fi
 
             pihole updatechecker
