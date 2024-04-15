@@ -308,28 +308,30 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             local working_dir=$(pwd)
             cd ~
 
-            if $reinstall; then
-                echo "Reinstalling Mod..."
-                mod_core_ver=$(getTag $core_dir)
-                mod_admin_ver=$(getTag $html_dir/admin)
-                st_ver=$(getTag $mod_dir)
-            fi
-
-            if ! $install && [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
-                echo "Restoring Pi-hole$($online && echo " online..." || echo "...")"
-                pihole -a -s -1
-
-                local core_ver=""
-                local admin_ver=""
-                if [ -f $mod_dir/cnf ]; then
-                    core_ver=$(awk -F= -v r="$core_dir" '$1 == r {print $2}' $mod_dir/cnf)
-                    admin_ver=$(awk -F= -v r="$html_dir/admin" '$1 == r {print $2}' $mod_dir/cnf)
+            if [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
+                if $reinstall; then
+                    echo "Reinstalling Mod..."
+                    mod_core_ver=$(getTag 'Pi-hole')
+                    mod_admin_ver=$(getTag 'web')
+                    st_ver=$(getTag 'speedtest')
                 fi
 
-                ! $online && restore $html_dir/admin || download $html_dir admin https://github.com/pi-hole/AdminLTE "$admin_ver"
-                ! $online && restore $core_dir || download /etc .pihole https://github.com/pi-hole/pi-hole "$core_ver"
-                [ ! -d $mod_dir ] || rm -rf $mod_dir
-                swapScripts
+                if ! $install; then
+                    echo "Restoring Pi-hole$($online && echo " online..." || echo "...")"
+                    pihole -a -s -1
+
+                    local core_ver=""
+                    local admin_ver=""
+                    if [ -f $mod_dir/cnf ]; then
+                        core_ver=$(awk -F= -v r="$core_dir" '$1 == r {print $2}' $mod_dir/cnf)
+                        admin_ver=$(awk -F= -v r="$html_dir/admin" '$1 == r {print $2}' $mod_dir/cnf)
+                    fi
+
+                    ! $online && restore $html_dir/admin || download $html_dir admin https://github.com/pi-hole/AdminLTE "$admin_ver"
+                    ! $online && restore $core_dir || download /etc .pihole https://github.com/pi-hole/pi-hole "$core_ver"
+                    [ ! -d $mod_dir ] || rm -rf $mod_dir
+                    swapScripts
+                fi
             fi
 
             if ! $install && $update; then
