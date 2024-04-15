@@ -125,18 +125,18 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         echo "(Re)install the latest release of the Speedtest Mod, and/or the following options:"
         echo ""
         echo "Options:"
-        echo "  -u, --update, up       also update Pi-hole, unless Systemd is not being used (ie. not in Docker)"
-        echo "  -b, --backup           preserve stock Pi-hole files for faster offline restore"
-        echo "  -o, --online           force online restore of stock Pi-hole files even if a backup exists"
-        echo "  -i, --install          skip restore of stock Pi-hole (for when not updating Pi-hole nor switching repos)"
-        echo "  -r, --reinstall        keep current version of the mod, if installed"
-        echo "  -t, --testing          install the latest commit"
-        echo "  -n, --uninstall, un    remove the mod and its files, but keep the database"
-        echo "  -d, --database, db     flush/restore the database if it's not/empty (and exit if this is the only arg given)"
-        echo "  -v, --version          display the version of the mod"
-        echo "  -x, --verbose          show the commands being run"
-        echo "  -c, --chkdep           skip checking for missing dependencies"
-        echo "  -h, --help             display this help message"
+        echo "  -u, --update, up        also update Pi-hole, unless Systemd is not being used (ie. not in Docker)"
+        echo "  -b, --backup            preserve stock Pi-hole files for faster offline restore"
+        echo "  -o, --online            force online restore of stock Pi-hole files even if a backup exists"
+        echo "  -i, --install           skip restore of stock Pi-hole (for when not updating Pi-hole nor switching repos)"
+        echo "  -r, --reinstall         keep current version of the mod, if installed"
+        echo "  -t, --testing           install the latest commit"
+        echo "  -n, --uninstall, un     remove the mod and its files, but keep the database"
+        echo "  -d, --database, db      flush/restore the database if it's not/empty (and exit if this is the only arg given)"
+        echo "  -v, --version           display the version of the mod"
+        echo "  -x, --verbose           show the commands being run"
+        echo "  -c, --careless          skip checking for missing dependencies"
+        echo "  -h, --help              display this help message"
         echo ""
         echo "Examples:"
         echo "  sudo bash /opt/pihole/speedtestmod/mod.sh -ubo"
@@ -232,7 +232,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         local chk_dep=true
         local dashes=0
         local SHORT=-uboirtndvxch
-        local LONG=update,backup,online,install,reinstall,testing,uninstall,database,version,verbose,chkdep,help
+        local LONG=update,backup,online,install,reinstall,testing,uninstall,database,version,verbose,careless,help
         declare -a EXTRA_ARGS
         declare -a POSITIONAL
         PARSED=$(getopt --options ${SHORT} --longoptions ${LONG} --name "$0" -- "$@")
@@ -254,7 +254,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 exit 0
                 ;;
             -x | --verbose) verbose=true ;;
-            -c | --chkdep) chk_dep=false ;;
+            -c | --careless) chk_dep=false ;;
             -h | --help)
                 help
                 cleanup=false
