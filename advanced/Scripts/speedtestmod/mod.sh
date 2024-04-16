@@ -326,9 +326,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     mod_core_ver=$(getVersion $core_dir)
                     mod_admin_ver=$(getVersion $html_dir/admin)
                     st_ver=$(getVersion $mod_dir)
-                    setCnf mod-$mod_dir "$st_ver" $mod_dir/cnf $reinstall
-                    setCnf mod-$core_dir "$mod_core_ver" $mod_dir/cnf $reinstall
-                    setCnf mod-$html_dir/admin "$mod_admin_ver" $mod_dir/cnf $reinstall
+                    setCnf mod-$mod_dir "$st_ver" $mod_dir/cnf
+                    setCnf mod-$core_dir "$mod_core_ver" $mod_dir/cnf
+                    setCnf mod-$html_dir/admin "$mod_admin_ver" $mod_dir/cnf
                 fi
 
                 if ! $install; then
