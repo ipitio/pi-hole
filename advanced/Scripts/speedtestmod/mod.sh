@@ -49,9 +49,9 @@ download() {
     elif git remote -v | grep -q "old"; then
         ! git remote -v | grep -q "origin" || git remote remove origin
         git remote rename old origin
+        url=$(git remote get-url origin)
     fi
 
-    url=$(git remote get-url origin)
     [[ "$url" == *"ipitio"* ]] && snapToTag=$(echo "$snapToTag" | grep -q "true" && echo "false" || echo "true")
     git fetch origin --depth=1 $branch:refs/remotes/origin/$branch -q
     git reset --hard origin/"$branch" -q
