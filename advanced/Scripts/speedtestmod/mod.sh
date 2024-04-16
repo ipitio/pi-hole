@@ -411,8 +411,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
                 pihole -a -s
                 $backup || download $html_dir admin https://github.com/ipitio/AdminLTE "$mod_admin_ver" master $stable
-                setCnf mod-$core_dir "$(getVersion $mod_dir)" $mod_dir/cnf $reinstall
-                setCnf mod-$html_dir/admin "$(getVersion $mod_dir)" $mod_dir/cnf $reinstall
+                setCnf mod-$core_dir "$(getVersion $core_dir)" $mod_dir/cnf $reinstall
+                setCnf mod-$html_dir/admin "$(getVersion $html_dir/admin)" $mod_dir/cnf $reinstall
             fi
 
             pihole updatechecker
