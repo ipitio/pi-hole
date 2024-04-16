@@ -8,11 +8,6 @@
 # This file is copyright under the latest version of the EUPL.
 # Please see LICENSE file for your rights under this license.
 
-if [ -f /opt/pihole/speedtestmod/mod.sh ]; then
-    SKIP_MOD=true
-    source /opt/pihole/speedtestmod/mod.sh
-fi
-
 function get_local_branch() {
     # Return active branch
     cd "${1}" 2> /dev/null || return 1
@@ -22,15 +17,10 @@ function get_local_branch() {
 function get_local_version() {
     # Return active version
     cd "${1}" 2> /dev/null || return 1
-    # if getCnf function is available, use it to get the version
-    if [ -n "$(type -t getCnf)" ] && [ "$(type -t getCnf)" = function ]; then
-        getCnf /etc/pihole-speedtest/cnf mod-$1
-    else
-        local tags=$(git ls-remote -t origin)
-        local foundVersion=$(git rev-parse HEAD 2>/dev/null)
-        ! grep -q "$foundVersion" <<<"$tags" || foundVersion=$(grep "$foundVersion" <<<"$tags" | awk '{print $2;}' | cut -d '/' -f 3 | sort -V | tail -n1)
-        echo "${foundVersion}"
-    fi
+    local tags=$(git ls-remote -t origin)
+    local foundVersion=$(git rev-parse HEAD 2>/dev/null)
+    ! grep -q "$foundVersion" <<<"$tags" || foundVersion=$(grep "$foundVersion" <<<"$tags" | awk '{print $2;}' | cut -d '/' -f 3 | sort -V | tail -n1)
+    echo "${foundVersion}"
 }
 
 function get_local_hash() {
