@@ -113,7 +113,7 @@ getCnf() {
     local value=$(grep "^$2=" $1 | cut -d '=' -f 2)
     [ ! -z "$value" ] || value=$(getVersion $keydir "${3:-}")
 
-    if [ ! -z "${3:-}"] && [[ "$value" == *.* ]]; then
+    if [ ! -z "${3:-}" ] && [[ "$value" == *.* ]]; then
         cd $keydir
         local tags=$(git ls-remote -t origin)
         grep -q "$value$" <<<"$tags" && ver=$(grep "$value$" <<<"$tags" | awk '{print $1;}') || value=$(git rev-parse HEAD)
