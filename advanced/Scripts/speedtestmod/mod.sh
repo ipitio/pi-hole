@@ -92,7 +92,8 @@ notInstalled() {
 }
 
 setCnf() {
-    grep -q "^$1=" $3 && sed -i "s|^$1=.*|$1=$2|" $3 || echo "$1=$2" >>$3
+    grep -q "^$1=" $3 || echo "$1=$2" >>$3
+    [ "${4:-false}" == "true" ] || sed -i "s|^$1=.*|$1=$2|" $3
 }
 
 getCnf() {
@@ -317,9 +318,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             if [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
                 if $reinstall; then
                     echo "Reinstalling Mod..."
-                    mod_core_ver=$(getCnf $mod_dir/cnf $core_dir)
-                    mod_admin_ver=$(getCnf $mod_dir/cnf $html_dir/admin)
-                    st_ver=$(getCnf $mod_dir/cnf $mod_dir)
+                    mod_core_ver=$(getCnf $mod_dir/cnf mod-$core_dir)
+                    mod_admin_ver=$(getCnf $mod_dir/cnf mod-$html_dir/admin)
+                    st_ver=$(getCnf $mod_dir/cnf mod-$mod_dir)
                 fi
 
                 if ! $install; then
@@ -329,8 +330,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     local core_ver=""
                     local admin_ver=""
                     if [ -f $mod_dir/cnf ]; then
-                        core_ver=$(awk -F= -v r="$core_dir" '$1 == r {print $2}' $mod_dir/cnf)
-                        admin_ver=$(awk -F= -v r="$html_dir/admin" '$1 == r {print $2}' $mod_dir/cnf)
+                        core_ver=$(getCnf $mod_dir/cnf org-$core_dir)
+                        admin_ver=$(getCnf $mod_dir/cnf org-$html_dir/admin)
                     fi
 
                     ! $online && restore $html_dir/admin || download $html_dir admin https://github.com/pi-hole/AdminLTE "$admin_ver"
@@ -378,9 +379,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
                 echo "Swapping Repos..."
                 download /etc pihole-speedtest https://github.com/arevindh/pihole-speedtest "$st_ver" master $stable
-                local stockTag=$(getVersion $mod_dir)
                 [ -f $mod_dir/cnf ] || touch $mod_dir/cnf
-                setCnf $mod_dir $stockTag $mod_dir/cnf
+                setCnf mod-$mod_dir "$(getVersion $mod_dir)" $mod_dir/cnf $reinstall
 
                 if $backup; then
                     download /etc .pihole.mod https://github.com/ipitio/pi-hole "$mod_core_ver" ipitio $stable
@@ -390,8 +390,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
                 for repo in $core_dir $html_dir/admin; do
                     if [ -d $repo ]; then
-                        stockTag=$(getVersion $repo)
-                        setCnf $repo $stockTag $mod_dir/cnf
+                        local stockTag=$(getVersion $repo)
+                        setCnf org-$repo $stockTag $mod_dir/cnf
 
                         if $backup; then
                             if [ ! -d $repo.bak ] || [ "$(getVersion $repo.bak)" != "$stockTag" ]; then
@@ -411,6 +411,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
                 pihole -a -s
                 $backup || download $html_dir admin https://github.com/ipitio/AdminLTE "$mod_admin_ver" master $stable
+                setCnf mod-$core_dir "$(getVersion $mod_dir)" $mod_dir/cnf $reinstall
+                setCnf mod-$html_dir/admin "$(getVersion $mod_dir)" $mod_dir/cnf $reinstall
             fi
 
             pihole updatechecker
