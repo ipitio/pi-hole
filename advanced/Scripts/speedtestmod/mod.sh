@@ -7,7 +7,11 @@ getVersion() {
         cd $1
         local tags=$(git ls-remote -t origin)
         foundVersion=$(git rev-parse HEAD 2>/dev/null)
-        ! grep -q "$foundVersion" <<<"$tags" || foundVersion=$(grep "$foundVersion" <<<"$tags" | awk '{print $2;}' | cut -d '/' -f 3 | sort -V | tail -n1)
+
+        if [ -z "${2:-}" ]; then
+            ! grep -q "$foundVersion" <<<"$tags" || foundVersion=$(grep "$foundVersion" <<<"$tags" | awk '{print $2;}' | cut -d '/' -f 3 | sort -V | tail -n1)
+        fi
+
         cd - &>/dev/null
     elif [ -x "$(command -v pihole)" ]; then
         local versions=$(pihole -v | grep "$1")
@@ -59,8 +63,11 @@ download() {
     git reset --hard origin/"$branch" -q
     git checkout -B "$branch" -q
     local currentVersion=$(getVersion "$dest")
-    local tags=$(git ls-remote -t "$url")
-    [[ "$currentVersion" == *.* ]] && grep -q "$currentVersion$" <<<"$tags" && currentVersion=$(grep "$currentVersion$" <<<"$tags" | awk '{print $1;}') || currentVersion=$(git rev-parse origin/$branch)
+    local tags=$(git ls-remote -t origin)
+
+    if [[ "$currentVersion" == *.* ]]; then
+        grep -q "$currentVersion$" <<<"$tags" && currentVersion=$(grep "$currentVersion$" <<<"$tags" | awk '{print $1;}') || $currentVersion $(git rev-parse origin/$branch)
+    fi
 
     if [ -z "$desiredVersion" ]; then # if empty, get the latest version
         if [ "$snapToTag" == "true" ]; then
@@ -102,8 +109,17 @@ setCnf() {
 }
 
 getCnf() {
+    local keydir=$(echo $2 | sed 's/^mod-//;s/^org-//')
     local value=$(grep "^$2=" $1 | cut -d '=' -f 2)
-    [ ! -z "$value" ] || value=$(getVersion $(echo $2 | sed 's/^mod-//;s/^org-//'))
+    [ ! -z "$value" ] || value=$(getVersion $keydir "${3:-}")
+
+    if [ ! -z "${3:-}"] && [[ "$value" == *.* ]]; then
+        cd $keydir
+        local tags=$(git ls-remote -t origin)
+        grep -q "$value$" <<<"$tags" && ver=$(grep "$value$" <<<"$tags" | awk '{print $1;}') || value=$(git rev-parse HEAD)
+        cd - &>/dev/null
+    fi
+
     echo $value
 }
 
@@ -325,12 +341,11 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             if [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
                 if $reinstall; then
                     echo "Reinstalling Mod..."
-                    mod_core_ver=$(getVersion $core_dir)
-                    mod_admin_ver=$(getVersion $html_dir/admin)
-                    st_ver=$(getVersion $mod_dir)
-                    setCnf mod-$mod_dir "$st_ver" $mod_dir/cnf
-                    setCnf mod-$core_dir "$mod_core_ver" $mod_dir/cnf
-                    setCnf mod-$html_dir/admin "$mod_admin_ver" $mod_dir/cnf
+                    # if hashes of current and stored versions are the same, use stored version, else use the current version
+                    # since versions could be tags or commit hashes, and commits can have multiple tags
+                    [ "$(getVersion $core_dir hash)" == "$(getCnf $mod_dir/cnf mod-$core_dir hash)" ] && mod_core_ver=$(getCnf $mod_dir/cnf mod-$core_dir) || mod_core_ver=$(getVersion $core_dir)
+                    [ "$(getVersion $html_dir/admin hash)" == "$(getCnf $mod_dir/cnf mod-$html_dir/admin hash)" ] && mod_admin_ver=$(getCnf $mod_dir/cnf mod-$html_dir/admin) || mod_admin_ver=$(getVersion $html_dir/admin)
+                    [ "$(getVersion $mod_dir hash)" == "$(getCnf $mod_dir/cnf mod-$mod_dir hash)" ] && st_ver=$(getCnf $mod_dir/cnf mod-$mod_dir) || st_ver=$(getVersion $mod_dir)
                 fi
 
                 if ! $install; then
