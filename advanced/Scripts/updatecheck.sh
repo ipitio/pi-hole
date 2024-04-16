@@ -24,7 +24,7 @@ function get_local_version() {
     cd "${1}" 2> /dev/null || return 1
     # if getCnf function is available, use it to get the version
     if [ -n "$(type -t getCnf)" ] && [ "$(type -t getCnf)" = function ]; then
-        getCnf /etc/pihole/cnf mod-$1
+        getCnf /etc/pihole-speedtest/cnf mod-$1
     else
         local tags=$(git ls-remote -t origin)
         local foundVersion=$(git rev-parse HEAD 2>/dev/null)
