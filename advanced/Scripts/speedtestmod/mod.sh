@@ -69,9 +69,9 @@ download() {
         desiredVersion=$(getVersion "$desiredVersion")
     fi
 
-    [[ "$desiredVersion" != *.* ]] || desiredVersion=$(grep "$desiredVersion$" <<<"$tags" | awk '{print $1;}')
+    [[ "$desiredVersion" == *.* ]] && grep -q "$desiredVersion$" <<<"$tags" && desiredVersion=$(grep "$desiredVersion$" <<<"$tags" | awk '{print $1;}') || desiredVersion=$currentVersion
 
-    if [ ! -z "$desiredVersion" ] && [ "$currentVersion" != "$desiredVersion" ]; then
+    if [ "$currentVersion" != "$desiredVersion" ]; then
         git fetch origin --depth=1 $desiredVersion -q
         git -c advice.detachedHead=false checkout $desiredVersion -q
     fi
