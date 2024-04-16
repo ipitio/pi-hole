@@ -337,7 +337,6 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
             if [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
                 if $reinstall; then
-                    echo "Reinstalling Mod..."
                     # if hashes of current and stored versions are the same, use stored version, else use the current version
                     # since versions could be tags or commit hashes, and commits can have multiple tags
                     [ "$(getVersion $core_dir hash)" == "$(getCnf $mod_dir/cnf mod-$core_dir hash)" ] && mod_core_ver=$(getCnf $mod_dir/cnf mod-$core_dir) || mod_core_ver=$(getVersion $core_dir)
@@ -399,7 +398,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     fi
                 fi
 
-                echo "Swapping Repos..."
+                echo "Patching Repos..."
                 download /etc pihole-speedtest https://github.com/arevindh/pihole-speedtest "$st_ver" master $stable
                 [ -f $mod_dir/cnf ] || touch $mod_dir/cnf
                 setCnf mod-$mod_dir "$(getVersion $mod_dir)" $mod_dir/cnf $reinstall
@@ -428,7 +427,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 done
 
                 $backup || download /etc .pihole https://github.com/ipitio/pi-hole "$mod_core_ver" ipitio $stable
-                echo "Installing Mod..."
+                $reinstall && echo "Reinstalling Mod..." || echo "Installing Mod..."
                 swapScripts
                 \cp -af $core_dir/advanced/Scripts/speedtestmod/. $opt_dir/speedtestmod/
                 pihole -a -s
