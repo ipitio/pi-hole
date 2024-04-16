@@ -5,7 +5,7 @@ getVersion() {
 
     if [ -d $1 ]; then
         cd $1
-        local tags=$(git ls-remote -t)
+        local tags=$(git ls-remote -t origin)
         foundVersion=$(git rev-parse HEAD 2>/dev/null)
         ! grep -q "$foundVersion$" <<<"$tags" || foundVersion=$(grep -o "$foundVersion$" <<<"$tags")
         cd - &>/dev/null
