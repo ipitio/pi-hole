@@ -71,7 +71,9 @@ download() {
         desiredVersion=$(getVersion "$desiredVersion")
     fi
 
-    [[ "$desiredVersion" == *.* ]] && grep -q "$desiredVersion$" <<<"$tags" && desiredVersion=$(grep "$desiredVersion$" <<<"$tags" | awk '{print $1;}') || desiredVersion=$currentVersion
+    if [[ "$desiredVersion" == *.* ]]; then
+        grep -q "$desiredVersion$" <<<"$tags" && desiredVersion=$(grep "$desiredVersion$" <<<"$tags" | awk '{print $1;}') || desiredVersion=$currentVersion
+    fi
 
     if [ "$currentVersion" != "$desiredVersion" ]; then
         git fetch origin --depth=1 $desiredVersion -q
@@ -421,6 +423,10 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 $backup || download $html_dir admin https://github.com/ipitio/AdminLTE "$mod_admin_ver" master $stable
                 setCnf mod-$core_dir "$(getVersion $core_dir)" $mod_dir/cnf $reinstall
                 setCnf mod-$html_dir/admin "$(getVersion $html_dir/admin)" $mod_dir/cnf $reinstall
+
+                for repo in $mod_dir $core_dir $html_dir/admin; do
+                    # git checkout mod-*=version if not already set
+                    # we can assume that $mod_dir/
             fi
 
             pihole updatechecker
