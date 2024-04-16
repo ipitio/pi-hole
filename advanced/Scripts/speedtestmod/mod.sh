@@ -322,9 +322,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             if [ -f $curr_wp ] && cat $curr_wp | grep -q SpeedTest; then
                 if $reinstall; then
                     echo "Reinstalling Mod..."
-                    mod_core_ver=$(getCnf $mod_dir/cnf mod-$core_dir)
-                    mod_admin_ver=$(getCnf $mod_dir/cnf mod-$html_dir/admin)
-                    st_ver=$(getCnf $mod_dir/cnf mod-$mod_dir)
+                    mod_core_ver=$(getVersion $core_dir)
+                    mod_admin_ver=$(getVersion $html_dir/admin)
+                    st_ver=$(getVersion $mod_dir)
                 fi
 
                 if ! $install; then
