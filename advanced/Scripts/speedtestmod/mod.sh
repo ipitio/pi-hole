@@ -5,8 +5,9 @@ getVersion() {
 
     if [ -d $1 ]; then
         cd $1
-        foundVersion=$(git tag --points-at)
-        [ -z "$foundVersion" ] && foundVersion=$(git rev-parse HEAD 2>/dev/null) || foundVersion=$(sort -V <<<"$foundVersion" | tail -n1)
+        local tags=$(git ls-remote -t)
+        foundVersion=$(git rev-parse HEAD 2>/dev/null)
+        ! grep -q "$foundVersion$" <<<"$tags" || foundVersion=$(grep -o "$foundVersion$" <<<"$tags")
         cd - &>/dev/null
     elif [ -x "$(command -v pihole)" ]; then
         local versions=$(pihole -v | grep "$1")
@@ -325,6 +326,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     mod_core_ver=$(getVersion $core_dir)
                     mod_admin_ver=$(getVersion $html_dir/admin)
                     st_ver=$(getVersion $mod_dir)
+                    setCnf mod-$mod_dir "$st_ver" $mod_dir/cnf $reinstall
+                    setCnf mod-$core_dir "$mod_core_ver" $mod_dir/cnf $reinstall
+                    setCnf mod-$html_dir/admin "$mod_admin_ver" $mod_dir/cnf $reinstall
                 fi
 
                 if ! $install; then
