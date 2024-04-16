@@ -7,7 +7,7 @@ getVersion() {
         cd $1
         local tags=$(git ls-remote -t origin)
         foundVersion=$(git rev-parse HEAD 2>/dev/null)
-        ! grep -q "$foundVersion$" <<<"$tags" || foundVersion=$(grep -o "$foundVersion$" <<<"$tags")
+        ! grep -q "$foundVersion" <<<"$tags" || foundVersion=$(grep "$foundVersion" <<<"$tags" | awk '{print $2;}' | cut -d '/' -f 3 | sort -V | tail -n1)
         cd - &>/dev/null
     elif [ -x "$(command -v pihole)" ]; then
         local versions=$(pihole -v | grep "$1")
