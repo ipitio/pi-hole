@@ -52,24 +52,24 @@ download() {
         url=$(git remote get-url origin)
     fi
 
-    [[ "$url" == *"ipitio"* ]] && snapToTag=$(echo "$snapToTag" | grep -q "true" && echo "false" || echo "true")
+    [[ "$url" == *"ipitio"* ]] && snapToTag=$(grep -q "true" <<<"$snapToTag" && echo "false" || echo "true")
     git fetch origin --depth=1 $branch:refs/remotes/origin/$branch -q
     git reset --hard origin/"$branch" -q
     git checkout -B "$branch" -q
     local currentVersion=$(getVersion "$dest")
     local tags=$(git ls-remote -t "$url")
-    [[ "$currentVersion" != *.* ]] || currentVersion=$(echo "$tags" | grep $currentVersion$ | awk '{print $1;}')
+    [[ "$currentVersion" != *.* ]] || currentVersion=$(grep "$currentVersion$" <<<"$tags" | awk '{print $1;}')
 
     if [ -z "$desiredVersion" ]; then # if empty, get the latest version
         if [ "$snapToTag" == "true" ]; then
-            local latestTag=$(echo "$tags" | awk -F/ '{print $3}' | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
+            local latestTag=$(awk -F/ '{print $3}' <<<"$tags" | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
             [ ! -z "$latestTag" ] && desiredVersion=$latestTag || desiredVersion=$currentVersion
         fi
     elif $aborting; then
         desiredVersion=$(getVersion "$desiredVersion")
     fi
 
-    [[ "$desiredVersion" != *.* ]] || desiredVersion=$(echo "$tags" | grep $desiredVersion$ | awk '{print $1;}')
+    [[ "$desiredVersion" != *.* ]] || desiredVersion=$(grep "$desiredVersion$" <<<"$tags" | awk '{print $1;}')
 
     if [ ! -z "$desiredVersion" ] && [ "$currentVersion" != "$desiredVersion" ]; then
         git fetch origin --depth=1 $desiredVersion -q
