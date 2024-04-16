@@ -6,11 +6,12 @@ getVersion() {
     if [ -d $1 ]; then
         cd $1
         foundVersion=$(git tag --points-at)
-        [ -z "$foundVersion" ] && foundVersion=$(git rev-parse HEAD 2>/dev/null) || foundVersion=$(echo "$foundVersion" | sort -V | tail -n1)
+        [ -z "$foundVersion" ] && foundVersion=$(git rev-parse HEAD 2>/dev/null) || foundVersion=$(sort -V <<<"$foundVersion" | tail -n1)
         cd - &>/dev/null
     elif [ -x "$(command -v pihole)" ]; then
-        foundVersion=$(pihole -v | grep "$1" | cut -d ' ' -f 6)
-        [ "$foundVersion" != "HEAD" ] && [ "$foundVersion" != "$(git rev-parse --abbrev-ref HEAD)" ] || foundVersion=$(pihole -v | grep "$1" | cut -d ' ' -f 7)
+        local versions=$(pihole -v | grep "$1")
+        foundVersion=$(cut -d ' ' -f 6 <<<"$versions")
+        [ "$foundVersion" != "HEAD" ] && [ "$foundVersion" != "$(git rev-parse --abbrev-ref HEAD)" ] || foundVersion=$(cut -d ' ' -f 7 <<<"$versions")
     fi
 
     echo $foundVersion
@@ -58,7 +59,7 @@ download() {
     git checkout -B "$branch" -q
     local currentVersion=$(getVersion "$dest")
     local tags=$(git ls-remote -t "$url")
-    [[ "$currentVersion" != *.* ]] || currentVersion=$(grep "$currentVersion$" <<<"$tags" | awk '{print $1;}')
+    [[ "$currentVersion" == *.* ]] && grep -q "$currentVersion$" <<<"$tags" && currentVersion=$(grep "$currentVersion$" <<<"$tags" | awk '{print $1;}') || currentVersion=$(git rev-parse origin/$branch)
 
     if [ -z "$desiredVersion" ]; then # if empty, get the latest version
         if [ "$snapToTag" == "true" ]; then
