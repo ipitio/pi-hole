@@ -11,7 +11,7 @@
 function get_local_branch() {
     # Return active branch
     cd "${1}" 2> /dev/null || return 1
-    local foundBranch=$(git show-ref --heads | grep "$(git rev-parse HEAD)" | awk '{print $2;}' | cut -d '/' -f 3)
+    local foundBranch=$(git status --porcelain=2 -b | grep branch.head | awk '{print $3;}')
     echo "${foundBranch:-HEAD}"
 }
 
@@ -40,7 +40,7 @@ function get_remote_version() {
 }
 
 function get_remote_hash(){
-    git ls-remote "https://github.com/arevindh/${1}" --tags "${2}" | awk '{print $1;}' || { git ls-remote "https://github.com/pi-hole/${1}" --tags "${2}" | awk '{print $1;}' || { git ls-remote "https://github.com/ipitio/${1}" --tags "${2}" | awk '{print $1;}' || return 1; }; }
+    ! git ls-remote "https://github.com/arevindh/${1}" --tags "${2}" | awk '{print $1;}' && ! git ls-remote "https://github.com/pi-hole/${1}" --tags "${2}" | awk '{print $1;}' && ! git ls-remote "https://github.com/ipitio/${1}" --tags "${2}" | awk '{print $1;}' && return 1 || :
 }
 
 # Source the setupvars config file
@@ -76,6 +76,7 @@ fi
 
 
 # get Core versions
+echo "Getting core version..."
 
 CORE_VERSION="$(get_local_version /etc/.pihole)"
 addOrEditKeyValPair "${VERSION_FILE}" "CORE_VERSION" "${CORE_VERSION}"
@@ -94,6 +95,7 @@ addOrEditKeyValPair "${VERSION_FILE}" "GITHUB_CORE_HASH" "${GITHUB_CORE_HASH}"
 
 
 # get Web versions
+echo "Getting web version..."
 
 if [[ "${INSTALL_WEB_INTERFACE}" == true ]]; then
 
@@ -115,6 +117,7 @@ if [[ "${INSTALL_WEB_INTERFACE}" == true ]]; then
 fi
 
 # get FTL versions
+echo "Getting FTL version..."
 
 FTL_VERSION="$(pihole-FTL version)"
 addOrEditKeyValPair "${VERSION_FILE}" "FTL_VERSION" "${FTL_VERSION}"
@@ -133,6 +136,7 @@ addOrEditKeyValPair "${VERSION_FILE}" "GITHUB_FTL_HASH" "${GITHUB_FTL_HASH}"
 
 
 # get Docker versions
+echo "Getting Docker version..."
 
 if [[ "${DOCKER_TAG}" ]]; then
     addOrEditKeyValPair "${VERSION_FILE}" "DOCKER_VERSION" "${DOCKER_TAG}"
@@ -143,6 +147,7 @@ fi
 
 
 # get Speedtest versions
+echo "Getting Speedtest version..."
 
 SPEEDTEST_VERSION="$(get_local_version /etc/pihole-speedtest)"
 addOrEditKeyValPair "${VERSION_FILE}" "SPEEDTEST_VERSION" "${SPEEDTEST_VERSION}"
