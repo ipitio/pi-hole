@@ -164,7 +164,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             "  -d, --database,  db      flush/restore the database if it's not/empty (and exit if this is the only arg given)"
             "  -v, --version            display the version of the mod"
             "  -x, --verbose            show the commands being run"
-            "  -c, --careless           skip check for missing dependencies"
+            "  -c, --continuous         skip check for missing dependencies"
             "  -h, --help               display this help message"
             ""
             "  *for when not updating Pi-hole nor switching repos"
@@ -266,7 +266,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         local chk_dep=true
         local dashes=0
         local SHORT=-uboirtndvxch
-        local LONG=update,backup,online,install,reinstall,testing,uninstall,database,version,verbose,careless,help
+        local LONG=update,backup,online,install,reinstall,testing,uninstall,database,version,verbose,continuous,help
         declare -a EXTRA_ARGS
         declare -a POSITIONAL
         PARSED=$(getopt --options ${SHORT} --longoptions ${LONG} --name "$0" -- "$@")
@@ -288,7 +288,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 exit 0
                 ;;
             -x | --verbose) verbose=true ;;
-            -c | --careless) chk_dep=false ;;
+            -c | --continuous) chk_dep=false ;;
             -h | --help)
                 help
                 cleanup=false
