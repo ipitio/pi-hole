@@ -19,8 +19,10 @@ function get_local_version() {
     # Return active version
     cd "${1}" 2> /dev/null || return 1
     local tags=$(git ls-remote -t origin)
-    local foundVersion=$(git rev-parse HEAD 2>/dev/null)
-    ! grep -q "^$foundVersion" <<<"$tags" || foundVersion=$(grep "^$foundVersion.*/v[0-9].*$" <<<"$tags" | awk '{print $2;}' | cut -d '/' -f 3 | sort -V | tail -n1)
+    local foundVersion=$(git status --porcelain=2 -b | grep branch.oid | awk '{print $3;}')
+    local foundTag=$foundVersion
+    ! grep -q "^$foundVersion" <<<"$tags" || foundTag=$(grep "^$foundVersion.*/v[0-9].*$" <<<"$tags" | awk '{print $2;}' | cut -d '/' -f 3 | sort -V | tail -n1)
+    [ -z "${foundTag}" ] || foundVersion="${foundTag}"
     echo "${foundVersion}"
 }
 
