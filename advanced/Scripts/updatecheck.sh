@@ -28,7 +28,7 @@ function get_local_version() {
 
 function get_local_hash() {
     cd "${1}" 2> /dev/null || return 1
-    git rev-parse --short=8 HEAD || return 1
+    git status --porcelain=2 -b | grep branch.oid | awk '{print $3;}' || return 1
 }
 
 function get_remote_version() {
@@ -40,7 +40,7 @@ function get_remote_version() {
 }
 
 function get_remote_hash(){
-    git ls-remote "https://github.com/arevindh/${1}" --tags "${2}" | awk '{print substr($0, 0,8);}' || { git ls-remote "https://github.com/pi-hole/${1}" --tags "${2}" | awk '{print substr($0, 0,8);}' || return 1; }
+    git ls-remote "https://github.com/arevindh/${1}" --tags "${2}" | awk '{print $1;}' || { git ls-remote "https://github.com/pi-hole/${1}" --tags "${2}" | awk '{print $1;}' || return 1; }
 }
 
 # Source the setupvars config file
