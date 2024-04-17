@@ -19,7 +19,7 @@ function get_local_version() {
     # Return active version
     cd "${1}" 2> /dev/null || return 1
     local tags=$(git ls-remote -t origin)
-    local foundVersion=$(git status --porcelain=2 -b | grep branch.oid | awk '{print $3;}')
+    local foundVersion=$(git status --porcelain=2 -b | grep branch.oid | awk '{print $3;} | cut -c1-8')
     local foundTag=$foundVersion
     ! grep -q "^$foundVersion" <<<"$tags" && foundTag=$(grep "^$foundVersion.*/v[0-9].*$" <<<"$tags" | awk '{print $2;}' | cut -d '/' -f 3 | sort -V | tail -n1) || :
     [ -z "${foundTag}" ] || foundVersion="${foundTag}"
@@ -28,7 +28,7 @@ function get_local_version() {
 
 function get_local_hash() {
     cd "${1}" 2> /dev/null || return 1
-    git status --porcelain=2 -b | grep branch.oid | awk '{print $3;}' || return 1
+    git status --porcelain=2 -b | grep branch.oid | awk '{print $3;}' | cut -c1-8 || return 1
 }
 
 function get_remote_version() {
@@ -40,7 +40,14 @@ function get_remote_version() {
 }
 
 function get_remote_hash(){
-    ! git ls-remote "https://github.com/arevindh/${1}" --tags "${2}" | awk '{print $1;}' && ! git ls-remote "https://github.com/pi-hole/${1}" --tags "${2}" | awk '{print $1;}' && ! git ls-remote "https://github.com/ipitio/${1}" --tags "${2}" | awk '{print $1;}' && return 1 || :
+    local foundHash=""
+
+    for repo in "arevindh" "pi-hole" "ipitio"; do
+        foundHash=$(git ls-remote "https://github.com/${repo}/${1}" --tags "${2}" | awk '{print $1;}' | cut -c1-8 2> /dev/null)
+        [ -n "${foundHash}" ] && break
+    done
+
+    ! [ -z "${foundHash}" ] && echo "${foundHash}" || return 1
 }
 
 # Source the setupvars config file
