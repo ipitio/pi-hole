@@ -71,7 +71,7 @@ download() {
         url=$(git remote get-url origin)
     fi
 
-    [[ "$url" == *"ipitio"* ]] && snapToTag=$(grep -q "true" <<<"$snapToTag" && echo "false" || echo "true")
+    [[ "$url" != *"ipitio"* ]] || snapToTag=$(grep -q "true" <<<"$snapToTag" && echo "false" || echo "true")
     git fetch origin --depth=1 "$branch":refs/remotes/origin/"$branch" -q
     git reset --hard origin/"$branch" -q
     git checkout -B "$branch" -q
