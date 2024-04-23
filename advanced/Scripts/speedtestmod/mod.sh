@@ -141,11 +141,11 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     declare -r CURR_DB="$ETC_DIR/speedtest.db"
     declare -r LAST_DB="$CURR_DB.old"
     declare -r DB_TABLE="speedtest"
+    declare -i aborted=0
     st_ver=""
     mod_core_ver=""
     mod_admin_ver=""
     cleanup=true
-    declare -i aborted=0
 
     set +u
     SKIP_INSTALL=true
@@ -275,8 +275,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         local -i dashes=0
         local -r SHORT=-uboirtndvxch
         local -r LONG=update,backup,online,install,reinstall,testing,uninstall,database,version,verbose,continuous,help
+        local -r PARSED=$(getopt --options ${SHORT} --longoptions ${LONG} --name "$0" -- "$@")
         declare -a POSITIONAL EXTRA_ARGS
-        PARSED=$(getopt --options ${SHORT} --longoptions ${LONG} --name "$0" -- "$@")
         eval set -- "${PARSED}"
 
         while [[ $# -gt 0 ]]; do
