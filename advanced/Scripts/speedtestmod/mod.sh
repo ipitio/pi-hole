@@ -9,16 +9,16 @@
 getVersion() {
     local foundVersion=""
 
-    if [ -d "$1" ]; then
+    if [[ -d "$1" ]]; then
         cd "$1"
         foundVersion=$(git status --porcelain=2 -b | grep branch.oid | awk '{print $3;}')
 
-        if [ -z "${2:-}" ]; then
+        if [[ -z "${2:-}" ]]; then
             local tags
             local foundTag=$foundVersion
             tags=$(git ls-remote -t origin)
             ! grep -q "$foundVersion" <<<"$tags" || foundTag=$(grep "$foundVersion" <<<"$tags" | awk '{print $2;}' | cut -d '/' -f 3 | sort -V | tail -n1)
-            [ -z "$foundTag" ] || foundVersion=$foundTag
+            [[ -z "$foundTag" ]] || foundVersion=$foundTag
         fi
 
         cd - &>/dev/null
@@ -28,7 +28,7 @@ getVersion() {
         foundVersion=$(cut -d ' ' -f 6 <<<"$versions")
 
         if [[ "$foundVersion" != *.* ]]; then
-            [ "$foundVersion" != "$(git rev-parse --abbrev-ref HEAD)" ] || foundVersion=$(cut -d ' ' -f 7 <<<"$versions")
+            [[ "$foundVersion" != "$(git rev-parse --abbrev-ref HEAD)" ]] || foundVersion=$(cut -d ' ' -f 7 <<<"$versions")
         fi
     fi
 
@@ -45,12 +45,12 @@ download() {
     local dest=$path/$name
     local aborting=false
 
-    [ -d "$dest" ] && [ ! -d "$dest/.git" ] && mv -f "$dest" "$dest.old" || :
-    [ -d "$dest" ] || git clone --depth=1 -b "$branch" "$url" "$dest" -q
+    [[ ! -d "$dest" || -d "$dest/.git" ]] || mv -f "$dest" "$dest.old"
+    [[ -d "$dest" ]] || git clone --depth=1 -b "$branch" "$url" "$dest" -q
     cd "$dest"
     git config --global --add safe.directory "$dest"
 
-    if [ -n "$desiredVersion" ] && [[ "$desiredVersion" != *.* ]]; then
+    if [[ -n "$desiredVersion" && "$desiredVersion" != *.* ]]; then
         local repos=("Pi-hole" "web" "speedtest")
 
         for repo in "${repos[@]}"; do
@@ -80,11 +80,11 @@ download() {
     currentHash=$(getVersion "$dest" hash)
     tags=$(git ls-remote -t origin)
 
-    if [ -z "$desiredVersion" ]; then # if empty, get the latest version
-        if [ "$snapToTag" == "true" ]; then
+    if [[ -z "$desiredVersion" ]]; then # if empty, get the latest version
+        if [[ "$snapToTag" == "true" ]]; then
             local latestTag
             latestTag=$(awk -F/ '{print $3}' <<<"$tags" | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
-            [ -n "$latestTag" ] && desiredVersion=$latestTag || desiredVersion=$currentHash
+            [[ -n "$latestTag" ]] && desiredVersion=$latestTag || desiredVersion=$currentHash
         fi
     elif $aborting; then
         desiredVersion=$(getVersion "$desiredVersion" hash)
@@ -103,9 +103,9 @@ download() {
 }
 
 notInstalled() {
-    if [ -x "$(command -v apt-get)" ]; then
+    if [[ -x "$(command -v apt-get)" ]]; then
         dpkg -s "$1" &>/dev/null || return 0
-    elif [ -x "$(command -v dnf)" ] || [ -x "$(command -v yum)" ]; then
+    elif [[ -x "$(command -v dnf)" ]] || [[ -x "$(command -v yum)" ]]; then
         rpm -q "$1" &>/dev/null || return 0
     else
         echo "Unsupported package manager!"
@@ -117,7 +117,7 @@ notInstalled() {
 
 setCnf() {
     grep -q "^$1=" "$3" || echo "$1=$2" >>"$3"
-    [ "${4:-false}" == "true" ] || sed -i "s|^$1=.*|$1=$2|" "$3"
+    [[ "${4:-false}" == "true" ]] || sed -i "s|^$1=.*|$1=$2|" "$3"
 }
 
 getCnf() {
