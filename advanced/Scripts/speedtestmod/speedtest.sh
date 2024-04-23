@@ -3,15 +3,12 @@
 # The Test Script -- Speedtest Mod for Pi-hole Run Supervisor
 # Please run this with the --help option for usage information
 #
-# shellcheck disable=SC1091,SC2015,SC2034
+# shellcheck disable=SC2015
 
 declare -r START
-START=$(date -u --rfc-3339='seconds')
-declare -r OUT_FILE=/tmp/speedtest.log
 declare -r PKG_MANAGER
-PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
 declare -r SERVER_ID
-SERVER_ID=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2)
+declare -r OUT_FILE=/tmp/speedtest.log
 declare -r CREATE_TABLE="create table if not exists speedtest (
 id integer primary key autoincrement,
 start_time text,
@@ -25,10 +22,15 @@ download real,
 upload real,
 share_url text
 );"
+START=$(date -u --rfc-3339='seconds')
+PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
+SERVER_ID=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2)
+
 # shellcheck disable=SC2034
 SKIP_MOD=true
+# shellcheck disable=SC1091
 source /opt/pihole/speedtestmod/mod.sh
-# shellcheck disable=SC2015
+
 speedtest() {
     if grep -q official <<<"$(/usr/bin/speedtest --version)"; then
         [[ -n "${SERVER_ID}" ]] && /usr/bin/speedtest -s "$SERVER_ID" --accept-gdpr --accept-license -f json || /usr/bin/speedtest --accept-gdpr --accept-license -f json
@@ -132,7 +134,8 @@ addSource() {
         if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
             echo "Adding speedtest source for DEB..."
             if [ -e /etc/os-release ]; then
-                . /etc/os-release
+                # shellcheck disable=SC1091
+                source /etc/os-release
                 local -r base="ubuntu debian"
                 local os=${ID}
                 local dist=${VERSION_CODENAME}
@@ -228,11 +231,11 @@ help() {
 }
 
 main() {
-    local attempts="3"
     local -r SHORT=-h
     local -r LONG=help
     local -r PARSED=$(getopt --options ${SHORT} --longoptions ${LONG} --name "$0" -- "$@")
     local -r POSITIONAL=()
+    local attempts="3"
     eval set -- "${PARSED}"
 
     while [[ $# -gt 0 ]]; do

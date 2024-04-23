@@ -3,7 +3,7 @@
 # The Mod Script -- Speedtest Mod for Pi-hole Installation Manager
 # Please run this with the --help option for usage information
 #
-# shellcheck disable=SC1091,SC2015,SC2034
+# shellcheck disable=SC2015
 
 getVersion() {
     local foundVersion=""
@@ -13,15 +13,17 @@ getVersion() {
         foundVersion=$(git status --porcelain=2 -b | grep branch.oid | awk '{print $3;}')
 
         if [ -z "${2:-}" ]; then
-            local -r tags=$(git ls-remote -t origin)
+            local tags
             local foundTag=$foundVersion
+            tags=$(git ls-remote -t origin)
             ! grep -q "$foundVersion" <<<"$tags" || foundTag=$(grep "$foundVersion" <<<"$tags" | awk '{print $2;}' | cut -d '/' -f 3 | sort -V | tail -n1)
             [ -z "$foundTag" ] || foundVersion=$foundTag
         fi
 
         cd - &>/dev/null
     elif [ -x "$(command -v pihole)" ]; then
-        local -r versions=$(pihole -v | grep "$1")
+        local versions
+        versions=$(pihole -v | grep "$1")
         foundVersion=$(cut -d ' ' -f 6 <<<"$versions")
 
         if [[ "$foundVersion" != *.* ]]; then
@@ -33,13 +35,13 @@ getVersion() {
 }
 
 download() {
-    local -r path=$1
-    local -r name=$2
+    local path=$1
+    local name=$2
     local url=$3
     local desiredVersion="${4:-}"
-    local -r branch="${5:-master}"
+    local branch="${5:-master}"
     local snapToTag="${6:-true}"
-    local -r dest=$path/$name
+    local dest=$path/$name
     local aborting=false
 
     [ -d "$dest" ] && [ ! -d "$dest/.git" ] && mv -f "$dest" "$dest.old" || :
@@ -48,7 +50,7 @@ download() {
     git config --global --add safe.directory "$dest"
 
     if [ -n "$desiredVersion" ] && [[ "$desiredVersion" != *.* ]]; then
-        local -r repos=("Pi-hole" "web" "speedtest")
+        local repos=("Pi-hole" "web" "speedtest")
 
         for repo in "${repos[@]}"; do
             if [[ "$desiredVersion" == *"$repo"* ]]; then
@@ -72,12 +74,15 @@ download() {
     git fetch origin --depth=1 "$branch":refs/remotes/origin/"$branch" -q
     git reset --hard origin/"$branch" -q
     git checkout -B "$branch" -q
-    local -r currentHash=$(getVersion "$dest" hash)
-    local -r tags=$(git ls-remote -t origin)
+    local currentHash
+    local tags
+    currentHash=$(getVersion "$dest" hash)
+    tags=$(git ls-remote -t origin)
 
     if [ -z "$desiredVersion" ]; then # if empty, get the latest version
         if [ "$snapToTag" == "true" ]; then
-            local -r latestTag=$(awk -F/ '{print $3}' <<<"$tags" | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
+            local latestTag
+            latestTag=$(awk -F/ '{print $3}' <<<"$tags" | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
             [ -n "$latestTag" ] && desiredVersion=$latestTag || desiredVersion=$currentHash
         fi
     elif $aborting; then
@@ -115,15 +120,17 @@ setCnf() {
 }
 
 getCnf() {
-    local -r keydir=$(echo "$2" | sed 's/^mod-//;s/^org-//')
+    local keydir
     local value
+    keydir=$(echo "$2" | sed 's/^mod-//;s/^org-//')
     value=$(grep "^$2=" "$1" | cut -d '=' -f 2)
     [ -n "$value" ] || value=$(getVersion "$keydir" "${3:-}")
 
     if [ -n "${3:-}" ] && [[ "$value" == *.* ]]; then
         cd "$keydir"
-        local -r tags=$(git ls-remote -t origin)
-        grep -q "$value$" <<<"$tags" && ver=$(grep "$value$" <<<"$tags" | awk '{print $1;}') || value=$(git rev-parse HEAD)
+        local tags
+        tags=$(git ls-remote -t origin)
+        grep -q "$value$" <<<"$tags" && value=$(grep "$value$" <<<"$tags" | awk '{print $1;}') || value=$(git rev-parse HEAD)
         cd - &>/dev/null
     fi
 
@@ -148,7 +155,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     cleanup=true
 
     set +u
+    # shellcheck disable=SC2034
     SKIP_INSTALL=true
+    # shellcheck disable=SC1091
     source "$CORE_DIR/automated install/basic-install.sh"
     set -u
 
@@ -422,7 +431,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
                     readonly missingpkgs
                     if [ ${#missingpkgs[@]} -gt 0 ]; then
-                        [[ "$pkg_manager" != *"apt-get"* ]] || apt-get update >/dev/null
+                        [[ "$pkg_manager" != *"apt-get"* ]] || apt-get update
                         echo "Installing Missing..."
                         $pkg_manager install -y "${missingpkgs[@]}"
                     fi
