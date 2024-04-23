@@ -81,7 +81,7 @@ download() {
     tags=$(git ls-remote -t origin)
 
     if [[ -z "$desiredVersion" ]]; then # if empty, get the latest version
-        local latestTag
+        local latestTag=""
         [[ "$snapToTag" != "true" ]] || latestTag=$(awk -F/ '{print $3}' <<<"$tags" | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
         [[ -n "$latestTag" ]] && desiredVersion=$latestTag || desiredVersion=$currentHash
     elif $aborting; then
