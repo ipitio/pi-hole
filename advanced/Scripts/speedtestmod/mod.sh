@@ -28,7 +28,7 @@ getVersion() {
         foundVersion=$(cut -d ' ' -f 6 <<<"$versions")
 
         if [[ "$foundVersion" != *.* ]]; then
-            [[ "$foundVersion" != "$(git rev-parse --abbrev-ref HEAD)" ]] || foundVersion=$(cut -d ' ' -f 7 <<<"$versions")
+            [[ "$foundVersion" != "$(git status --porcelain=2 -b | grep branch.head | awk '{print $3;}')" ]] || foundVersion=$(cut -d ' ' -f 7 <<<"$versions")
         fi
     fi
 
@@ -81,11 +81,9 @@ download() {
     tags=$(git ls-remote -t origin)
 
     if [[ -z "$desiredVersion" ]]; then # if empty, get the latest version
-        if [[ "$snapToTag" == "true" ]]; then
-            local latestTag
-            latestTag=$(awk -F/ '{print $3}' <<<"$tags" | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
-            [[ -n "$latestTag" ]] && desiredVersion=$latestTag || desiredVersion=$currentHash
-        fi
+        local latestTag
+        [[ "$snapToTag" != "true" ]] || latestTag=$(awk -F/ '{print $3}' <<<"$tags" | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
+        [[ -n "$latestTag" ]] && desiredVersion=$latestTag || desiredVersion=$currentHash
     elif $aborting; then
         desiredVersion=$(getVersion "$desiredVersion" hash)
     fi
@@ -94,7 +92,7 @@ download() {
         grep -q "$desiredVersion$" <<<"$tags" && desiredVersion=$(grep "$desiredVersion$" <<<"$tags" | awk '{print $1;}') || desiredVersion=$currentHash
     fi
 
-    if [ "$currentHash" != "$desiredVersion" ]; then
+    if [[ "$currentHash" != "$desiredVersion" ]]; then
         git fetch origin --depth=1 "$desiredVersion" -q
         git reset --hard "$desiredVersion" -q
     fi
@@ -125,9 +123,9 @@ getCnf() {
     local value
     keydir=$(echo "$2" | sed 's/^mod-//;s/^org-//')
     value=$(grep "^$2=" "$1" | cut -d '=' -f 2)
-    [ -n "$value" ] || value=$(getVersion "$keydir" "${3:-}")
+    [[ -n "$value" ]] || value=$(getVersion "$keydir" "${3:-}")
 
-    if [ -n "${3:-}" ] && [[ "$value" == *.* ]]; then
+    if [[ -n "${3:-}" && "$value" == *.* ]]; then
         cd "$keydir"
         local tags
         tags=$(git ls-remote -t origin)
