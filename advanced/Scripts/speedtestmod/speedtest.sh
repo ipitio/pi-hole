@@ -1,8 +1,18 @@
 #!/bin/bash
-start=$(date -u --rfc-3339='seconds')
-out=/tmp/speedtest.log
-serverid=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2)
-create_table="create table if not exists speedtest (
+#
+# The Test Script -- Speedtest Mod for Pi-hole Run Supervisor
+# Please run this with the --help option for usage information
+#
+# shellcheck disable=SC1091,SC2015,SC2034
+
+declare -r START
+START=$(date -u --rfc-3339='seconds')
+declare -r OUT_FILE=/tmp/speedtest.log
+declare -r PKG_MANAGER
+PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
+declare -r SERVER_ID
+SERVER_ID=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2)
+declare -r CREATE_TABLE="create table if not exists speedtest (
 id integer primary key autoincrement,
 start_time text,
 stop_time text,
@@ -15,51 +25,51 @@ download real,
 upload real,
 share_url text
 );"
+# shellcheck disable=SC2034
 SKIP_MOD=true
 source /opt/pihole/speedtestmod/mod.sh
-
+# shellcheck disable=SC2015
 speedtest() {
     if grep -q official <<<"$(/usr/bin/speedtest --version)"; then
-        [[ ! -z "${serverid}" ]] && /usr/bin/speedtest -s $serverid --accept-gdpr --accept-license -f json || /usr/bin/speedtest --accept-gdpr --accept-license -f json
+        [[ -n "${SERVER_ID}" ]] && /usr/bin/speedtest -s "$SERVER_ID" --accept-gdpr --accept-license -f json || /usr/bin/speedtest --accept-gdpr --accept-license -f json
     else
-        [[ ! -z "${serverid}" ]] && /usr/bin/speedtest --server $serverid --json --share --secure || /usr/bin/speedtest --json --share --secure
+        [[ -n "${SERVER_ID}" ]] && /usr/bin/speedtest --server "$SERVER_ID" --json --share --secure || /usr/bin/speedtest --json --share --secure
     fi
 }
 
 savetest() {
-    local start_time=$1
-    local stop_time=$2
-    local isp=${3:-"No Internet"}
-    local from_ip=${4:-"-"}
-    local server=${5:-"-"}
-    local server_dist=${6:-0}
-    local server_ping=${7:-0}
-    local download=${8:-0}
-    local upload=${9:-0}
-    local share_url=${10:-"#"}
-    local rm_empty='
+    local -r start_time=$1
+    local -r stop_time=$2
+    local -r isp=${3:-"No Internet"}
+    local -r from_ip=${4:-"-"}
+    local -r server=${5:-"-"}
+    local -r server_dist=${6:-0}
+    local -r server_ping=${7:-0}
+    local -r download=${8:-0}
+    local -r upload=${9:-0}
+    local -r share_url=${10:-"#"}
+    local -r rm_empty='
   def nonempty: . and length > 0 and (type != "object" or . != {}) and (type != "array" or any(.[]; . != ""));
   if type == "array" then map(walk(if type == "object" then with_entries(select(.value | nonempty)) else . end)) else walk(if type == "object" then with_entries(select(.value | nonempty)) else . end) end
 '
-    local temp_file=$(mktemp)
-    local json_file="/tmp/speedtest_results"
+    local -r temp_file=$(mktemp)
+    local -r json_file="/tmp/speedtest_results"
     jq "$rm_empty" "$json_file" >"$temp_file" && mv -f "$temp_file" "$json_file"
     rm -f "$temp_file"
     chmod 644 /tmp/speedtest_results
     mv -f /tmp/speedtest_results /var/log/pihole/speedtest.log
     \cp -af /var/log/pihole/speedtest.log /etc/pihole/speedtest.log
-    rm -f "$out"
-    sqlite3 /etc/pihole/speedtest.db "$create_table"
+    rm -f "$OUT_FILE"
+    sqlite3 /etc/pihole/speedtest.db "$CREATE_TABLE"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start_time}', '${stop_time}', '${isp}', '${from_ip}', '${server}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
     [ "$isp" == "No Internet" ] && exit 1 || exit 0
 }
 
 isAvailable() {
-    if [ -x "$(command -v apt-get)" ]; then
+    if [ "$PKG_MANAGER" == "/usr/bin/apt-get" ]; then
         # Check if there is a candidate and it is not "(none)"
         apt-cache policy "$1" | grep -q "Candidate:" && ! apt-cache policy "$1" | grep -q "Candidate: (none)" && return 0 || return 1
-    elif [ -x "$(command -v dnf)" ] || [ -x "$(command -v yum)" ]; then
-        local PKG_MANAGER=$(command -v dnf || command -v yum)
+    elif [ "$PKG_MANAGER" == "/usr/bin/dnf" ] || [ "$PKG_MANAGER" == "/usr/bin/yum" ]; then
         $PKG_MANAGER list available "$1" &>/dev/null && return 0 || return 1
     else
         echo "Unsupported package manager!"
@@ -68,19 +78,19 @@ isAvailable() {
 }
 
 swaptest() {
-    if isAvailable $1; then
-        [ -x "$(command -v apt-get)" ] && apt-get install -y $1 $2- || { [ -x "$(command -v dnf)" ] && dnf install -y --allowerasing $1 || yum install -y --allowerasing $1; }
+    if isAvailable "$1"; then
+        [ "$PKG_MANAGER" == "/usr/bin/apt-get" ] && apt-get install -y "$1" "$2"- || { [ "$PKG_MANAGER" == "/usr/bin/dnf" ] && dnf install -y --allowerasing "$1" || yum install -y --allowerasing "$1"; }
     fi
 }
 
 notInstalled() {
-    if [ -x "$(command -v apt-get)" ]; then
+    if [ "$PKG_MANAGER" == "/usr/bin/apt-get" ]; then
         dpkg -s "$1" &>/dev/null || return 0
-    elif [ -x "$(command -v dnf)" ] || [ -x "$(command -v yum)" ]; then
+    elif [ "$PKG_MANAGER" == "/usr/bin/dnf" ] || [ "$PKG_MANAGER" == "/usr/bin/yum" ]; then
         rpm -q "$1" &>/dev/null || return 0
     else
         echo "Unsupported package manager!"
-        mv -f "$out" /var/log/pihole/speedtest.log
+        mv -f "$OUT_FILE" /var/log/pihole/speedtest.log
         exit 1
     fi
 
@@ -93,7 +103,7 @@ librespeed() {
             if [ ! -f /etc/apt/sources.list.d/testing.list ] && ! grep -q "testing" /etc/apt/sources.list; then
                 echo "Adding testing repo to sources.list.d"
                 echo "deb http://archive.raspbian.org/raspbian/ testing main" >/etc/apt/sources.list.d/testing.list
-                echo "Package: *\nPin: release a=testing\nPin-Priority: 50" >/etc/apt/preferences.d/limit-testing
+                printf "Package: *\nPin: release a=testing\nPin-Priority: 50" >/etc/apt/preferences.d/limit-testing
                 $PKG_MANAGER update
             fi
 
@@ -103,7 +113,7 @@ librespeed() {
         fi
     fi
     download /etc/pihole librespeed https://github.com/librespeed/speedtest-cli
-    cd librespeed
+    cd librespeed || exit
     [ ! -d out ] || rm -rf out
     ./build.sh
     mv -f out/* /usr/bin/speedtest
@@ -123,12 +133,13 @@ addSource() {
             echo "Adding speedtest source for DEB..."
             if [ -e /etc/os-release ]; then
                 . /etc/os-release
-                local base="ubuntu debian"
+                local -r base="ubuntu debian"
                 local os=${ID}
                 local dist=${VERSION_CODENAME}
-                if [ ! -z "${ID_LIKE-}" ] && [[ "${base//\"/}" =~ "${ID_LIKE//\"/}" ]] && [ "${os}" != "ubuntu" ]; then
+                # shellcheck disable=SC2076
+                if [ -n "${ID_LIKE:-}" ] && [[ "${base//\"/}" =~ "${ID_LIKE//\"/}" ]] && [ "${os}" != "ubuntu" ]; then
                     os=${ID_LIKE%% *}
-                    [ -z "${UBUNTU_CODENAME-}" ] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
+                    [ -z "${UBUNTU_CODENAME:-}" ] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
                     dist=${UBUNTU_CODENAME}
                     [ -z "$dist" ] && dist=${VERSION_CODENAME}
                 fi
@@ -151,48 +162,49 @@ addSource() {
 
 run() {
     speedtest | jq . >/tmp/speedtest_results || echo "Attempt ${2:-1} Failed!" >/tmp/speedtest_results
-    local stop=$(date -u --rfc-3339='seconds')
+    local -r stop=$(date -u --rfc-3339='seconds')
     if jq -e '.server' /tmp/speedtest_results &>/dev/null; then
-        local res=$(</tmp/speedtest_results)
-        local server_id=$(jq -r '.server.id' <<<"$res")
-        local servers="$(curl 'https://www.speedtest.net/api/js/servers' --compressed -H 'Upgrade-Insecure-Requests: 1' -H 'DNT: 1' -H 'Sec-GPC: 1')"
-        local server_dist=$(jq --arg id "$server_id" '.[] | select(.id == $id) | .distance' <<<"$servers")
+        local -r res=$(</tmp/speedtest_results)
+        local -r server_id=$(jq -r '.server.id' <<<"$res")
+        local -r servers="$(curl 'https://www.speedtest.net/api/js/servers' --compressed -H 'Upgrade-Insecure-Requests: 1' -H 'DNT: 1' -H 'Sec-GPC: 1')"
+        local server_dist
+        server_dist=$(jq --arg id "$server_id" '.[] | select(.id == $id) | .distance' <<<"$servers")
 
         if grep -q official <<<"$(/usr/bin/speedtest --version)"; then
-            local server_name=$(jq -r '.server.name' <<<"$res")
-            local download=$(jq -r '.download.bandwidth' <<<"$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
-            local upload=$(jq -r '.upload.bandwidth' <<<"$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
-            local isp=$(jq -r '.isp' <<<"$res")
-            local from_ip=$(jq -r '.interface.externalIp' <<<"$res")
-            local server_ping=$(jq -r '.ping.latency' <<<"$res")
-            local share_url=$(jq -r '.result.url' <<<"$res")
-            [ ! -z "$server_dist" ] || server_dist="-1"
+            local -r server_name=$(jq -r '.server.name' <<<"$res")
+            local -r download=$(jq -r '.download.bandwidth' <<<"$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
+            local -r upload=$(jq -r '.upload.bandwidth' <<<"$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
+            local -r isp=$(jq -r '.isp' <<<"$res")
+            local -r from_ip=$(jq -r '.interface.externalIp' <<<"$res")
+            local -r server_ping=$(jq -r '.ping.latency' <<<"$res")
+            local -r share_url=$(jq -r '.result.url' <<<"$res")
+            [ -n "$server_dist" ] || server_dist="-1"
         else # speedtest-cli
-            local server_name=$(jq -r '.server.sponsor' <<<"$res")
-            local download=$(jq -r '.download' <<<"$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
-            local upload=$(jq -r '.upload' <<<"$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
-            local isp=$(jq -r '.client.isp' <<<"$res")
-            local from_ip=$(jq -r '.client.ip' <<<"$res")
-            local server_ping=$(jq -r '.ping' <<<"$res")
-            local share_url=$(jq -r '.share' <<<"$res")
-            [ ! -z "$server_dist" ] || server_dist=$(jq -r '.server.d' <<<"$res")
+            local -r server_name=$(jq -r '.server.sponsor' <<<"$res")
+            local -r download=$(jq -r '.download' <<<"$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
+            local -r upload=$(jq -r '.upload' <<<"$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
+            local -r isp=$(jq -r '.client.isp' <<<"$res")
+            local -r from_ip=$(jq -r '.client.ip' <<<"$res")
+            local -r server_ping=$(jq -r '.ping' <<<"$res")
+            local -r share_url=$(jq -r '.share' <<<"$res")
+            [ -n "$server_dist" ] || server_dist=$(jq -r '.server.d' <<<"$res")
         fi
 
-        savetest "$start" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
+        savetest "$START" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
     elif jq -e '.[].server' /tmp/speedtest_results &>/dev/null; then # librespeed
-        local res=$(</tmp/speedtest_results)
-        local server_name=$(jq -r '.[].server.name' <<<"$res")
-        local download=$(jq -r '.[].download' <<<"$res")
-        local upload=$(jq -r '.[].upload' <<<"$res")
-        local isp="Unknown"
-        local from_ip=$(curl -sSL https://ipv4.icanhazip.com)
-        local server_ping=$(jq -r '.[].ping' <<<"$res")
-        local share_url=$(jq -r '.[].share' <<<"$res")
-        local server_dist="-1"
-        savetest "$start" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
+        local -r res=$(</tmp/speedtest_results)
+        local -r server_name=$(jq -r '.[].server.name' <<<"$res")
+        local -r download=$(jq -r '.[].download' <<<"$res")
+        local -r upload=$(jq -r '.[].upload' <<<"$res")
+        local -r isp="Unknown"
+        local -r from_ip=$(curl -sSL https://ipv4.icanhazip.com)
+        local -r server_ping=$(jq -r '.[].ping' <<<"$res")
+        local -r share_url=$(jq -r '.[].share' <<<"$res")
+        local -r server_dist="-1"
+        savetest "$START" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
     elif [ "${1}" == "${2:-}" ] || [ "${1}" -le 1 ]; then
         echo "Test Failed!" >/tmp/speedtest_results
-        savetest "$start" "$stop"
+        savetest "$START" "$stop"
     else
         if notInstalled speedtest && notInstalled speedtest-cli; then
             [ ! -f /usr/bin/speedtest ] || rm -f /usr/bin/speedtest
@@ -209,13 +221,38 @@ run() {
     fi
 }
 
+help() {
+    echo "Usage: $0 [attempts]"
+    echo "  attempts: Number of attempts to run the speedtest, cycling through the packages (default: 3)"
+    exit 1
+}
+
 main() {
+    local attempts="3"
+    local -r SHORT=-h
+    local -r LONG=help
+    local -r PARSED=$(getopt --options ${SHORT} --longoptions ${LONG} --name "$0" -- "$@")
+    local -r POSITIONAL=()
+    eval set -- "${PARSED}"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+        -h | --help) help ;;
+        *) POSITIONAL+=("$1") ;;
+        esac
+        shift
+    done
+
+    set -- "${POSITIONAL[@]}"
+
+    for arg in "$@"; do
+        [[ $arg =~ ^[0-9]+$ ]] && attempts=$arg && break || help
+    done
+
     if [ $EUID != 0 ]; then
         sudo "$0" "$@"
         exit $?
     fi
-
-    PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
 
     if [ ! -f /usr/bin/speedtest ]; then
         addSource
@@ -223,7 +260,7 @@ main() {
     fi
 
     echo "Running Test..."
-    run $1 # Number of attempts
+    run $attempts
 }
 
-main ${1:-3} >"$out"
+main "$@" >"$OUT_FILE"
