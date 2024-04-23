@@ -624,7 +624,11 @@ generate_cron_schedule() {
     [ -d /opt/pihole/speedtestmod ] || return
     sudo bash -c "cat > $(printf %q "$schedule_script")" <<EOF
 #!/bin/bash
-# Schedule script to handle complex cron schedules
+#
+# The Cron Script, Speedtest Mod for Pi-hole Job Scheduler
+# Don't run this script manually; it's called by cron
+#
+
 last_run_file="/etc/pihole/last_speedtest"
 interval_seconds=$total_seconds
 schedule=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")

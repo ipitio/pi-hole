@@ -1,9 +1,10 @@
 #!/bin/bash
 #
-# The Test Script -- Speedtest Mod for Pi-hole Run Supervisor
+# The Test Script, Speedtest Mod for Pi-hole Run Supervisor
 # Please run this with the --help option for usage information
 #
 # shellcheck disable=SC2015
+#
 
 declare -r START
 declare -r PKG_MANAGER

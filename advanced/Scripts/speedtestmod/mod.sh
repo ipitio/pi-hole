@@ -1,9 +1,10 @@
 #!/bin/bash
 #
-# The Mod Script -- Speedtest Mod for Pi-hole Installation Manager
+# The Mod Script, Speedtest Mod for Pi-hole Installation Manager
 # Please run this with the --help option for usage information
 #
 # shellcheck disable=SC2015
+#
 
 getVersion() {
     local foundVersion=""
