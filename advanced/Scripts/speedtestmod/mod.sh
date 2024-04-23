@@ -438,10 +438,11 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 download /etc pihole-speedtest https://github.com/arevindh/pihole-speedtest "$st_ver" master $stable
                 [ -f $MOD_DIR/cnf ] || touch $MOD_DIR/cnf
                 setCnf mod-$MOD_DIR "$(getVersion $MOD_DIR)" $MOD_DIR/cnf $reinstall
+                local stockTag
 
                 for repo in $CORE_DIR $HTML_DIR/admin; do
                     if [ -d "$repo" ]; then
-                        local -r stockTag=$(getVersion "$repo")
+                        stockTag=$(getVersion "$repo")
                         setCnf org-"$repo" "$stockTag" $MOD_DIR/cnf
 
                         if $backup; then
