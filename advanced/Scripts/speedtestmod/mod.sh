@@ -286,6 +286,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         local -r PARSED=$(getopt --options ${SHORT} --longoptions ${LONG} --name "$0" -- "$@")
         declare -a POSITIONAL EXTRA_ARGS
         eval set -- "${PARSED}"
+        local -ri num_args=$#
 
         while [[ $# -gt 0 ]]; do
             case "$1" in
@@ -332,7 +333,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
         readonly update backup online install reinstall stable uninstall database verbose chk_dep cleanup
         trap '[ "$?" -eq "0" ] && commit || abort' EXIT
-        printf "Thanks for using Speedtest Mod!\nScript by @ipitio\n\n%s\n" "$(date)"
+        printf "Thanks for using Speedtest Mod!\nScript by @ipitio\n\n%s\n\n" "$(date)"
         ! $verbose || set -x
 
         if $database; then
@@ -357,7 +358,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
         fi
 
-        if ! $database || [ "$#" -gt 1 ]; then
+        if ! $database || [ "$num_args" -gt 1 ]; then
             local -r working_dir=$(pwd)
             cd ~
 
