@@ -284,12 +284,12 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     # Arguments:
     #   $1: The backup to restore
     # Returns:
-    #   1 if the backup does not exist, 0 if it does
+    #   1 if the backup does not exist or is stale, 0 if it does and isn't
     # Outputs:
     #   The backup restored
     #######################################
     restore() {
-        [[ -d "$1".bak ]] || return 1
+        [[ -d "$1".bak && "$(getVersion "$1".bak hash)" == "$(getCnf $MOD_DIR/cnf org-"$1" hash)" ]] || return 1
         [[ ! -e "$1" ]] || rm -rf "$1"
         mv -f "$1".bak "$1"
     }
@@ -361,7 +361,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             [[ ! -d "$HTML_DIR"/admin/.git/refs/remotes/old ]] || download "$HTML_DIR" admin "" web
             [[ ! -f "$LAST_DB" || -f "$CURR_DB" ]] || mv "$LAST_DB" "$CURR_DB"
             [[ -f "$CURR_WP" ]] && ! grep -q SpeedTest "$CURR_WP" && purge || :
-            printf "Please try again before reporting an issue.\n\n%s\n" "$(date)"
+            printf "\n%s\n\nPlease try again before reporting an issue.\n" "$(date)"
         fi
     }
 
@@ -384,7 +384,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 git clean -ffdx
                 popd &>/dev/null
             done
-            printf "Done!\n\n%s\n" "$(date)"
+            printf "\n%s\n\nDone!\n" "$(date)"
         fi
     }
 
