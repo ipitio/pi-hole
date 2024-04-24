@@ -422,7 +422,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     echo "Checking Dependencies..."
                     local -r php_version=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
                     local -r pkg_manager=$(command -v apt-get || command -v dnf || command -v yum)
-                    local -r pkgs=(bc sqlite3 jq tar tmux wget "php$php_version-sqlite3")
+                    local -r pkgs=(bc nano sqlite3 jq tar tmux wget "php$php_version-sqlite3")
                     local missingpkgs=()
 
                     for pkg in "${pkgs[@]}"; do
