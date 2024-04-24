@@ -265,7 +265,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
     main() {
         set -Eeuo pipefail
-        trap 'abort' INT TERM
+        trap 'abort' INT TERM ERR
         shopt -s dotglob
 
         local update=false
@@ -472,7 +472,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 setCnf mod-$HTML_DIR/admin "$(getVersion $HTML_DIR/admin)" $MOD_DIR/cnf $reinstall
             fi
 
-            pihole updatechecker
+            set +Eeuo pipefail
+            pihole updatechecker >/dev/null 2>&1
+            set -Eeuo pipefail
             popd >/dev/null
         fi
 
