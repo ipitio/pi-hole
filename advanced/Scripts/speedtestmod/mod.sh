@@ -7,41 +7,41 @@
 #
 
 getVersion() {
-    local foundVersion=""
+    local found_version=""
 
     if [[ -d "$1" ]]; then
         cd "$1"
-        foundVersion=$(git status --porcelain=2 -b | grep branch.oid | awk '{print $3;}')
+        found_version=$(git status --porcelain=2 -b | grep branch.oid | awk '{print $3;}')
 
         if [[ -z "${2:-}" ]]; then
             local tags
-            local foundTag=$foundVersion
+            local found_tag=$found_version
             tags=$(git ls-remote -t origin)
-            ! grep -q "$foundVersion" <<<"$tags" || foundTag=$(grep "$foundVersion" <<<"$tags" | awk '{print $2;}' | cut -d '/' -f 3 | sort -V | tail -n1)
-            [[ -z "$foundTag" ]] || foundVersion=$foundTag
+            ! grep -q "$found_version" <<<"$tags" || found_tag=$(grep "$found_version" <<<"$tags" | awk '{print $2;}' | cut -d '/' -f 3 | sort -V | tail -n1)
+            [[ -z "$found_tag" ]] || found_version=$found_tag
         fi
 
         cd - &>/dev/null
     elif [[ -x "$(command -v pihole)" ]]; then
         local versions
         versions=$(pihole -v | grep "$1")
-        foundVersion=$(cut -d ' ' -f 6 <<<"$versions")
+        found_version=$(cut -d ' ' -f 6 <<<"$versions")
 
-        if [[ "$foundVersion" != *.* ]]; then
-            [[ "$foundVersion" != "$(git status --porcelain=2 -b | grep branch.head | awk '{print $3;}')" ]] || foundVersion=$(cut -d ' ' -f 7 <<<"$versions")
+        if [[ "$found_version" != *.* ]]; then
+            [[ "$found_version" != "$(git status --porcelain=2 -b | grep branch.head | awk '{print $3;}')" ]] || found_version=$(cut -d ' ' -f 7 <<<"$versions")
         fi
     fi
 
-    echo "$foundVersion"
+    echo "$found_version"
 }
 
 download() {
     local path=$1
     local name=$2
     local url=$3
-    local desiredVersion="${4:-}"
+    local desired_version="${4:-}"
     local branch="${5:-master}"
-    local snapToTag="${6:-true}"
+    local snap_to_tag="${6:-true}"
     local dest=$path/$name
     local aborting=false
 
@@ -50,11 +50,11 @@ download() {
     cd "$dest"
     git config --global --add safe.directory "$dest"
 
-    if [[ -n "$desiredVersion" && "$desiredVersion" != *.* ]]; then
+    if [[ -n "$desired_version" && "$desired_version" != *.* ]]; then
         local repos=("Pi-hole" "web" "speedtest")
 
         for repo in "${repos[@]}"; do
-            if [[ "$desiredVersion" == *"$repo"* ]]; then
+            if [[ "$desired_version" == *"$repo"* ]]; then
                 aborting=true
                 break
             fi
@@ -71,30 +71,30 @@ download() {
         url=$(git remote get-url origin)
     fi
 
-    [[ "$url" != *"ipitio"* ]] || snapToTag=$(grep -q "true" <<<"$snapToTag" && echo "false" || echo "true")
+    [[ "$url" != *"ipitio"* ]] || snap_to_tag=$(grep -q "true" <<<"$snap_to_tag" && echo "false" || echo "true")
     git fetch origin --depth=1 "$branch":refs/remotes/origin/"$branch" -q
     git reset --hard origin/"$branch" -q
     git checkout -B "$branch" -q
-    local currentHash
+    local current_hash
     local tags
-    currentHash=$(getVersion "$dest" hash)
+    current_hash=$(getVersion "$dest" hash)
     tags=$(git ls-remote -t origin)
 
-    if [[ -z "$desiredVersion" ]]; then # if empty, get the latest version
-        local latestTag=""
-        [[ "$snapToTag" != "true" ]] || latestTag=$(awk -F/ '{print $3}' <<<"$tags" | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
-        [[ -n "$latestTag" ]] && desiredVersion=$latestTag || desiredVersion=$currentHash
+    if [[ -z "$desired_version" ]]; then # if empty, get the latest version
+        local latest_tag=""
+        [[ "$snap_to_tag" != "true" ]] || latest_tag=$(awk -F/ '{print $3}' <<<"$tags" | grep '^v[0-9]' | grep -v '\^{}' | sort -V | tail -n1)
+        [[ -n "$latest_tag" ]] && desired_version=$latest_tag || desired_version=$current_hash
     elif $aborting; then
-        desiredVersion=$(getVersion "$desiredVersion" hash)
+        desired_version=$(getVersion "$desired_version" hash)
     fi
 
-    if [[ "$desiredVersion" == *.* ]]; then
-        grep -q "$desiredVersion$" <<<"$tags" && desiredVersion=$(grep "$desiredVersion$" <<<"$tags" | awk '{print $1;}') || desiredVersion=$currentHash
+    if [[ "$desired_version" == *.* ]]; then
+        grep -q "$desired_version$" <<<"$tags" && desired_version=$(grep "$desired_version$" <<<"$tags" | awk '{print $1;}') || desired_version=$current_hash
     fi
 
-    if [[ "$currentHash" != "$desiredVersion" ]]; then
-        git fetch origin --depth=1 "$desiredVersion" -q
-        git reset --hard "$desiredVersion" -q
+    if [[ "$current_hash" != "$desired_version" ]]; then
+        git fetch origin --depth=1 "$desired_version" -q
+        git reset --hard "$desired_version" -q
     fi
 
     cd ..
@@ -447,15 +447,15 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 download /etc pihole-speedtest https://github.com/arevindh/pihole-speedtest "$st_ver" master $stable
                 [[ -f $MOD_DIR/cnf ]] || touch $MOD_DIR/cnf
                 setCnf mod-$MOD_DIR "$(getVersion $MOD_DIR)" $MOD_DIR/cnf $reinstall
-                local stockTag
+                local stock_tag
 
                 for repo in $CORE_DIR $HTML_DIR/admin; do
                     if [[ -d "$repo" ]]; then
-                        stockTag=$(getVersion "$repo")
-                        setCnf org-"$repo" "$stockTag" $MOD_DIR/cnf
+                        stock_tag=$(getVersion "$repo")
+                        setCnf org-"$repo" "$stock_tag" $MOD_DIR/cnf
 
                         if $backup; then
-                            if [[ ! -d "$repo".bak || "$(getVersion "$repo".bak)" != "$stockTag" ]]; then
+                            if [[ ! -d "$repo".bak || "$(getVersion "$repo".bak)" != "$stock_tag" ]]; then
                                 rm -rf "$repo".bak
                                 mv -f "$repo" "$repo".bak
                             fi

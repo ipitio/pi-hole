@@ -6,9 +6,6 @@
 # shellcheck disable=SC2015
 #
 
-declare -r START
-declare -r PKG_MANAGER
-declare -r SERVER_ID
 declare -r OUT_FILE=/tmp/speedtest.log
 declare -r CREATE_TABLE="create table if not exists speedtest (
 id integer primary key autoincrement,
@@ -23,9 +20,13 @@ download real,
 upload real,
 share_url text
 );"
+declare START
+declare PKG_MANAGER
+declare SERVER_ID
 START=$(date -u --rfc-3339='seconds')
 PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
 SERVER_ID=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2)
+readonly START PKG_MANAGER SERVER_ID
 
 # shellcheck disable=SC2034
 SKIP_MOD=true
@@ -235,7 +236,7 @@ main() {
     local -r SHORT=-h
     local -r LONG=help
     local -r PARSED=$(getopt --options ${SHORT} --longoptions ${LONG} --name "$0" -- "$@")
-    local -r POSITIONAL=()
+    local POSITIONAL=()
     local attempts="3"
     eval set -- "${PARSED}"
 
