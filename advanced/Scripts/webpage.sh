@@ -630,37 +630,28 @@ generate_cron_schedule() {
 
 declare -r LAST_RUN_FILE="/etc/pihole/last_speedtest"
 declare -r INTERVAL_SECONDS=$total_seconds
-declare -r SCHEDULE
-declare -r REMAINDER
+declare schedule
 declare current_time
-SCHEDULE=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")
+declare remainder
+schedule=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")
+current_time=\$(date +%s)
 
 # if schedule is set and interval is "nan", set the speedtest interval to the schedule
 if [[ "\$INTERVAL_SECONDS" == "nan" ]]; then
-    if [[ "\${SCHEDULE-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
-        /usr/local/bin/pihole -a -s "\$SCHEDULE"
-    fi
-
+    [[ ! "\${schedule:-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]] || /usr/local/bin/pihole -a -s "\$schedule"
     exit 0
 fi
 
-if (( \$(echo "\$INTERVAL_SECONDS <= 0" | bc -l) )); then
-    exit 0
-fi
-
-current_time=\$(date +%s)
-readonly current_time
+(( \$(echo "\$INTERVAL_SECONDS > 0" | bc -l) )) || exit 0
 
 if [[ -f "\$LAST_RUN_FILE" ]]; then
     declare -r last_run
     last_run=\$(<"\$LAST_RUN_FILE")
-    if (( \$(echo "\$current_time - \$last_run < \$INTERVAL_SECONDS" | bc -l) )); then
-        exit 0
-    fi
+    (( \$(echo "\$current_time - \$last_run >= \$INTERVAL_SECONDS" | bc -l) )) || exit 0
 fi
 
-REMAINDER=\$((current_time % 5))
-[[ "\$REMAINDER" -eq 4 ]] && current_time=\$((current_time + 1)) || current_time=\$((current_time - REMAINDER))
+remainder=\$((current_time % 5))
+[[ "\$remainder" -eq 4 ]] && current_time=\$((current_time + 1)) || current_time=\$((current_time - remainder))
 echo "\$current_time" > "\$LAST_RUN_FILE"
 sudo cat "$speedtestfile" | sudo bash
 EOF
