@@ -33,6 +33,15 @@ SKIP_MOD=true
 # shellcheck disable=SC1091
 source /opt/pihole/speedtestmod/mod.sh
 
+#######################################
+# Run the speedtest and save the results
+# Globals:
+#   SERVER_ID
+# Arguments:
+#   None
+# Returns:
+#   None
+#######################################
 speedtest() {
     if grep -q official <<<"$(/usr/bin/speedtest --version)"; then
         [[ -n "${SERVER_ID}" ]] && /usr/bin/speedtest -s "$SERVER_ID" --accept-gdpr --accept-license -f json || /usr/bin/speedtest --accept-gdpr --accept-license -f json
@@ -41,6 +50,25 @@ speedtest() {
     fi
 }
 
+#######################################
+# Save the results of the speedtest to the database
+# Globals:
+#   OUT_FILE
+#   CREATE_TABLE
+# Arguments:
+#   $1: Start time
+#   $2: Stop time
+#   $3: ISP
+#   $4: From IP
+#   $5: Server
+#   $6: Server Distance
+#   $7: Server Ping
+#   $8: Download
+#   $9: Upload
+#   $10: Share URL
+# Returns:
+#   None
+#######################################
 savetest() {
     local -r start_time=$1
     local -r stop_time=$2
@@ -69,6 +97,15 @@ savetest() {
     [[ "$isp" == "No Internet" ]] && exit 1 || exit 0
 }
 
+#######################################
+# Check if the package is available
+# Globals:
+#   PKG_MANAGER
+# Arguments:
+#   $1: Package name
+# Returns:
+#   0 if available, 1 if not
+#######################################
 isAvailable() {
     if [[ "$PKG_MANAGER" == "/usr/bin/apt-get" ]]; then
         # Check if there is a candidate and it is not "(none)"
@@ -81,12 +118,32 @@ isAvailable() {
     fi
 }
 
+#######################################
+# Change between two conflicting packages
+# Globals:
+#   PKG_MANAGER
+# Arguments:
+#   $1: Package to install
+#   $2: Package to remove
+# Returns:
+#   None
+#######################################
 swaptest() {
     if isAvailable "$1"; then
         [[ "$PKG_MANAGER" == "/usr/bin/apt-get" ]] && apt-get install -y "$1" "$2"- || { [[ "$PKG_MANAGER" == "/usr/bin/dnf" ]] && dnf install -y --allowerasing "$1" || yum install -y --allowerasing "$1"; }
     fi
 }
 
+#######################################
+# Check if a package is installed
+# Globals:
+#   PKG_MANAGER
+#   OUT_FILE
+# Arguments:
+#   $1: The package to check
+# Returns:
+#   0 if the package is not installed, 1 if it is
+#######################################
 notInstalled() {
     if [[ "$PKG_MANAGER" == "/usr/bin/apt-get" ]]; then
         dpkg -s "$1" &>/dev/null || return 0
@@ -101,6 +158,15 @@ notInstalled() {
     return 1
 }
 
+#######################################
+# Download and install librespeed
+# Globals:
+#   PKG_MANAGER
+# Arguments:
+#   None
+# Returns:
+#   None
+#######################################
 librespeed() {
     if notInstalled golang; then
         if grep -q "Raspbian" /etc/os-release; then
@@ -124,6 +190,15 @@ librespeed() {
     chmod +x /usr/bin/speedtest
 }
 
+#######################################
+# Add the Ookla speedtest CLI source
+# Globals:
+#   PKG_MANAGER
+# Arguments:
+#   None
+# Returns:
+#   None
+#######################################
 addSource() {
     if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
         if [[ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]]; then
@@ -165,6 +240,17 @@ addSource() {
     fi
 }
 
+#######################################
+# Run the speedtest and save the results
+# Globals:
+#   PKG_MANAGER
+#   START
+# Arguments:
+#   $1: Number of attempts
+#   $2: Current attempt
+# Returns:
+#   None
+#######################################
 run() {
     speedtest | jq . >/tmp/speedtest_results || echo "Attempt ${2:-1} Failed!" >/tmp/speedtest_results
     local -r stop=$(date -u --rfc-3339='seconds')
@@ -226,12 +312,30 @@ run() {
     fi
 }
 
+#######################################
+# Display the help message
+# Globals:
+#   None
+# Arguments:
+#   None
+# Returns:
+#   None
+#######################################
 help() {
     echo "Usage: $0 [attempts]"
     echo "  attempts: Number of attempts to run the speedtest, cycling through the packages (default: 3)"
     exit 1
 }
 
+#######################################
+# Main function
+# Globals:
+#   PKG_MANAGER
+# Arguments:
+#   None
+# Returns:
+#   None
+#######################################
 main() {
     local -r SHORT=-h
     local -r LONG=help
