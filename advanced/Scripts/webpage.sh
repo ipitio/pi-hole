@@ -628,37 +628,41 @@ generate_cron_schedule() {
 # Don't run this script manually; it's called by cron
 #
 
-last_run_file="/etc/pihole/last_speedtest"
-interval_seconds=$total_seconds
-schedule=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")
+declare -r LAST_RUN_FILE="/etc/pihole/last_speedtest"
+declare -r INTERVAL_SECONDS=$total_seconds
+declare -r SCHEDULE
+declare -r REMAINDER
+declare current_time
+SCHEDULE=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")
 
 # if schedule is set and interval is "nan", set the speedtest interval to the schedule
-if [[ "\$interval_seconds" == "nan" ]]; then
-    if [[ "\${schedule-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
-        /usr/local/bin/pihole -a -s "\$schedule"
+if [[ "\$INTERVAL_SECONDS" == "nan" ]]; then
+    if [[ "\${SCHEDULE-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
+        /usr/local/bin/pihole -a -s "\$SCHEDULE"
     fi
 
     exit 0
 fi
 
-if (( \$(echo "\$interval_seconds <= 0" | bc -l) )); then
+if (( \$(echo "\$INTERVAL_SECONDS <= 0" | bc -l) )); then
     exit 0
 fi
 
-if [[ -f "\$last_run_file" ]]; then
-    last_run=\$(cat "\$last_run_file")
-    current_time=\$(date +%s)
-    if (( \$(echo "\$current_time - \$last_run < \$interval_seconds" | bc -l) )); then
+current_time=\$(date +%s)
+readonly current_time
+
+if [[ -f "\$LAST_RUN_FILE" ]]; then
+    declare -r last_run
+    last_run=\$(<"\$LAST_RUN_FILE")
+    if (( \$(echo "\$current_time - \$last_run < \$INTERVAL_SECONDS" | bc -l) )); then
         exit 0
     fi
 fi
 
-current_time=\$(date +%s)
-remainder=\$((current_time % 5))
-[ "\$remainder" -eq 4 ] && current_time=\$((current_time + 1)) || current_time=\$((current_time - remainder))
-echo "\$current_time" > "\$last_run_file"
-# shellcheck disable=SC2024
-sudo bash "$speedtestfile"
+REMAINDER=\$((current_time % 5))
+[[ "\$REMAINDER" -eq 4 ]] && current_time=\$((current_time + 1)) || current_time=\$((current_time - REMAINDER))
+echo "\$current_time" > "\$LAST_RUN_FILE"
+sudo cat "$speedtestfile" | sudo bash
 EOF
     sudo chmod +x "$schedule_script"
 
@@ -756,9 +760,7 @@ SpeedtestServer() {
 }
 
 RunSpeedtestNow() {
-    if [[ $(tmux list-sessions 2>/dev/null | grep -c pimod) -eq 0 ]]; then
-        sudo bash "$speedtestfile"
-    fi
+    sudo bash "$speedtestfile"
 }
 
 ReinstallSpeedTest() {
