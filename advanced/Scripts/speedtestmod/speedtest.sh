@@ -249,7 +249,10 @@ main() {
     done
 
     set -- "${POSITIONAL[@]}"
-    [[ "${1:-}" =~ ^[0-9]+$ ]] && attempts=$1 || help
+
+    if [[ "$1" != "--" ]]; then
+        [[ "$1" =~ ^[0-9]+$ ]] && attempts="$1" || help
+    fi
 
     if [[ $EUID != 0 ]]; then
         sudo "$0" "$@"

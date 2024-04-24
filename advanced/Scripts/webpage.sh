@@ -645,7 +645,7 @@ fi
 (( \$(echo "\$INTERVAL_SECONDS > 0" | bc -l) )) || exit 0
 
 if [[ -f "\$LAST_RUN_FILE" ]]; then
-    declare -r last_run
+    declare last_run
     last_run=\$(<"\$LAST_RUN_FILE")
     (( \$(echo "\$current_time - \$last_run >= \$INTERVAL_SECONDS" | bc -l) )) || exit 0
 fi
