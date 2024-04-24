@@ -56,8 +56,8 @@ getVersion() {
 #   $4: The desired version, hash or tag, to download (optional, none by default)
 #   $5: The branch to download (optional, master by default)
 #   $6: Whether to snap to the tag (optional, true by default)
-# Returns:
-#   None
+# Outputs:
+#   The repository at the desired version
 #######################################
 download() {
     local path=$1
@@ -155,8 +155,8 @@ notInstalled() {
 #   $2: The value to set
 #   $3: The configuration file to set the key-value pair in
 #   $4: Whether to replace the value if it already exists
-# Returns:
-#   None
+# Outputs:
+#   The configuration file with the key-value pair set
 #######################################
 setCnf() {
     grep -q "^$1=" "$3" || echo "$1=$2" >>"$3"
@@ -213,8 +213,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     #   None
     # Arguments:
     #   None
-    # Returns:
-    #   None
+    # Outputs:
+    #   The help message
     #######################################
     help() {
         local -r help_text=(
@@ -263,13 +263,13 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     #######################################
-    # (Un)install the modded scripts
+    # Copy scripts from the CORE to the OPT repository
     # Globals:
     #   OPT_DIR
     # Arguments:
     #   None
-    # Returns:
-    #   None
+    # Outputs:
+    #   The scripts copied to the OPT repository
     #######################################
     swapScripts() {
         set +u
@@ -285,6 +285,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     #   $1: The backup to restore
     # Returns:
     #   1 if the backup does not exist, 0 if it does
+    # Outputs:
+    #   The backup restored
     #######################################
     restore() {
         [[ -d "$1".bak ]] || return 1
@@ -302,8 +304,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     #   ETC_DIR
     # Arguments:
     #   None
-    # Returns:
-    #   None
+    # Outputs:
+    #   The mod purged
     #######################################
     purge() {
         if [[ -f /etc/systemd/system/pihole-speedtest.timer ]]; then
@@ -323,7 +325,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     #######################################
-    # Abort the process by reverting changes
+    # Abort the process
     # Globals:
     #   CORE_DIR
     #   HTML_DIR
@@ -337,8 +339,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     #   aborted
     # Arguments:
     #   None
-    # Returns:
-    #   The version of the repository
+    # Outputs:
+    #   The changes reverted
     # shellcheck disable=SC2317 ###########
     abort() {
         if $cleanup; then
@@ -364,15 +366,15 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     #######################################
-    # Commit the changes by cleaning up
+    # Commit the changes
     # Globals:
     #   CORE_DIR
     #   HTML_DIR
     #   cleanup
     # Arguments:
     #   None
-    # Returns:
-    #   None
+    # Outputs:
+    #   The repositories cleaned up
     # shellcheck disable=SC2317 ###########
     commit() {
         if $cleanup; then
@@ -403,8 +405,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     #   cleanup
     # Arguments:
     #   $@: The options for managing the installation
-    # Returns:
-    #   None
+    # Outputs:
+    #   The installation managed
     #######################################
     main() {
         set -Eeuo pipefail

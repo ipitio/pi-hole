@@ -650,7 +650,7 @@ if [[ -f "\$LAST_RUN_FILE" ]]; then
     (( \$(echo "\$current_time - \$last_run >= \$INTERVAL_SECONDS" | bc -l) )) || exit 0
 fi
 
-[[ \$(tmux list-sessions 2>/dev/null | grep -c pimodtest) -eq 0 ]] || exit 0
+[[ \$(/usr/bin/tmux list-sessions 2>/dev/null | grep -c pimodtest) -eq 0 ]] || exit 0
 echo "\$current_time" > "\$LAST_RUN_FILE"
 /usr/bin/tmux new-session -d -s pimodtest "sudo bash $speedtestfile"
 EOF
