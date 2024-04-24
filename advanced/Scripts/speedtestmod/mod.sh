@@ -207,10 +207,6 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         [[ -d "$1".bak ]] || return 1
         [[ ! -e "$1" ]] || rm -rf "$1"
         mv -f "$1".bak "$1"
-        pushd "$1" &>/dev/null || exit 1
-        git tag -l | xargs git tag -d >/dev/null 2>&1
-        git fetch --tags -f -q
-        popd &>/dev/null
     }
 
     purge() {
@@ -434,7 +430,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     if [[ ${#missingpkgs[@]} -gt 0 ]]; then
                         [[ "$pkg_manager" != *"apt-get"* ]] || apt-get update >/dev/null
                         echo "Installing Missing..."
-                        $pkg_manager install -y "${missingpkgs[@]}" &>/dev/null # hide warning in docker
+                        $pkg_manager install -y "${missingpkgs[@]}" &>/dev/null # hide an unimportant warning in docker
                     fi
                 fi
 
