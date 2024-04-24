@@ -34,7 +34,7 @@ SKIP_MOD=true
 source /opt/pihole/speedtestmod/mod.sh
 
 #######################################
-# Run the speedtest and save the results
+# Run the speedtest
 # Globals:
 #   SERVER_ID
 # Arguments:
@@ -246,8 +246,8 @@ addSource() {
 #   PKG_MANAGER
 #   START
 # Arguments:
-#   $1: Number of attempts
-#   $2: Current attempt
+#   $1: Number of attempts (optional, 3 by default)
+#   $2: Current attempt (optional, 0 by default)
 # Returns:
 #   None
 #######################################

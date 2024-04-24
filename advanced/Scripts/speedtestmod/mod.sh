@@ -11,8 +11,8 @@
 # Globals:
 #   None
 # Arguments:
-#   $1: The path to the repository
-#   $2: Non-empty string to get the hash, empty string to try to get the tag
+#   $1: The path to, or name of, the repository
+#   $2: Non-empty string to get the hash, empty string to get the tag if it exists
 # Returns:
 #   The version of the repository
 #######################################
@@ -53,9 +53,9 @@ getVersion() {
 #   $1: The path to download the repository to
 #   $2: The name of the repository
 #   $3: The URL of the repository
-#   $4: The desired version to download (hash or tag)
-#   $5: The branch to download
-#   $6: Whether to snap to the tag
+#   $4: The desired version, hash or tag, to download (optional, none by default)
+#   $5: The branch to download (optional, master by default)
+#   $6: Whether to snap to the tag (optional, true by default)
 # Returns:
 #   None
 #######################################
@@ -125,7 +125,7 @@ download() {
 }
 
 #######################################
-# Check if a package is installed
+# Check if a package is installed, only used below when --continuous is not
 # Globals:
 #   None
 # Arguments:
@@ -147,7 +147,7 @@ notInstalled() {
 }
 
 #######################################
-# Set a key-value pair in a configuration file
+# Set a key-value pair in a configuration file, used below for --reinstall
 # Globals:
 #   None
 # Arguments:
@@ -164,13 +164,13 @@ setCnf() {
 }
 
 #######################################
-# Get a key-value pair from a configuration file
+# Get a key-value pair from a configuration file, used below for --reinstall
 # Globals:
 #   None
 # Arguments:
 #   $1: The configuration file to get the key-value pair from
 #   $2: The key to get the value of
-#   $3: Non-empty string to get the hash, empty string to try to get the tag
+#   $3: Non-empty string to get the hash, empty string to get the tag if it exists
 # Returns:
 #   The value of the key-value pair
 #######################################
@@ -263,7 +263,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     #######################################
-    # Swap the scripts in the Pi-hole directory
+    # (Un)install the modded scripts
     # Globals:
     #   OPT_DIR
     # Arguments:
@@ -278,7 +278,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     #######################################
-    # Restore a backup
+    # Restore a backup, used after --backup unless --online or --install are used
     # Globals:
     #   None
     # Arguments:
@@ -293,7 +293,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     #######################################
-    # Purge the mod
+    # Purge the mod, used for --uninstall
     # Globals:
     #   CORE_DIR
     #   HTML_DIR
@@ -323,7 +323,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     #######################################
-    # Abort the process
+    # Abort the process by reverting changes
     # Globals:
     #   CORE_DIR
     #   HTML_DIR
@@ -364,7 +364,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     #######################################
-    # Commit the changes
+    # Commit the changes by cleaning up
     # Globals:
     #   CORE_DIR
     #   HTML_DIR
