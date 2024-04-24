@@ -476,7 +476,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
         readonly update backup online install reinstall stable uninstall database verbose chk_dep cleanup
         trap '[ "$?" -eq "0" ] && commit || abort' EXIT
-        printf "Thanks for using Speedtest Mod!\nScript by @ipitio\n\n%s\n\n" "$(date)"
+        printf "The Mod Script by @ipitio\n\n%s\n\n" "$(date)"
         ! $verbose || set -x
 
         if $database; then
