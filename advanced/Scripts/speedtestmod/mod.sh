@@ -10,7 +10,7 @@ getVersion() {
     local found_version=""
 
     if [[ -d "$1" ]]; then
-        cd "$1"
+        pushd "$1" &>/dev/null || exit 1
         found_version=$(git status --porcelain=2 -b | grep branch.oid | awk '{print $3;}')
 
         if [[ -z "${2:-}" ]]; then
@@ -21,7 +21,7 @@ getVersion() {
             [[ -z "$found_tag" ]] || found_version=$found_tag
         fi
 
-        cd - &>/dev/null
+        popd &>/dev/null
     elif [[ -x "$(command -v pihole)" ]]; then
         local versions
         versions=$(pihole -v | grep "$1")
@@ -47,7 +47,7 @@ download() {
 
     [[ ! -d "$dest" || -d "$dest/.git" ]] || mv -f "$dest" "$dest.old"
     [[ -d "$dest" ]] || git clone --depth=1 -b "$branch" "$url" "$dest" -q
-    cd "$dest"
+    pushd "$dest" &>/dev/null || exit 1
     git config --global --add safe.directory "$dest"
 
     if [[ -n "$desired_version" && "$desired_version" != *.* ]]; then
@@ -97,7 +97,7 @@ download() {
         git reset --hard "$desired_version" -q
     fi
 
-    cd ..
+    popd &>/dev/null
 }
 
 notInstalled() {
@@ -126,11 +126,11 @@ getCnf() {
     [[ -n "$value" ]] || value=$(getVersion "$keydir" "${3:-}")
 
     if [[ -n "${3:-}" && "$value" == *.* ]]; then
-        cd "$keydir"
+        pushd "$keydir" &>/dev/null || exit 1
         local tags
         tags=$(git ls-remote -t origin)
         grep -q "$value$" <<<"$tags" && value=$(grep "$value$" <<<"$tags" | awk '{print $1;}') || value=$(git rev-parse HEAD)
-        cd - &>/dev/null
+        popd &>/dev/null
     fi
 
     echo "$value"
@@ -207,9 +207,10 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         [[ -d "$1".bak ]] || return 1
         [[ ! -e "$1" ]] || rm -rf "$1"
         mv -f "$1".bak "$1"
-        cd "$1"
+        pushd "$1" &>/dev/null || exit 1
         git tag -l | xargs git tag -d >/dev/null 2>&1
         git fetch --tags -f -q
+        popd &>/dev/null
     }
 
     purge() {
@@ -245,9 +246,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 fi
             fi
 
-            [[ -d "$MOD_DIR" && -d "$MOD_DIR"/.git/refs/remotes/old ]] && download /etc pihole-speedtest "" speedtest || :
+            [[ ! -d "$MOD_DIR" || ! -d "$MOD_DIR"/.git/refs/remotes/old ]] || download /etc pihole-speedtest "" speedtest
             [[ ! -d "$HTML_DIR"/admin/.git/refs/remotes/old ]] || download "$HTML_DIR" admin "" web
-            [[ -f "$LAST_DB" && ! -f "$CURR_DB" ]] && mv "$LAST_DB" "$CURR_DB" || :
+            [[ ! -f "$LAST_DB" || -f "$CURR_DB" ]] || mv "$LAST_DB" "$CURR_DB"
             [[ -f "$CURR_WP" ]] && ! grep -q SpeedTest "$CURR_WP" && purge || :
             printf "Please try again before reporting an issue.\n\n%s\n" "$(date)"
         fi
@@ -257,9 +258,10 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     commit() {
         if $cleanup; then
             for dir in $CORE_DIR $HTML_DIR/admin; do
-                [[ ! -d "$dir" ]] && continue || cd "$dir"
+                [[ ! -d "$dir" ]] && continue || pushd "$dir" &>/dev/null || exit 1
                 ! git remote -v | grep -q "old" || git remote remove old
                 git clean -ffdx
+                popd &>/dev/null
             done
             printf "Done!\n\n%s\n" "$(date)"
         fi
@@ -359,8 +361,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         fi
 
         if ! $database || [[ "$num_args" -gt 1 ]]; then
-            local -r working_dir=$(pwd)
-            cd ~
+            pushd ~ >/dev/null || exit 1
 
             if [[ -f $CURR_WP ]] && grep -q SpeedTest "$CURR_WP"; then
                 if $reinstall; then
@@ -431,9 +432,9 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
                     readonly missingpkgs
                     if [[ ${#missingpkgs[@]} -gt 0 ]]; then
-                        [[ "$pkg_manager" != *"apt-get"* ]] || apt-get update
+                        [[ "$pkg_manager" != *"apt-get"* ]] || apt-get update >/dev/null
                         echo "Installing Missing..."
-                        $pkg_manager install -y "${missingpkgs[@]}"
+                        $pkg_manager install -y "${missingpkgs[@]}" &>/dev/null # hide warning in docker
                     fi
                 fi
 
@@ -476,7 +477,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
 
             pihole updatechecker
-            [[ -d "$working_dir" ]] && cd "$working_dir"
+            popd >/dev/null
         fi
 
         exit 0

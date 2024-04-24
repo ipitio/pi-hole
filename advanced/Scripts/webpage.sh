@@ -632,7 +632,6 @@ declare -r LAST_RUN_FILE="/etc/pihole/last_speedtest"
 declare -r INTERVAL_SECONDS=$total_seconds
 declare schedule
 declare current_time
-declare remainder
 schedule=\$(grep "SPEEDTESTSCHEDULE" "$setupVars" | cut -f2 -d"=")
 current_time=\$(date +%s)
 
@@ -647,13 +646,13 @@ fi
 if [[ -f "\$LAST_RUN_FILE" ]]; then
     declare last_run
     last_run=\$(<"\$LAST_RUN_FILE")
+    current_time=\$(date +%s)
     (( \$(echo "\$current_time - \$last_run >= \$INTERVAL_SECONDS" | bc -l) )) || exit 0
 fi
 
-remainder=\$((current_time % 5))
-[[ "\$remainder" -eq 4 ]] && current_time=\$((current_time + 1)) || current_time=\$((current_time - remainder))
+[[ \$(tmux list-sessions 2>/dev/null | grep -c pimodtest) -eq 0 ]] || exit 0
 echo "\$current_time" > "\$LAST_RUN_FILE"
-sudo cat "$speedtestfile" | sudo bash
+/usr/bin/tmux new-session -d -s pimodtest "sudo bash $speedtestfile"
 EOF
     sudo chmod +x "$schedule_script"
 
@@ -751,7 +750,19 @@ SpeedtestServer() {
 }
 
 RunSpeedtestNow() {
-    sudo bash "$speedtestfile"
+    # if there is a running session, wait for it to finish
+    # if the session is still running after 5 minutes, kill it
+    while [[ $(tmux list-sessions 2>/dev/null | grep -c pimodtest) -gt 0 ]]; do
+        sleep 1
+        ((counter++))
+
+        if [[ $counter -gt 300 ]]; then
+            tmux kill-session -t pimodtest
+            break
+        fi
+    done
+
+    tmux new-session -d -s pimodtest "sudo bash $speedtestfile"
 }
 
 ReinstallSpeedTest() {
