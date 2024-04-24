@@ -22,7 +22,7 @@ getVersion() {
         fi
 
         cd - &>/dev/null
-    elif [ -x "$(command -v pihole)" ]; then
+    elif [[ -x "$(command -v pihole)" ]]; then
         local versions
         versions=$(pihole -v | grep "$1")
         foundVersion=$(cut -d ' ' -f 6 <<<"$versions")
@@ -194,7 +194,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     isEmpty() {
-        [ -f "$1" ] && sqlite3 "$1" "select * from $DB_TABLE limit 1;" &>/dev/null && [ -n "$(sqlite3 "$1" "select * from $DB_TABLE limit 1;")" ] && return 1 || return 0
+        [[ -f "$1" ]] && sqlite3 "$1" "select * from $DB_TABLE limit 1;" &>/dev/null && [[ -n "$(sqlite3 "$1" "select * from $DB_TABLE limit 1;")" ]] && return 1 || return 0
     }
 
     swapScripts() {
@@ -204,8 +204,8 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     restore() {
-        [ -d "$1".bak ] || return 1
-        [ ! -e "$1" ] || rm -rf "$1"
+        [[ -d "$1".bak ]] || return 1
+        [[ ! -e "$1" ]] || rm -rf "$1"
         mv -f "$1".bak "$1"
         cd "$1"
         git tag -l | xargs git tag -d >/dev/null 2>&1
@@ -213,7 +213,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     }
 
     purge() {
-        if [ -f /etc/systemd/system/pihole-speedtest.timer ]; then
+        if [[ -f /etc/systemd/system/pihole-speedtest.timer ]]; then
             rm -f /etc/systemd/system/pihole-speedtest.service
             rm -f /etc/systemd/system/pihole-speedtest.timer
             systemctl daemon-reload
@@ -235,20 +235,20 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             echo "Process Aborting..."
             aborted=1
 
-            if [ -d "$CORE_DIR"/.git/refs/remotes/old ]; then
+            if [[ -d "$CORE_DIR"/.git/refs/remotes/old ]]; then
                 download /etc .pihole "" Pi-hole
                 swapScripts
 
-                if [ -d "$CORE_DIR"/advanced/Scripts/speedtestmod ]; then
+                if [[ -d "$CORE_DIR"/advanced/Scripts/speedtestmod ]]; then
                     \cp -af "$CORE_DIR"/advanced/Scripts/speedtestmod/. "$OPT_DIR"/speedtestmod/
                     pihole -a -s
                 fi
             fi
 
-            [ -d "$MOD_DIR" ] && [ -d "$MOD_DIR"/.git/refs/remotes/old ] && download /etc pihole-speedtest "" speedtest || :
-            [ ! -d "$HTML_DIR"/admin/.git/refs/remotes/old ] || download "$HTML_DIR" admin "" web
-            [ -f "$LAST_DB" ] && [ ! -f "$CURR_DB" ] && mv "$LAST_DB" "$CURR_DB" || :
-            [ -f "$CURR_WP" ] && ! grep -q SpeedTest "$CURR_WP" && purge || :
+            [[ -d "$MOD_DIR" && -d "$MOD_DIR"/.git/refs/remotes/old ]] && download /etc pihole-speedtest "" speedtest || :
+            [[ ! -d "$HTML_DIR"/admin/.git/refs/remotes/old ]] || download "$HTML_DIR" admin "" web
+            [[ -f "$LAST_DB" && ! -f "$CURR_DB" ]] && mv "$LAST_DB" "$CURR_DB" || :
+            [[ -f "$CURR_WP" ]] && ! grep -q SpeedTest "$CURR_WP" && purge || :
             printf "Please try again before reporting an issue.\n\n%s\n" "$(date)"
         fi
     }
@@ -257,7 +257,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
     commit() {
         if $cleanup; then
             for dir in $CORE_DIR $HTML_DIR/admin; do
-                [ ! -d "$dir" ] && continue || cd "$dir"
+                [[ ! -d "$dir" ]] && continue || cd "$dir"
                 ! git remote -v | grep -q "old" || git remote remove old
                 git clean -ffdx
             done
@@ -337,38 +337,38 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         ! $verbose || set -x
 
         if $database; then
-            if [ -f $CURR_DB ] && ! isEmpty $CURR_DB; then
+            if [[ -f $CURR_DB ]] && ! isEmpty $CURR_DB; then
                 echo "Flushing Database..."
                 mv -f $CURR_DB $LAST_DB
-                [ ! -f $ETC_DIR/last_speedtest ] || mv -f $ETC_DIR/last_speedtest $ETC_DIR/last_speedtest.old
+                [[ ! -f $ETC_DIR/last_speedtest ]] || mv -f $ETC_DIR/last_speedtest $ETC_DIR/last_speedtest.old
 
-                if [ -f /var/log/pihole/speedtest.log ]; then
+                if [[ -f /var/log/pihole/speedtest.log ]]; then
                     mv -f /var/log/pihole/speedtest.log /var/log/pihole/speedtest.log.old
                     rm -f $ETC_DIR/speedtest.log
                 fi
-            elif [ -f $LAST_DB ]; then
+            elif [[ -f $LAST_DB ]]; then
                 echo "Restoring Database..."
                 mv -f $LAST_DB $CURR_DB
-                [ ! -f $ETC_DIR/last_speedtest.old ] || mv -f $ETC_DIR/last_speedtest.old $ETC_DIR/last_speedtest
+                [[ ! -f $ETC_DIR/last_speedtest.old ]] || mv -f $ETC_DIR/last_speedtest.old $ETC_DIR/last_speedtest
 
-                if [ -f /var/log/pihole/speedtest.log.old ]; then
+                if [[ -f /var/log/pihole/speedtest.log.old ]]; then
                     mv -f /var/log/pihole/speedtest.log.old /var/log/pihole/speedtest.log
                     \cp -af /var/log/pihole/speedtest.log $ETC_DIR/speedtest.log
                 fi
             fi
         fi
 
-        if ! $database || [ "$num_args" -gt 1 ]; then
+        if ! $database || [[ "$num_args" -gt 1 ]]; then
             local -r working_dir=$(pwd)
             cd ~
 
-            if [ -f $CURR_WP ] && grep -q SpeedTest "$CURR_WP"; then
+            if [[ -f $CURR_WP ]] && grep -q SpeedTest "$CURR_WP"; then
                 if $reinstall; then
                     for repo in $CORE_DIR $HTML_DIR/admin $MOD_DIR; do
-                        if [ -d "$repo" ]; then
+                        if [[ -d "$repo" ]]; then
                             local hash_tag
                             hash_tag=$(getVersion "$repo") # if hashes are the same, we may be on an older tag
-                            [ "$(getVersion "$repo" hash)" != "$(getCnf $MOD_DIR/cnf mod-"$repo" hash)" ] || hash_tag=$(getCnf $MOD_DIR/cnf mod-"$repo")
+                            [[ "$(getVersion "$repo" hash)" != "$(getCnf $MOD_DIR/cnf mod-"$repo" hash)" ]] || hash_tag=$(getCnf $MOD_DIR/cnf mod-"$repo")
 
                             case "$repo" in
                             "$CORE_DIR") mod_core_ver=$hash_tag ;;
@@ -386,7 +386,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     local core_ver=""
                     local admin_ver=""
 
-                    if [ -f $MOD_DIR/cnf ]; then
+                    if [[ -f $MOD_DIR/cnf ]]; then
                         core_ver=$(getCnf $MOD_DIR/cnf org-$CORE_DIR)
                         admin_ver=$(getCnf $MOD_DIR/cnf org-$HTML_DIR/admin)
                     fi
@@ -395,13 +395,13 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
                     ! $online && restore $HTML_DIR/admin || download $HTML_DIR admin https://github.com/pi-hole/AdminLTE "$admin_ver"
                     ! $online && restore $CORE_DIR || download /etc .pihole https://github.com/pi-hole/pi-hole "$core_ver"
-                    [ ! -d $MOD_DIR ] || rm -rf $MOD_DIR
+                    [[ ! -d $MOD_DIR ]] || rm -rf $MOD_DIR
                     swapScripts
                 fi
             fi
 
             if ! $install && $update; then
-                if [ -d /run/systemd/system ]; then
+                if [[ -d /run/systemd/system ]]; then
                     echo "Updating Pi-hole..."
                     PIHOLE_SKIP_OS_CHECK=true sudo -E pihole -up
                 else
@@ -414,7 +414,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 purge
             else
                 if $chk_dep; then
-                    if [ ! -f /usr/local/bin/pihole ]; then
+                    if [[ ! -f /usr/local/bin/pihole ]]; then
                         echo "Installing Pi-hole..."
                         curl -sSL https://install.pi-hole.net | sudo bash
                     fi
@@ -430,7 +430,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     done
 
                     readonly missingpkgs
-                    if [ ${#missingpkgs[@]} -gt 0 ]; then
+                    if [[ ${#missingpkgs[@]} -gt 0 ]]; then
                         [[ "$pkg_manager" != *"apt-get"* ]] || apt-get update
                         echo "Installing Missing..."
                         $pkg_manager install -y "${missingpkgs[@]}"
@@ -445,17 +445,17 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
                 $reinstall && echo "Reinstalling Mod..." || echo "Installing Mod..."
                 download /etc pihole-speedtest https://github.com/arevindh/pihole-speedtest "$st_ver" master $stable
-                [ -f $MOD_DIR/cnf ] || touch $MOD_DIR/cnf
+                [[ -f $MOD_DIR/cnf ]] || touch $MOD_DIR/cnf
                 setCnf mod-$MOD_DIR "$(getVersion $MOD_DIR)" $MOD_DIR/cnf $reinstall
                 local stockTag
 
                 for repo in $CORE_DIR $HTML_DIR/admin; do
-                    if [ -d "$repo" ]; then
+                    if [[ -d "$repo" ]]; then
                         stockTag=$(getVersion "$repo")
                         setCnf org-"$repo" "$stockTag" $MOD_DIR/cnf
 
                         if $backup; then
-                            if [ ! -d "$repo".bak ] || [ "$(getVersion "$repo".bak)" != "$stockTag" ]; then
+                            if [[ ! -d "$repo".bak || "$(getVersion "$repo".bak)" != "$stockTag" ]]; then
                                 rm -rf "$repo".bak
                                 mv -f "$repo" "$repo".bak
                             fi
@@ -476,13 +476,13 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
 
             pihole updatechecker
-            [ -d "$working_dir" ] && cd "$working_dir"
+            [[ -d "$working_dir" ]] && cd "$working_dir"
         fi
 
         exit 0
     }
 
-    if [ $EUID != 0 ]; then
+    if [[ $EUID != 0 ]]; then
         sudo "$0" "$@"
         exit $?
     fi

@@ -65,14 +65,14 @@ savetest() {
     rm -f "$OUT_FILE"
     sqlite3 /etc/pihole/speedtest.db "$CREATE_TABLE"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start_time}', '${stop_time}', '${isp}', '${from_ip}', '${server}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
-    [ "$isp" == "No Internet" ] && exit 1 || exit 0
+    [[ "$isp" == "No Internet" ]] && exit 1 || exit 0
 }
 
 isAvailable() {
-    if [ "$PKG_MANAGER" == "/usr/bin/apt-get" ]; then
+    if [[ "$PKG_MANAGER" == "/usr/bin/apt-get" ]]; then
         # Check if there is a candidate and it is not "(none)"
         apt-cache policy "$1" | grep -q "Candidate:" && ! apt-cache policy "$1" | grep -q "Candidate: (none)" && return 0 || return 1
-    elif [ "$PKG_MANAGER" == "/usr/bin/dnf" ] || [ "$PKG_MANAGER" == "/usr/bin/yum" ]; then
+    elif [[ "$PKG_MANAGER" == "/usr/bin/dnf" || "$PKG_MANAGER" == "/usr/bin/yum" ]]; then
         $PKG_MANAGER list available "$1" &>/dev/null && return 0 || return 1
     else
         echo "Unsupported package manager!"
@@ -82,14 +82,14 @@ isAvailable() {
 
 swaptest() {
     if isAvailable "$1"; then
-        [ "$PKG_MANAGER" == "/usr/bin/apt-get" ] && apt-get install -y "$1" "$2"- || { [ "$PKG_MANAGER" == "/usr/bin/dnf" ] && dnf install -y --allowerasing "$1" || yum install -y --allowerasing "$1"; }
+        [[ "$PKG_MANAGER" == "/usr/bin/apt-get" ]] && apt-get install -y "$1" "$2"- || { [[ "$PKG_MANAGER" == "/usr/bin/dnf" ]] && dnf install -y --allowerasing "$1" || yum install -y --allowerasing "$1"; }
     fi
 }
 
 notInstalled() {
-    if [ "$PKG_MANAGER" == "/usr/bin/apt-get" ]; then
+    if [[ "$PKG_MANAGER" == "/usr/bin/apt-get" ]]; then
         dpkg -s "$1" &>/dev/null || return 0
-    elif [ "$PKG_MANAGER" == "/usr/bin/dnf" ] || [ "$PKG_MANAGER" == "/usr/bin/yum" ]; then
+    elif [[ "$PKG_MANAGER" == "/usr/bin/dnf" || "$PKG_MANAGER" == "/usr/bin/yum" ]]; then
         rpm -q "$1" &>/dev/null || return 0
     else
         echo "Unsupported package manager!"
@@ -103,7 +103,7 @@ notInstalled() {
 librespeed() {
     if notInstalled golang; then
         if grep -q "Raspbian" /etc/os-release; then
-            if [ ! -f /etc/apt/sources.list.d/testing.list ] && ! grep -q "testing" /etc/apt/sources.list; then
+            if [[ ! -f /etc/apt/sources.list.d/testing.list ]] && ! grep -q "testing" /etc/apt/sources.list; then
                 echo "Adding testing repo to sources.list.d"
                 echo "deb http://archive.raspbian.org/raspbian/ testing main" >/etc/apt/sources.list.d/testing.list
                 printf "Package: *\nPin: release a=testing\nPin-Priority: 50" >/etc/apt/preferences.d/limit-testing
@@ -117,7 +117,7 @@ librespeed() {
     fi
     download /etc/pihole librespeed https://github.com/librespeed/speedtest-cli
     cd librespeed || exit
-    [ ! -d out ] || rm -rf out
+    [[ ! -d out ]] || rm -rf out
     ./build.sh
     mv -f out/* /usr/bin/speedtest
     chmod +x /usr/bin/speedtest
@@ -125,27 +125,27 @@ librespeed() {
 
 addSource() {
     if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
-        if [ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]; then
+        if [[ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]]; then
             echo "Adding speedtest source for RPM..."
             curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash
         fi
 
         yum list speedtest | grep -q "Available Packages" && $PKG_MANAGER install -y speedtest || :
     elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
-        if [ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]; then
+        if [[ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]]; then
             echo "Adding speedtest source for DEB..."
-            if [ -e /etc/os-release ]; then
+            if [[ -e /etc/os-release ]]; then
                 # shellcheck disable=SC1091
                 source /etc/os-release
                 local -r base="ubuntu debian"
                 local os=${ID}
                 local dist=${VERSION_CODENAME}
                 # shellcheck disable=SC2076
-                if [ -n "${ID_LIKE:-}" ] && [[ "${base//\"/}" =~ "${ID_LIKE//\"/}" ]] && [ "${os}" != "ubuntu" ]; then
+                if [[ -n "${ID_LIKE:-}" && "${base//\"/}" =~ "${ID_LIKE//\"/}" && "${os}" != "ubuntu" ]]; then
                     os=${ID_LIKE%% *}
-                    [ -z "${UBUNTU_CODENAME:-}" ] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
+                    [[ -z "${UBUNTU_CODENAME:-}" ]] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
                     dist=${UBUNTU_CODENAME}
-                    [ -z "$dist" ] && dist=${VERSION_CODENAME}
+                    [[ -z "$dist" ]] && dist=${VERSION_CODENAME}
                 fi
                 wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
                 chmod +x /tmp/script.deb.sh
@@ -182,7 +182,7 @@ run() {
             local -r from_ip=$(jq -r '.interface.externalIp' <<<"$res")
             local -r server_ping=$(jq -r '.ping.latency' <<<"$res")
             local -r share_url=$(jq -r '.result.url' <<<"$res")
-            [ -n "$server_dist" ] || server_dist="-1"
+            [[ -n "$server_dist" ]] || server_dist="-1"
         else # speedtest-cli
             local -r server_name=$(jq -r '.server.sponsor' <<<"$res")
             local -r download=$(jq -r '.download' <<<"$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
@@ -191,7 +191,7 @@ run() {
             local -r from_ip=$(jq -r '.client.ip' <<<"$res")
             local -r server_ping=$(jq -r '.ping' <<<"$res")
             local -r share_url=$(jq -r '.share' <<<"$res")
-            [ -n "$server_dist" ] || server_dist=$(jq -r '.server.d' <<<"$res")
+            [[ -n "$server_dist" ]] || server_dist=$(jq -r '.server.d' <<<"$res")
         fi
 
         savetest "$START" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
@@ -206,12 +206,12 @@ run() {
         local -r share_url=$(jq -r '.[].share' <<<"$res")
         local -r server_dist="-1"
         savetest "$START" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
-    elif [ "${1}" == "${2:-}" ] || [ "${1}" -le 1 ]; then
+    elif [[ "${1}" == "${2:-}" || "${1}" -le 1 ]]; then
         echo "Test Failed!" >/tmp/speedtest_results
         savetest "$START" "$stop"
     else
         if notInstalled speedtest && notInstalled speedtest-cli; then
-            [ ! -f /usr/bin/speedtest ] || rm -f /usr/bin/speedtest
+            [[ ! -f /usr/bin/speedtest ]] || rm -f /usr/bin/speedtest
             addSource
             isAvailable speedtest && $PKG_MANAGER install -y speedtest || :
         elif ! notInstalled speedtest; then
@@ -253,12 +253,12 @@ main() {
         [[ $arg =~ ^[0-9]+$ ]] && attempts=$arg && break || help
     done
 
-    if [ $EUID != 0 ]; then
+    if [[ $EUID != 0 ]]; then
         sudo "$0" "$@"
         exit $?
     fi
 
-    if [ ! -f /usr/bin/speedtest ]; then
+    if [[ ! -f /usr/bin/speedtest ]]; then
         addSource
         isAvailable speedtest && $PKG_MANAGER install -y speedtest || { isAvailable speedtest-cli && $PKG_MANAGER install -y speedtest-cli || librespeed; }
     fi

@@ -24,7 +24,6 @@ readonly gravityDBfile="/etc/pihole/gravity.db"
 # speedtest mod
 readonly speedtestmod="/opt/pihole/speedtestmod/mod.sh"
 readonly speedtestfile="/opt/pihole/speedtestmod/speedtest.sh"
-readonly speedtestdb="/etc/pihole/speedtest.db"
 
 readonly setupVars="/etc/pihole/setupVars.conf"
 readonly PI_HOLE_BIN_DIR="/usr/local/bin"
@@ -438,7 +437,7 @@ ProcessDHCPSettings() {
         interface="${PIHOLE_INTERFACE}"
 
         # Use eth0 as fallback interface
-        if [ -z ${interface} ]; then
+        if [ -z "${interface}" ]; then
             interface="eth0"
         fi
 
