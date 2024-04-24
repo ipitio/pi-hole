@@ -361,7 +361,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             [[ ! -d "$HTML_DIR"/admin/.git/refs/remotes/old ]] || download "$HTML_DIR" admin "" web
             [[ ! -f "$LAST_DB" || -f "$CURR_DB" ]] || mv "$LAST_DB" "$CURR_DB"
             [[ -f "$CURR_WP" ]] && ! grep -q SpeedTest "$CURR_WP" && purge || :
-            printf "\n%s\n\nPlease try again before reporting an issue.\n" "$(date)"
+            printf "Please try again before reporting an issue.\n\n%s\n" "$(date)"
         fi
     }
 
@@ -384,7 +384,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                 git clean -ffdx
                 popd &>/dev/null
             done
-            printf "\n%s\n\nDone!\n" "$(date)"
+            printf "Done!\n\n%s\n" "$(date)"
         fi
     }
 
@@ -476,7 +476,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
         readonly update backup online install reinstall stable uninstall database verbose chk_dep cleanup
         trap '[ "$?" -eq "0" ] && commit || abort' EXIT
-        printf "The Mod Script by @ipitio\n\n%s\n\n" "$(date)"
+        printf "%s\n\nRunning The Mod Script by @ipitio...\n" "$(date)"
         ! $verbose || set -x
 
         if $database; then
