@@ -503,6 +503,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
         if ! $database || [[ "$num_args" -gt 1 ]]; then
             pushd ~ >/dev/null || exit 1
+            pihole -v
 
             if [[ -f $CURR_WP ]] && grep -q SpeedTest "$CURR_WP"; then
                 if $reinstall; then
@@ -618,6 +619,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
 
             pihole updatechecker
+            pihole -v
             popd >/dev/null
         fi
 
