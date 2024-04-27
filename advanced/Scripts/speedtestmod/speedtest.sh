@@ -251,7 +251,7 @@ addSource() {
 #   None
 #######################################
 run() {
-    speedtest | jq . >/tmp/speedtest_results || echo "Attempt ${2:-1} Failed!" >/tmp/speedtest_results
+    speedtest | jq . >/tmp/speedtest_results || echo "Attempt ${2:-1} Failed!"
     local -r stop=$(date -u --rfc-3339='seconds')
     if jq -e '.server' /tmp/speedtest_results &>/dev/null; then
         local -r res=$(</tmp/speedtest_results)
