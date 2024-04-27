@@ -22,6 +22,7 @@ getVersion() {
     if [[ -d "$1" ]]; then
         pushd "$1" &>/dev/null || exit 1
         found_version=$(git status --porcelain=2 -b | grep branch.oid | awk '{print $3;}')
+        [[ $found_version != *"("* ]] || found_version=$(git rev-parse HEAD 2>/dev/null)
 
         if [[ -z "${2:-}" ]]; then
             local tags
@@ -38,7 +39,10 @@ getVersion() {
         found_version=$(cut -d ' ' -f 6 <<<"$versions")
 
         if [[ "$found_version" != *.* ]]; then
-            [[ "$found_version" != "$(git status --porcelain=2 -b | grep branch.head | awk '{print $3;}')" ]] || found_version=$(cut -d ' ' -f 7 <<<"$versions")
+            local found_branch
+            found_branch="$(git status --porcelain=2 -b | grep branch.head | awk '{print $3;}')"
+            [[ $found_branch != *"("* ]] || found_branch=$(git show-ref --heads | grep "$(git rev-parse HEAD)" | awk '{print $2;}' | cut -d '/' -f 3)
+            [[ "$found_version" != "$found_branch" ]] || found_version=$(cut -d ' ' -f 7 <<<"$versions")
         fi
     fi
 
@@ -476,7 +480,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
         readonly update backup online install reinstall stable uninstall database verbose chk_dep cleanup
         trap '[ "$?" -eq "0" ] && commit || abort' EXIT
-        printf "%s\n\nRunning The Mod Script by @ipitio...\n" "$(date)"
+        printf "%s\n\nRunning the Mod Script by @ipitio...\n" "$(date)"
         ! $verbose || set -x
 
         if $database; then
@@ -503,7 +507,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
         if ! $database || [[ "$num_args" -gt 1 ]]; then
             pushd ~ >/dev/null || exit 1
-            pihole -v
+            pihole -v || :
 
             if [[ -f $CURR_WP ]] && grep -q SpeedTest "$CURR_WP"; then
                 if $reinstall; then
@@ -574,13 +578,13 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
                     readonly missingpkgs
                     if [[ ${#missingpkgs[@]} -gt 0 ]]; then
-                        if [[ "$pkg_manager" == *"apt-get"* ]] && apt-cache show "${missingpkgs[@]}" | grep -q "Unable to locate package"; then
-                            echo "Updating Package Cache..."
-                            apt-get update -y &>/dev/null
-                        fi
-
                         echo "Installing Missing Dependencies..."
-                        $pkg_manager install -y "${missingpkgs[@]}" &>/dev/null # hide an unimportant warning in docker
+                        if ! $pkg_manager install -y "${missingpkgs[@]}" &>/dev/null; then
+                            [[ "$pkg_manager" == *"apt-get"* ]] || exit 1
+                            echo "And Updating Package Cache..."
+                            $pkg_manager update -y &>/dev/null
+                            $pkg_manager install -y "${missingpkgs[@]}" &>/dev/null
+                        fi
                     fi
                 fi
 
@@ -623,7 +627,7 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
             fi
 
             pihole updatechecker
-            pihole -v
+            pihole -v || :
             popd >/dev/null
         fi
 
