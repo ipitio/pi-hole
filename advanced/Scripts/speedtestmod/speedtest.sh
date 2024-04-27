@@ -39,8 +39,8 @@ source /opt/pihole/speedtestmod/mod.sh
 #   SERVER_ID
 # Arguments:
 #   None
-# Returns:
-#   None
+# Outputs:
+#   The speedtest results
 #######################################
 speedtest() {
     if /usr/bin/speedtest --version | grep -q "official"; then
@@ -67,7 +67,7 @@ speedtest() {
 #   $9: Upload
 #   $10: Share URL
 # Returns:
-#   None
+#   0 if the speedtest was successful, 1 if not
 #######################################
 savetest() {
     local -r start_time=$1
@@ -124,8 +124,8 @@ isAvailable() {
 # Arguments:
 #   $1: Package to install
 #   $2: Package to remove
-# Returns:
-#   None
+# Outputs:
+#   The output of the package manager
 #######################################
 swaptest() {
     if isAvailable "$1"; then
@@ -163,8 +163,8 @@ notInstalled() {
 #   PKG_MANAGER
 # Arguments:
 #   None
-# Returns:
-#   None
+# Outputs:
+#   The librespeed binary
 #######################################
 librespeed() {
     if notInstalled golang; then
@@ -195,8 +195,8 @@ librespeed() {
 #   PKG_MANAGER
 # Arguments:
 #   None
-# Returns:
-#   None
+# Outputs:
+#   The source for the speedtest CLI
 #######################################
 addSource() {
     if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
@@ -248,67 +248,79 @@ addSource() {
 #   $1: Number of attempts (optional, 3 by default)
 #   $2: Current attempt (optional, 0 by default)
 # Returns:
-#   None
+#   1 if the speedtest failed, 0 if successful
 #######################################
 run() {
-    speedtest | jq . >/tmp/speedtest_results || echo "Attempt ${2:-1} Failed!"
-    local -r stop=$(date -u --rfc-3339='seconds')
-    if jq -e '.server' /tmp/speedtest_results &>/dev/null; then
-        local -r res=$(</tmp/speedtest_results)
-        local -r server_id=$(jq -r '.server.id' <<<"$res")
-        local -r servers="$(curl 'https://www.speedtest.net/api/js/servers' --compressed -H 'Upgrade-Insecure-Requests: 1' -H 'DNT: 1' -H 'Sec-GPC: 1')"
-        local server_dist
-        server_dist=$(jq --arg id "$server_id" '.[] | select(.id == $id) | .distance' <<<"$servers")
-
-        if grep -q official <<<"$(/usr/bin/speedtest --version)"; then
-            local -r server_name=$(jq -r '.server.name' <<<"$res")
-            local -r download=$(jq -r '.download.bandwidth' <<<"$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
-            local -r upload=$(jq -r '.upload.bandwidth' <<<"$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
-            local -r isp=$(jq -r '.isp' <<<"$res")
-            local -r from_ip=$(jq -r '.interface.externalIp' <<<"$res")
-            local -r server_ping=$(jq -r '.ping.latency' <<<"$res")
-            local -r share_url=$(jq -r '.result.url' <<<"$res")
-            [[ -n "$server_dist" ]] || server_dist="-1"
-        else # speedtest-cli
-            local -r server_name=$(jq -r '.server.sponsor' <<<"$res")
-            local -r download=$(jq -r '.download' <<<"$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
-            local -r upload=$(jq -r '.upload' <<<"$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
-            local -r isp=$(jq -r '.client.isp' <<<"$res")
-            local -r from_ip=$(jq -r '.client.ip' <<<"$res")
-            local -r server_ping=$(jq -r '.ping' <<<"$res")
-            local -r share_url=$(jq -r '.share' <<<"$res")
-            [[ -n "$server_dist" ]] || server_dist=$(jq -r '.server.d' <<<"$res")
-        fi
-
-        savetest "$START" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
-    elif jq -e '.[].server' /tmp/speedtest_results &>/dev/null; then # librespeed
-        local -r res=$(</tmp/speedtest_results)
-        local -r server_name=$(jq -r '.[].server.name' <<<"$res")
-        local -r download=$(jq -r '.[].download' <<<"$res")
-        local -r upload=$(jq -r '.[].upload' <<<"$res")
-        local -r isp="Unknown"
-        local -r from_ip=$(curl -sSL https://ipv4.icanhazip.com)
-        local -r server_ping=$(jq -r '.[].ping' <<<"$res")
-        local -r share_url=$(jq -r '.[].share' <<<"$res")
-        local -r server_dist="-1"
-        savetest "$START" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
-    elif [[ "${1}" == "${2:-}" || "${1}" -le 1 ]]; then
-        echo "Test Failed!" >/tmp/speedtest_results
-        savetest "$START" "$stop"
+    if notInstalled speedtest && notInstalled speedtest-cli; then
+        [[ ! -f /usr/bin/speedtest ]] || rm -f /usr/bin/speedtest
+        addSource
+        isAvailable speedtest && $PKG_MANAGER install -y speedtest || { isAvailable speedtest-cli && $PKG_MANAGER install -y speedtest-cli || librespeed; }
+    elif ! notInstalled speedtest; then
+        swaptest speedtest-cli speedtest || librespeed
     else
-        if notInstalled speedtest && notInstalled speedtest-cli; then
-            [[ ! -f /usr/bin/speedtest ]] || rm -f /usr/bin/speedtest
-            addSource
-            isAvailable speedtest && $PKG_MANAGER install -y speedtest || :
-        elif ! notInstalled speedtest; then
-            swaptest speedtest-cli speedtest
-        else
-            $PKG_MANAGER remove -y speedtest-cli
-            librespeed
-        fi
+        $PKG_MANAGER remove -y speedtest-cli
+        librespeed
+    fi
 
+    local stop
+    local isp="No Internet"
+    local from_ip="-"
+    local server_name="-"
+    local server_dist=0
+    local server_ping=0
+    local download=0
+    local upload=0
+    local share_url="#"
+    local res
+    speedtest | jq . >/tmp/speedtest_results || echo "Attempt ${2:-1} Failed!"
+    stop=$(date -u --rfc-3339='seconds')
+
+    if [[ "${1}" -lt "${2:-0}" || "${1}" -lt 1 ]]; then
+        echo "Limit Reached!"
+    elif [[ -s /tmp/speedtest_results ]]; then
+        res=$(</tmp/speedtest_results)
+
+        if jq -e '.server' /tmp/speedtest_results &>/dev/null; then
+            local server_id
+            local server
+            server_id=$(jq -r '.server.id' <<<"$res")
+            servers="$(curl 'https://www.speedtest.net/api/js/servers' --compressed -H 'Upgrade-Insecure-Requests: 1' -H 'DNT: 1' -H 'Sec-GPC: 1')"
+            server_dist=$(jq --arg id "$server_id" '.[] | select(.id == $id) | .distance' <<<"$servers")
+
+            if /usr/bin/speedtest --version | grep -q "official"; then # ookla
+                server_name=$(jq -r '.server.name' <<<"$res")
+                download=$(jq -r '.download.bandwidth' <<<"$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
+                upload=$(jq -r '.upload.bandwidth' <<<"$res" | awk '{$1=$1*8/1000/1000; print $1;}' | sed 's/,/./g')
+                isp=$(jq -r '.isp' <<<"$res")
+                from_ip=$(jq -r '.interface.externalIp' <<<"$res")
+                server_ping=$(jq -r '.ping.latency' <<<"$res")
+                share_url=$(jq -r '.result.url' <<<"$res")
+                [[ -n "$server_dist" ]] || server_dist="-1"
+            else # speedtest-cli
+                server_name=$(jq -r '.server.sponsor' <<<"$res")
+                download=$(jq -r '.download' <<<"$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
+                upload=$(jq -r '.upload' <<<"$res" | awk '{$1=$1/1000/1000; print $1;}' | sed 's/,/./g')
+                isp=$(jq -r '.client.isp' <<<"$res")
+                from_ip=$(jq -r '.client.ip' <<<"$res")
+                server_ping=$(jq -r '.ping' <<<"$res")
+                share_url=$(jq -r '.share' <<<"$res")
+                [[ -n "$server_dist" ]] || server_dist=$(jq -r '.server.d' <<<"$res")
+            fi
+        else # if jq -e '.[].server' /tmp/speedtest_results &>/dev/null; then # librespeed
+            server_name=$(jq -r '.[].server.name' <<<"$res")
+            download=$(jq -r '.[].download' <<<"$res")
+            upload=$(jq -r '.[].upload' <<<"$res")
+            isp="Unknown"
+            from_ip=$(curl -sSL https://ipv4.icanhazip.com)
+            server_ping=$(jq -r '.[].ping' <<<"$res")
+            share_url=$(jq -r '.[].share' <<<"$res")
+            server_dist="-1"
+        fi
+    else
         run $1 $((${2:-0} + 1))
     fi
+
+    savetest "$START" "$stop" "$isp" "$from_ip" "$server_name" "$server_dist" "$server_ping" "$download" "$upload" "$share_url"
 }
 
 #######################################
@@ -317,8 +329,8 @@ run() {
 #   None
 # Arguments:
 #   None
-# Returns:
-#   None
+# Outputs:
+#   The help message
 #######################################
 help() {
     echo "Usage: $0 [attempts]"
@@ -332,8 +344,8 @@ help() {
 #   PKG_MANAGER
 # Arguments:
 #   None
-# Returns:
-#   None
+# Outputs:
+#   The speedtest results
 #######################################
 main() {
     local -r short_opts=-h
@@ -355,11 +367,6 @@ main() {
 
     if [[ "$1" != "--" ]]; then
         [[ "$1" =~ ^[0-9]+$ ]] && attempts="$1" || help
-    fi
-
-    if [[ ! -f /usr/bin/speedtest ]]; then
-        addSource
-        isAvailable speedtest && $PKG_MANAGER install -y speedtest || { isAvailable speedtest-cli && $PKG_MANAGER install -y speedtest-cli || librespeed; }
     fi
 
     echo "Running Test..."
