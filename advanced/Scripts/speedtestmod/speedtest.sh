@@ -91,10 +91,9 @@ savetest() {
     chmod 644 /tmp/speedtest_results
     mv -f /tmp/speedtest_results /var/log/pihole/speedtest.log
     \cp -af /var/log/pihole/speedtest.log /etc/pihole/speedtest.log
-    mv -f "$OUT_FILE" /var/log/pihole/speedtest-run.log
     sqlite3 /etc/pihole/speedtest.db "$CREATE_TABLE"
     sqlite3 /etc/pihole/speedtest.db "insert into speedtest values (NULL, '${start_time}', '${stop_time}', '${isp}', '${from_ip}', '${server}', ${server_dist}, ${server_ping}, ${download}, ${upload}, '${share_url}');"
-    [[ "$isp" == "No Internet" ]] && exit 1 || exit 0
+    [[ "$isp" == "No Internet" ]] && return 1 || return 0
 }
 
 #######################################
@@ -310,6 +309,8 @@ run() {
 
         run $1 $((${2:-0} + 1))
     fi
+
+    return $?
 }
 
 #######################################
@@ -372,6 +373,12 @@ main() {
 
     echo "Running Test..."
     run $attempts
+    run_status=$?
 }
 
-main "$@" 2>&1 | tee "$OUT_FILE"
+declare -i run_status=0
+rm -f /tmp/pimod.log
+touch /tmp/pimod.log
+main "$@" 2>&1 | tee -a "$OUT_FILE"
+mv -f "$OUT_FILE" /var/log/pihole/speedtest-run.log || rm -f "$OUT_FILE"
+exit $run_status
