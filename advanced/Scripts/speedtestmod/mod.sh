@@ -26,7 +26,7 @@ getVersion() {
         if [[ -z "${2:-}" ]]; then
             local tags
             local found_tag=$found_version
-            tags=$(git ls-remote -t origin)
+            tags=$(git ls-remote -t origin || git show-ref --tags)
             ! grep -q "$found_version" <<<"$tags" || found_tag=$(grep "$found_version" <<<"$tags" | awk '{print $2;}' | cut -d '/' -f 3 | sort -V | tail -n1)
             [[ -z "$found_tag" ]] || found_version=$found_tag
         fi
@@ -102,7 +102,7 @@ download() {
     local current_hash
     local tags
     current_hash=$(getVersion "$dest" hash)
-    tags=$(git ls-remote -t origin)
+    tags=$(git ls-remote -t origin || git show-ref --tags)
 
     if [[ -z "$desired_version" ]]; then # if empty, get the latest version
         local latest_tag=""
@@ -424,11 +424,11 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
         local verbose=false
         local chk_dep=true
         local -i dashes=0
-        local -r SHORT=-uboirtndvxch
-        local -r LONG=update,backup,online,install,reinstall,testing,uninstall,database,version,verbose,continuous,help
-        local -r PARSED=$(getopt --options ${SHORT} --longoptions ${LONG} --name "$0" -- "$@")
+        local -r short_opts=-uboirtndvxch
+        local -r long_opts=update,backup,online,install,reinstall,testing,uninstall,database,version,verbose,continuous,help
+        local -r parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@")
         declare -a POSITIONAL EXTRA_ARGS
-        eval set -- "${PARSED}"
+        eval set -- "${parsed_opts}"
         local -ri num_args=$#
 
         while [[ $# -gt 0 ]]; do
@@ -574,8 +574,12 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
                     readonly missingpkgs
                     if [[ ${#missingpkgs[@]} -gt 0 ]]; then
-                        [[ "$pkg_manager" != *"apt-get"* ]] || apt-get update >/dev/null
-                        echo "Installing Missing..."
+                        if [[ "$pkg_manager" == *"apt-get"* ]] && apt-cache show "${missingpkgs[@]}" | grep -q "Unable to locate package"; then
+                            echo "Updating Package Cache..."
+                            apt-get update -y &>/dev/null
+                        fi
+
+                        echo "Installing Missing Dependencies..."
                         $pkg_manager install -y "${missingpkgs[@]}" &>/dev/null # hide an unimportant warning in docker
                     fi
                 fi

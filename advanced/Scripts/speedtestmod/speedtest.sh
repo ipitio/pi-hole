@@ -337,12 +337,12 @@ help() {
 #   None
 #######################################
 main() {
-    local -r SHORT=-h
-    local -r LONG=help
-    local -r PARSED=$(getopt --options ${SHORT} --longoptions ${LONG} --name "$0" -- "$@")
+    local -r short_opts=-h
+    local -r long_opts=help
+    local -r parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@")
     local POSITIONAL=()
     local attempts="3"
-    eval set -- "${PARSED}"
+    eval set -- "${parsed_opts}"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
