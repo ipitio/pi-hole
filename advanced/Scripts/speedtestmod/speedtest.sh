@@ -359,11 +359,6 @@ main() {
         [[ "$1" =~ ^[0-9]+$ ]] && attempts="$1" || help
     fi
 
-    if [[ $EUID != 0 ]]; then
-        sudo "$0" "$@"
-        exit $?
-    fi
-
     set -x
 
     if [[ ! -f /usr/bin/speedtest ]]; then
@@ -377,8 +372,14 @@ main() {
 }
 
 declare -i run_status=0
-rm -f /tmp/pimod.log
-touch /tmp/pimod.log
-main "$@" 2>&1 | tee -a "$OUT_FILE"
+
+if [[ $EUID != 0 ]]; then
+    sudo "$0" "$@"
+    exit $?
+fi
+
+rm -f "$OUT_FILE"
+touch "$OUT_FILE"
+main "$@" 2>&1 | /usr/bin/tee -a "$OUT_FILE"
 mv -f "$OUT_FILE" /var/log/pihole/speedtest-run.log || rm -f "$OUT_FILE"
 exit $run_status
