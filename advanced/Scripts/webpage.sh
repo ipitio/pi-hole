@@ -699,7 +699,7 @@ After=network.target
 [Service]
 User=root
 Type=oneshot
-ExecStart=/opt/pihole/speedtestmod/speedtest.sh
+ExecStart=/usr/local/bin/pihole -a -sn
 
 [Install]
 WantedBy=multi-user.target
