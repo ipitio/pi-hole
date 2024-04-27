@@ -698,7 +698,7 @@ After=network.target
 
 [Service]
 User=root
-Type=oneshot
+Type=forking
 ExecStart=/usr/local/bin/pihole -a -sn
 
 [Install]

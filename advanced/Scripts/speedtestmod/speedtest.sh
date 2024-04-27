@@ -309,8 +309,6 @@ run() {
 
         run $1 $((${2:-0} + 1))
     fi
-
-    return $?
 }
 
 #######################################
@@ -359,8 +357,6 @@ main() {
         [[ "$1" =~ ^[0-9]+$ ]] && attempts="$1" || help
     fi
 
-    set -x
-
     if [[ ! -f /usr/bin/speedtest ]]; then
         addSource
         isAvailable speedtest && $PKG_MANAGER install -y speedtest || { isAvailable speedtest-cli && $PKG_MANAGER install -y speedtest-cli || librespeed; }
@@ -380,6 +376,6 @@ fi
 
 rm -f "$OUT_FILE"
 touch "$OUT_FILE"
-main "$@" 2>&1 | /usr/bin/tee -a "$OUT_FILE"
+main "$@" 2>&1 | tee -a "$OUT_FILE"
 mv -f "$OUT_FILE" /var/log/pihole/speedtest-run.log || rm -f "$OUT_FILE"
 exit $run_status
