@@ -43,7 +43,7 @@ source /opt/pihole/speedtestmod/mod.sh
 #   None
 #######################################
 speedtest() {
-    if grep -q official <<<"$(/usr/bin/speedtest --version)"; then
+    if /usr/bin/speedtest --version | grep -q "official"; then
         [[ -n "${SERVER_ID}" ]] && /usr/bin/speedtest -s "$SERVER_ID" --accept-gdpr --accept-license -f json || /usr/bin/speedtest --accept-gdpr --accept-license -f json
     else
         [[ -n "${SERVER_ID}" ]] && /usr/bin/speedtest --server "$SERVER_ID" --json --share --secure || /usr/bin/speedtest --json --share --secure
