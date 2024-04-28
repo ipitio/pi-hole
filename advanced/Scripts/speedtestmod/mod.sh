@@ -223,6 +223,7 @@ libreSpeed() {
     pushd /etc/pihole/librespeed &>/dev/null || return 1
     [[ ! -d out ]] || rm -rf out
     ./build.sh
+    rm -f /usr/bin/speedtest
     mv -f out/* /usr/bin/speedtest
     popd &>/dev/null || return 1
     chmod +x /usr/bin/speedtest
