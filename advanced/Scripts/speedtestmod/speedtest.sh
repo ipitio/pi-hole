@@ -201,7 +201,7 @@ run() {
     local res
     local stop
 
-    if [[ "${1}" -gt "${2:-0}" ]]; then
+    if [[ "${2:-0}" -gt 0 || ! -f /usr/bin/speedtest ]]; then
         if notInstalled speedtest && notInstalled speedtest-cli; then
             [[ ! -f /usr/bin/speedtest ]] || rm -f /usr/bin/speedtest
             addSource
@@ -225,7 +225,9 @@ run() {
             [[ -f /usr/bin/speedtest ]] || $PKG_MANAGER install -y speedtest
             [[ -f /usr/bin/speedtest ]] || $PKG_MANAGER install -y speedtest-cli
         fi
+    fi
 
+    if [[ "${1}" -gt "${2:-0}" ]]; then
         speedtest | jq . >/tmp/speedtest_results || echo "Attempt ${2:-0} Failed!"
         stop=$(date -u --rfc-3339='seconds')
 
