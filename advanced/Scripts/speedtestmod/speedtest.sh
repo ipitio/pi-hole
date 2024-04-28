@@ -152,10 +152,11 @@ run() {
         echo "Limit Reached!"
     fi
 
-    local -r rm_empty='
-  def nonempty: . and length > 0 and (type != "object" or . != {}) and (type != "array" or any(.[]; . != ""));
-  if type == "array" then map(walk(if type == "object" then with_entries(select(.value | nonempty)) else . end)) else walk(if type == "object" then with_entries(select(.value | nonempty)) else . end) end
-'
+    local -r rm_empty="
+    def walk(f): . as \$in | if type == \"object\" then reduce keys_unsorted[] as \$key ({}; . + { (\$key):  (\$in[\$key] | walk(f)) }) | f else if type == \"array\" then map( walk(f) ) | f else f end;
+    def nonempty: . and length > 0 and (type != \"object\" or . != {}) and (type != \"array\" or any(.[]; . != \"\"));
+    if type == \"array\" then map(walk(if type == \"object\" then with_entries(select(.value | nonempty)) else . end)) else walk(if type == \"object\" then with_entries(select(.value | nonempty)) else . end) end
+"
     local -r temp_file=$(mktemp)
     local -r json_file="/tmp/speedtest_results"
     jq "$rm_empty" "$json_file" >"$temp_file" && mv -f "$temp_file" "$json_file"
