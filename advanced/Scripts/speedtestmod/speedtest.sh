@@ -136,7 +136,7 @@ run() {
                     [[ -n "$server_dist" ]] || server_dist=$(jq -r '.server.d' <<<"$res")
                 fi
             else # if jq -e '.[].server' /tmp/speedtest_results &>/dev/null; then # librespeed
-                server_name=$(jq -r '.[].server.name' <<<"$res" | sed 's/Sponsor: (.*) @/\1/')
+                server_name=$(jq -r '.[].server.name' <<<"$res" | sed 's/Sponsor: \(.*\) @/\1/')
                 download=$(jq -r '.[].download' <<<"$res")
                 upload=$(jq -r '.[].upload' <<<"$res")
                 isp="Unknown"
