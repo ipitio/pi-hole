@@ -6,6 +6,10 @@
 # shellcheck disable=SC2015
 #
 
+declare PKG_MANAGER
+PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
+readonly PKG_MANAGER
+
 #######################################
 # Get the version of a repository, either from a local clone or from the installed package
 # Globals:
@@ -138,9 +142,9 @@ download() {
 #   0 if the package is not installed, 1 if it is
 #######################################
 notInstalled() {
-    if [[ -x "$(command -v apt-get)" ]]; then
+    if [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
         dpkg -s "$1" &>/dev/null || return 0
-    elif [[ -x "$(command -v dnf)" ]] || [[ -x "$(command -v yum)" ]]; then
+    elif [[ "$PKG_MANAGER" == *"dnf"* || "$PKG_MANAGER" == *"yum"* ]]; then
         rpm -q "$1" &>/dev/null || return 0
     else
         echo "Unsupported package manager!"
@@ -185,6 +189,119 @@ getCnf() {
     value=$(grep "^$2=" "$1" | cut -d '=' -f 2)
     [[ -n "$value" ]] || value=$(getVersion "$keydir" "${3:-}")
     echo "$value"
+}
+
+#######################################
+# Download and install librespeed
+# Globals:
+#   PKG_MANAGER
+# Arguments:
+#   None
+# Returns:
+#   0 if the installation was successful, 1 if it was not
+#######################################
+libreSpeed() {
+    echo "Installing LibreSpeed..."
+    $PKG_MANAGER remove -y speedtest-cli speedtest >/dev/null 2>&1
+
+    if notInstalled golang; then
+        if grep -q "Raspbian" /etc/os-release; then
+            if [[ ! -f /etc/apt/sources.list.d/testing.list ]] && ! grep -q "testing" /etc/apt/sources.list; then
+                echo "Adding testing repo to sources.list.d"
+                echo "deb http://archive.raspbian.org/raspbian/ testing main" >/etc/apt/sources.list.d/testing.list
+                printf "Package: *\nPin: release a=testing\nPin-Priority: 50" >/etc/apt/preferences.d/limit-testing
+                $PKG_MANAGER update
+            fi
+
+            $PKG_MANAGER install -y -t testing golang
+        else
+            $PKG_MANAGER install -y golang
+        fi
+    fi
+
+    download /etc/pihole librespeed https://github.com/librespeed/speedtest-cli
+    pushd /etc/pihole/librespeed &>/dev/null || return 1
+    [[ ! -d out ]] || rm -rf out
+    ./build.sh
+    mv -f out/* /usr/bin/speedtest
+    popd &>/dev/null || return 1
+    chmod +x /usr/bin/speedtest
+    [[ -x /usr/bin/speedtest ]] && return 0 || return 1
+}
+
+#######################################
+# Swap between two packages, speedtest and speedtest-cli by default
+# Globals:
+#   PKG_MANAGER
+# Arguments:
+#   None
+# Outputs:
+#   The swapped package
+#######################################
+swivelSpeed() {
+    local candidate="${1:-speedtest-cli}"
+    local target="${2:-speedtest}"
+    [[ ! -f /usr/bin/speedtest ]] || rm -f /usr/bin/speedtest
+
+    case "$PKG_MANAGER" in
+    /usr/bin/apt-get) "$PKG_MANAGER" install -y "$candidate" "$target"- ;;
+    /usr/bin/dnf) "$PKG_MANAGER" install -y --allowerasing "$candidate" ;;
+    /usr/bin/yum) "$PKG_MANAGER" install -y --allowerasing "$candidate" ;;
+    esac
+
+    ! notInstalled "$candidate"
+}
+
+#######################################
+# Add the Ookla speedtest CLI source
+# Globals:
+#   PKG_MANAGER
+# Arguments:
+#   None
+# Outputs:
+#   The source for the speedtest CLI
+#######################################
+ooklaSpeed() {
+    if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
+        if [[ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]]; then
+            echo "Adding speedtest source for RPM..."
+            curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash
+        fi
+
+        yum list speedtest | grep -q "Available Packages" && $PKG_MANAGER install -y speedtest || :
+    elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
+        if [[ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]]; then
+            echo "Adding speedtest source for DEB..."
+            if [[ -e /etc/os-release ]]; then
+                # shellcheck disable=SC1091
+                source /etc/os-release
+                local -r base="ubuntu debian"
+                local os=${ID}
+                local dist=${VERSION_CODENAME}
+                # shellcheck disable=SC2076
+                if [[ -n "${ID_LIKE:-}" && "${base//\"/}" =~ "${ID_LIKE//\"/}" && "${os}" != "ubuntu" ]]; then
+                    os=${ID_LIKE%% *}
+                    [[ -z "${UBUNTU_CODENAME:-}" ]] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
+                    dist=${UBUNTU_CODENAME}
+                    [[ -z "$dist" ]] && dist=${VERSION_CODENAME}
+                fi
+                wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
+                chmod +x /tmp/script.deb.sh
+                os=$os dist=$dist /tmp/script.deb.sh
+                rm -f /tmp/script.deb.sh
+            else
+                curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
+            fi
+
+            sed -i 's/g]/g allow-insecure=yes trusted=yes]/' /etc/apt/sources.list.d/ookla_speedtest-cli.list
+            apt-get update
+        fi
+    else
+        echo "Unsupported package manager!"
+        exit 1
+    fi
+
+    swivelSpeed speedtest speedtest-cli
 }
 
 # allow to source the above helper functions without running the whole script
@@ -577,7 +694,6 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
 
                     echo "Checking Dependencies..."
                     local -r php_version=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
-                    local -r pkg_manager=$(command -v apt-get || command -v dnf || command -v yum)
                     local -r pkgs=(bc nano sqlite3 jq tar tmux wget "php$php_version-sqlite3")
                     local missingpkgs=()
 
@@ -588,11 +704,11 @@ if [[ "${SKIP_MOD:-}" != true ]]; then
                     readonly missingpkgs
                     if [[ ${#missingpkgs[@]} -gt 0 ]]; then
                         echo "Installing Missing Dependencies..."
-                        if ! $pkg_manager install -y "${missingpkgs[@]}" &>/dev/null; then
-                            [[ "$pkg_manager" == *"apt-get"* ]] || exit 1
+                        if ! $PKG_MANAGER install -y "${missingpkgs[@]}" &>/dev/null; then
+                            [[ "$PKG_MANAGER" == *"apt-get"* ]] || exit 1
                             echo "And Updating Package Cache..."
-                            $pkg_manager update -y &>/dev/null
-                            $pkg_manager install -y "${missingpkgs[@]}" &>/dev/null
+                            $PKG_MANAGER update -y &>/dev/null
+                            $PKG_MANAGER install -y "${missingpkgs[@]}" &>/dev/null
                         fi
                     fi
                 fi

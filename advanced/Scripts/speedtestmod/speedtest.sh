@@ -21,12 +21,10 @@ upload real,
 share_url text
 );"
 declare START
-declare PKG_MANAGER
 declare SERVER_ID
 START=$(date -u --rfc-3339='seconds')
-PKG_MANAGER=$(command -v apt-get || command -v dnf || command -v yum)
 SERVER_ID=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2)
-readonly START PKG_MANAGER SERVER_ID
+readonly START SERVER_ID
 
 # shellcheck disable=SC2034
 SKIP_MOD=true
@@ -60,118 +58,11 @@ speedtest() {
 #   0 if available, 1 if not
 #######################################
 isAvailable() {
-    if [[ "$PKG_MANAGER" == "/usr/bin/apt-get" ]]; then
+    if [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
         # Check if there is a candidate and it is not "(none)"
         apt-cache policy "$1" | grep -q "Candidate:" && ! apt-cache policy "$1" | grep -q "Candidate: (none)" && return 0 || return 1
-    elif [[ "$PKG_MANAGER" == "/usr/bin/dnf" || "$PKG_MANAGER" == "/usr/bin/yum" ]]; then
+    elif [[ "$PKG_MANAGER" == *"dnf"* || "$PKG_MANAGER" == *"yum"* ]]; then
         $PKG_MANAGER list available "$1" &>/dev/null && return 0 || return 1
-    else
-        echo "Unsupported package manager!"
-        exit 1
-    fi
-}
-
-#######################################
-# Check if a package is installed
-# Globals:
-#   PKG_MANAGER
-#   OUT_FILE
-# Arguments:
-#   $1: The package to check
-# Returns:
-#   0 if the package is not installed, 1 if it is
-#######################################
-notInstalled() {
-    if [[ "$PKG_MANAGER" == "/usr/bin/apt-get" ]]; then
-        dpkg -s "$1" &>/dev/null || return 0
-    elif [[ "$PKG_MANAGER" == "/usr/bin/dnf" || "$PKG_MANAGER" == "/usr/bin/yum" ]]; then
-        rpm -q "$1" &>/dev/null || return 0
-    else
-        echo "Unsupported package manager!"
-        mv -f "$OUT_FILE" /var/log/pihole/speedtest-run.log
-        exit 1
-    fi
-
-    return 1
-}
-
-#######################################
-# Download and install librespeed
-# Globals:
-#   PKG_MANAGER
-# Arguments:
-#   None
-# Outputs:
-#   The librespeed binary
-#######################################
-librespeed() {
-    if notInstalled golang; then
-        if grep -q "Raspbian" /etc/os-release; then
-            if [[ ! -f /etc/apt/sources.list.d/testing.list ]] && ! grep -q "testing" /etc/apt/sources.list; then
-                echo "Adding testing repo to sources.list.d"
-                echo "deb http://archive.raspbian.org/raspbian/ testing main" >/etc/apt/sources.list.d/testing.list
-                printf "Package: *\nPin: release a=testing\nPin-Priority: 50" >/etc/apt/preferences.d/limit-testing
-                $PKG_MANAGER update
-            fi
-
-            $PKG_MANAGER install -y -t testing golang
-        else
-            $PKG_MANAGER install -y golang
-        fi
-    fi
-    download /etc/pihole librespeed https://github.com/librespeed/speedtest-cli
-    pushd /etc/pihole/librespeed &>/dev/null || return 1
-    [[ ! -d out ]] || rm -rf out
-    ./build.sh
-    mv -f out/* /usr/bin/speedtest
-    popd &>/dev/null || return 1
-    chmod +x /usr/bin/speedtest
-}
-
-#######################################
-# Add the Ookla speedtest CLI source
-# Globals:
-#   PKG_MANAGER
-# Arguments:
-#   None
-# Outputs:
-#   The source for the speedtest CLI
-#######################################
-addSource() {
-    if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
-        if [[ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]]; then
-            echo "Adding speedtest source for RPM..."
-            curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash
-        fi
-
-        yum list speedtest | grep -q "Available Packages" && $PKG_MANAGER install -y speedtest || :
-    elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
-        if [[ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]]; then
-            echo "Adding speedtest source for DEB..."
-            if [[ -e /etc/os-release ]]; then
-                # shellcheck disable=SC1091
-                source /etc/os-release
-                local -r base="ubuntu debian"
-                local os=${ID}
-                local dist=${VERSION_CODENAME}
-                # shellcheck disable=SC2076
-                if [[ -n "${ID_LIKE:-}" && "${base//\"/}" =~ "${ID_LIKE//\"/}" && "${os}" != "ubuntu" ]]; then
-                    os=${ID_LIKE%% *}
-                    [[ -z "${UBUNTU_CODENAME:-}" ]] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
-                    dist=${UBUNTU_CODENAME}
-                    [[ -z "$dist" ]] && dist=${VERSION_CODENAME}
-                fi
-                wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
-                chmod +x /tmp/script.deb.sh
-                os=$os dist=$dist /tmp/script.deb.sh
-                rm -f /tmp/script.deb.sh
-            else
-                curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
-            fi
-
-            sed -i 's/g]/g allow-insecure=yes trusted=yes]/' /etc/apt/sources.list.d/ookla_speedtest-cli.list
-            apt-get update
-        fi
     else
         echo "Unsupported package manager!"
         exit 1
@@ -204,30 +95,16 @@ run() {
     if [[ "${2:-0}" -gt 0 || ! -f /usr/bin/speedtest ]]; then
         if notInstalled speedtest && notInstalled speedtest-cli; then
             [[ ! -f /usr/bin/speedtest ]] || rm -f /usr/bin/speedtest
-            addSource
-            ! isAvailable speedtest || $PKG_MANAGER install -y speedtest
-            ! notInstalled speedtest || $PKG_MANAGER install -y speedtest-cli
-            notInstalled speedtest && notInstalled speedtest-cli && librespeed || :
+            ! ooklaSpeed && ! swivelSpeed && libreSpeed || :
         elif ! notInstalled speedtest && isAvailable speedtest-cli; then
-            case "$PKG_MANAGER" in
-            /usr/bin/apt-get) "$PKG_MANAGER" install -y speedtest-cli speedtest- ;;
-            /usr/bin/dnf) "$PKG_MANAGER" install -y --allowerasing speedtest-cli ;;
-            /usr/bin/yum) "$PKG_MANAGER" install -y --allowerasing speedtest-cli ;;
-            esac
-
-            ! notInstalled speedtest-cli || librespeed
-            [[ -f /usr/bin/speedtest ]] || addSource
-            [[ -f /usr/bin/speedtest ]] || $PKG_MANAGER install -y speedtest
+            ! swivelSpeed && ! libreSpeed && ooklaSpeed || :
         else
-            $PKG_MANAGER remove -y speedtest-cli
-            librespeed
-            [[ -f /usr/bin/speedtest ]] || addSource
-            [[ -f /usr/bin/speedtest ]] || $PKG_MANAGER install -y speedtest
-            [[ -f /usr/bin/speedtest ]] || $PKG_MANAGER install -y speedtest-cli
+            ! libreSpeed && ! ooklaSpeed && swivelSpeed || :
         fi
     fi
 
     if [[ "${1}" -gt "${2:-0}" ]]; then
+        [[ -n "${2:-}" ]] || echo "Running Test..."
         speedtest | jq . >/tmp/speedtest_results || echo "Attempt ${2:-0} Failed!"
         stop=$(date -u --rfc-3339='seconds')
 
@@ -339,7 +216,6 @@ main() {
         [[ "$1" =~ ^[0-9]+$ ]] && attempts="$1" || help
     fi
 
-    echo "Running Test..."
     run $attempts
     run_status=$?
 }
