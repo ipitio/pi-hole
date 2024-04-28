@@ -132,6 +132,27 @@ download() {
 }
 
 #######################################
+# Check if the package is available
+# Globals:
+#   PKG_MANAGER
+# Arguments:
+#   $1: Package name
+# Returns:
+#   0 if available, 1 if not
+#######################################
+isAvailable() {
+    if [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
+        # Check if there is a candidate and it is not "(none)"
+        apt-cache policy "$1" | grep -q "Candidate:" && ! apt-cache policy "$1" | grep -q "Candidate: (none)" && return 0 || return 1
+    elif [[ "$PKG_MANAGER" == *"dnf"* || "$PKG_MANAGER" == *"yum"* ]]; then
+        $PKG_MANAGER list available "$1" &>/dev/null && return 0 || return 1
+    else
+        echo "Unsupported package manager!"
+        exit 1
+    fi
+}
+
+#######################################
 # Check if a package is installed, only used below when --continuous is not
 # Globals:
 #   None
@@ -209,7 +230,7 @@ libreSpeed() {
                 echo "Adding testing repo to sources.list.d"
                 echo "deb http://archive.raspbian.org/raspbian/ testing main" >/etc/apt/sources.list.d/testing.list
                 printf "Package: *\nPin: release a=testing\nPin-Priority: 50" >/etc/apt/preferences.d/limit-testing
-                $PKG_MANAGER update
+                $PKG_MANAGER update -y
             fi
 
             $PKG_MANAGER install -y -t testing golang
@@ -242,9 +263,13 @@ swivelSpeed() {
     local candidate="${1:-speedtest-cli}"
     local target="${2:-speedtest}"
     [[ ! -f /usr/bin/speedtest ]] || rm -f /usr/bin/speedtest
+    echo "Installing $candidate..."
 
     case "$PKG_MANAGER" in
-    /usr/bin/apt-get) "$PKG_MANAGER" install -y "$candidate" "$target"- ;;
+    /usr/bin/apt-get)
+        ! isAvailable "$candidate" && echo "And Updating Package Cache..." && $PKG_MANAGER update -y || :
+        "$PKG_MANAGER" install -y "$candidate" "$target"-
+    ;;
     /usr/bin/dnf) "$PKG_MANAGER" install -y --allowerasing "$candidate" ;;
     /usr/bin/yum) "$PKG_MANAGER" install -y --allowerasing "$candidate" ;;
     esac

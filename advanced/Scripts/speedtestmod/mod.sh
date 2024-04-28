@@ -250,11 +250,11 @@ main() {
     local verbose=false
     local chk_dep=true
     local select_test=false
-    local selected_test=""
+    local selected_test="ookla"
     local -i dashes=0
     local -i standalone=0
-    local -r short_opts=-uboirtnds:vxch
-    local -r long_opts=update,backup,online,install,reinstall,testing,uninstall,database,speedtest:,version,verbose,continuous,help
+    local -r short_opts=-uboirtnds::vxch
+    local -r long_opts=update,backup,online,install,reinstall,testing,uninstall,database,speedtest::,version,verbose,continuous,help
     local -r parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@")
     declare -a POSITIONAL EXTRA_ARGS
     eval set -- "${parsed_opts}"
@@ -272,11 +272,8 @@ main() {
         -d | --database) database=true ;;
         -s | --speedtest)
             select_test=true
-
-            if [[ "$2" != -* ]]; then
-                selected_test="$2"
-                shift
-            fi
+            [[ -n "$2" ]] && selected_test=$2
+            shift
             ;;
         -v | --version)
             getVersion $MOD_DIR
@@ -339,11 +336,13 @@ main() {
     fi
 
     if $select_test; then
+        set +Eeo pipefail
         case $selected_test in
         sivel) swivelSpeed ;;
         libre) libreSpeed ;;
         *) ooklaSpeed ;;
         esac
+        set -Eeo pipefail
     fi
 
     for arg in $database $select_test; do

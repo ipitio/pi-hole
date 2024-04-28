@@ -47,27 +47,6 @@ speedtest() {
 }
 
 #######################################
-# Check if the package is available
-# Globals:
-#   PKG_MANAGER
-# Arguments:
-#   $1: Package name
-# Returns:
-#   0 if available, 1 if not
-#######################################
-isAvailable() {
-    if [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
-        # Check if there is a candidate and it is not "(none)"
-        apt-cache policy "$1" | grep -q "Candidate:" && ! apt-cache policy "$1" | grep -q "Candidate: (none)" && return 0 || return 1
-    elif [[ "$PKG_MANAGER" == *"dnf"* || "$PKG_MANAGER" == *"yum"* ]]; then
-        $PKG_MANAGER list available "$1" &>/dev/null && return 0 || return 1
-    else
-        echo "Unsupported package manager!"
-        exit 1
-    fi
-}
-
-#######################################
 # Run the speedtest and save the results
 # Globals:
 #   PKG_MANAGER
@@ -194,15 +173,17 @@ help() {
 #   The speedtest results
 #######################################
 main() {
-    local -r short_opts=-h
-    local -r long_opts=help
+    local -r short_opts=-xh
+    local -r long_opts=verbose,help
     local -r parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@")
     local POSITIONAL=()
     local attempts="3"
+    local verbose=false
     eval set -- "${parsed_opts}"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
+        -x | --verbose) verbose=true ;;
         -h | --help) help ;;
         *) POSITIONAL+=("$1") ;;
         esac
@@ -215,6 +196,7 @@ main() {
         [[ "$1" =~ ^[0-9]+$ ]] && attempts="$1" || help
     fi
 
+    ! $verbose || set -x
     run $attempts
     run_status=$?
 }
