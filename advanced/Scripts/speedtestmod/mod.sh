@@ -28,8 +28,17 @@ SKIP_INSTALL=true
 source "$CORE_DIR/automated install/basic-install.sh"
 set -u
 
-# shellcheck disable=SC1090,SC1091
-[[ -f "$OPT_DIR/speedtestmod/lib.sh" ]] && source "$OPT_DIR/speedtestmod/lib.sh" || source <(curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/lib.sh)
+if [[ -f "$OPT_DIR/speedtestmod/lib.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "$OPT_DIR/speedtestmod/lib.sh"
+else
+    declare lib_sh
+    lib_sh=$(mktemp)
+    curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/lib.sh -o "$lib_sh"
+    # shellcheck disable=SC1090
+    source "$lib_sh"
+    rm -f "$lib_sh"
+fi
 
 #######################################
 # Display the help message
