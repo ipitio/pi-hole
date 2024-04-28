@@ -262,6 +262,7 @@ run() {
                 fi
             else # if jq -e '.[].server' /tmp/speedtest_results &>/dev/null; then # librespeed
                 server_name=$(jq -r '.[].server.name' <<<"$res")
+                server_name=$(echo "$server_name" | sed -n 's/\(([^0-9)]*)\) \(/\1/p')
                 download=$(jq -r '.[].download' <<<"$res")
                 upload=$(jq -r '.[].upload' <<<"$res")
                 isp="Unknown"
