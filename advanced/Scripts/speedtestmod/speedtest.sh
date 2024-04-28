@@ -207,7 +207,7 @@ run() {
             addSource
             ! isAvailable speedtest || $PKG_MANAGER install -y speedtest
             ! notInstalled speedtest || $PKG_MANAGER install -y speedtest-cli
-            ! notInstalled speedtest-cli || librespeed
+            notInstalled speedtest && notInstalled speedtest-cli && librespeed || :
         elif ! notInstalled speedtest && isAvailable speedtest-cli; then
             case "$PKG_MANAGER" in
             /usr/bin/apt-get) "$PKG_MANAGER" install -y speedtest-cli speedtest- ;;
@@ -217,13 +217,13 @@ run() {
 
             ! notInstalled speedtest-cli || librespeed
             [[ -f /usr/bin/speedtest ]] || addSource
-            [[ ! -f /usr/bin/speedtest ]] && isAvailable speedtest && $PKG_MANAGER install -y speedtest || :
+            [[ -f /usr/bin/speedtest ]] || $PKG_MANAGER install -y speedtest
         else
             $PKG_MANAGER remove -y speedtest-cli
             librespeed
             [[ -f /usr/bin/speedtest ]] || addSource
-            [[ ! -f /usr/bin/speedtest ]] && isAvailable speedtest && $PKG_MANAGER install -y speedtest || :
-            ! notInstalled speedtest || $PKG_MANAGER install -y speedtest-cli
+            [[ -f /usr/bin/speedtest ]] || $PKG_MANAGER install -y speedtest
+            [[ -f /usr/bin/speedtest ]] || $PKG_MANAGER install -y speedtest-cli
         fi
 
         speedtest | jq . >/tmp/speedtest_results || echo "Attempt ${2:-0} Failed!"
