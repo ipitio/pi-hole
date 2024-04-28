@@ -547,14 +547,15 @@ SetWebUILayout() {
 
 generate_systemd_calendar() {
     local interval_hours="$1"
+    local freq_entries=()
     local total_seconds
     total_seconds=$(echo "$interval_hours * 3600" | bc)
-    local freq_entries=()
 
     if (($(echo "$total_seconds < 60" | bc -l))); then # less than a minute
         total_seconds=60
         addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "0.017"
     fi
+
     if (($(echo "$total_seconds >= 60 && $total_seconds < 3600" | bc -l))); then # less than an hour
         local minute_interval
         minute_interval=$(echo "$total_seconds / 60" | bc)
@@ -568,6 +569,7 @@ generate_systemd_calendar() {
             freq_entries+=("*-*-* 00/$hour_interval:00:00")
         else # does not divide evenly into an hour
             local current_second=0
+
             while (($(echo "$current_second < 86400" | bc -l))); do
                 local hour
                 hour=$(echo "$current_second / 3600" | bc)
@@ -581,12 +583,14 @@ generate_systemd_calendar() {
         fi
     else # more than a day
         local full_days
-        full_days=$(echo "$interval_hours / 24" | bc)
         local remaining_hours
+        full_days=$(echo "$interval_hours / 24" | bc)
         remaining_hours=$(echo "$interval_hours - ($full_days * 24)" | bc)
+
         if (($(echo "$full_days > 0" | bc -l))); then
             freq_entries+=("*-*-1/$(printf "%02.0f" "$full_days")")
         fi
+
         if (($(echo "$remaining_hours > 0" | bc -l))); then # partial day
             local remaining_minutes
             remaining_minutes=$(echo "($remaining_hours - ($remaining_hours / 1)) * 60" | bc)
@@ -612,11 +616,13 @@ generate_cron_schedule() {
 
         local remainder
         remainder=$(awk "BEGIN {print $total_seconds % 60}")
+
         if (($(echo "$remainder < 30" | bc -l))); then
             total_seconds=$(echo "$total_seconds - $remainder" | bc -l)
         else
             total_seconds=$(echo "$total_seconds + (60 - $remainder)" | bc -l)
         fi
+
         addOrEditKeyValPair "${setupVars}" "SPEEDTESTSCHEDULE" "$(echo "scale=3; $total_seconds / 3600" | bc)"
     fi
 
@@ -657,6 +663,7 @@ EOF
     sudo chmod +x "$schedule_script"
 
     crontab -l 2>/dev/null | grep -v "$schedule_script" | crontab -
+
     if [[ "$total_seconds" == "nan" ]] || (($(echo "$total_seconds > 0" | bc -l))); then
         crontab -l &>/dev/null || crontab -l 2>/dev/null | {
             cat
@@ -671,6 +678,7 @@ EOF
 
 ChangeSpeedTestSchedule() {
     local interval="${args[2]%\.}"
+
     if [[ "${interval-}" =~ ^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
         if (($(echo "$interval < 0" | bc -l))); then
             interval="0"
@@ -679,6 +687,7 @@ ChangeSpeedTestSchedule() {
         fi
     else
         interval=$(grep "SPEEDTESTSCHEDULE" "${setupVars}" | cut -f2 -d"=")
+
         if [[ ! "${interval-}" =~ ^([0-9]+(\.[0-9]*)?|\.[0-9]+)$ ]]; then
             interval="nan"
         fi
@@ -725,28 +734,19 @@ EOF'
 }
 
 UpdateSpeedTestRange() {
-    if [[ "${args[2]}" =~ ^-?[0-9]+$ ]]; then
-        if [[ "${args[2]}" -ge -1 ]]; then
-            addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_DAYS" "${args[2]}"
-        fi
-    fi
+    [[ ! "${args[2]}" =~ ^-?[0-9]+$ || "${args[2]}" -lt -1 ]] || addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_DAYS" "${args[2]}"
 }
 
 UpdateSpeedTestChartType() {
-    if [[ "${args[2]}" =~ ^(bar|line)$ ]]; then
-        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_TYPE" "${args[2]}"
-    else
-        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_TYPE" "line"
-    fi
+    local chart_type="line"
+    [[ ! "${args[2]}" =~ ^(bar|line)$ ]] || chart_type="${args[2]}"
+    addOrEditKeyValPair "${setupVars}" "SPEEDTEST_CHART_TYPE" "$chart_type"
 }
 
 SpeedtestServer() {
-    if [[ "${args[2]}" =~ ^[0-9]+$ ]]; then
-        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" "${args[2]}"
-    else
-        # Autoselect for invalid data
-        addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" ""
-    fi
+    local test_server=""
+    [[ ! "${args[2]}" =~ ^[0-9]+$ ]] || test_server="${args[2]}"
+    addOrEditKeyValPair "${setupVars}" "SPEEDTEST_SERVER" "$test_server"
 }
 
 RunSpeedtestNow() {
