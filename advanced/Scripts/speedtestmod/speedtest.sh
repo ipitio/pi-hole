@@ -26,10 +26,8 @@ START=$(date -u --rfc-3339='seconds')
 SERVER_ID=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2)
 readonly START SERVER_ID
 
-# shellcheck disable=SC2034
-SKIP_MOD=true
 # shellcheck disable=SC1091
-source /opt/pihole/speedtestmod/mod.sh
+source /opt/pihole/speedtestmod/lib.sh
 
 #######################################
 # Run the speedtest
