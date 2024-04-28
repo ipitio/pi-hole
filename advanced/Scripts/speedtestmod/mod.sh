@@ -346,7 +346,7 @@ main() {
     fi
 
     for arg in $database $select_test; do
-        ! $arg || (( standalone++ ))
+        ! $arg || ((standalone++))
     done
 
     if [[ "$num_args" -eq 0 || "$num_args" -gt "$standalone" ]]; then
