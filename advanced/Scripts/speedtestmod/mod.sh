@@ -48,20 +48,22 @@ help() {
         "(Re)install the latest release of the Speedtest Mod, and/or the following options:"
         ""
         "Options:"
-        "  -b, --backup             preserve stock Pi-hole files for faster offline restore"
-        "  -o, --online             force online restore of stock Pi-hole files even if a backup exists"
-        "  -i, --install            skip restore of stock Pi-hole*"
-        "  -c, --continuous         skip check for missing dependencies"
-        "  -r, --reinstall          keep current version of the mod, if installed*"
-        "  -t, --testing            install the latest commit"
-        "  -u, --update,    up      also update Pi-hole, unless Systemd is not being used (ie. not in Docker)"
-        "  -n, --uninstall, un      remove the mod and its files, but keep the database"
-        "  -d, --database,  db      flush/restore the database if it's not/empty (and exit if this is the only arg given)"
-        "  -x, --verbose            show the commands being run"
-        "  -v, --version            display the version of the mod and exit"
-        "  -h, --help               display this help message and exit"
+        "  -b, --backup                     preserve stock Pi-hole files for faster offline restore"
+        "  -o, --online                     force online restore of stock Pi-hole files even if a backup exists"
+        "  -i, --install                    skip restore of stock Pi-hole*"
+        "  -c, --continuous                 skip check for missing dependencies"
+        "  -r, --reinstall                  keep current version of the mod, if installed*"
+        "  -t, --testing                    install the latest commit"
+        "  -u, --update,    up              also update Pi-hole, unless Systemd is not being used (ie. not in Docker)"
+        "  -n, --uninstall, un              remove the mod and its files, but keep the database"
+        "  -d, --database,  db              flush/restore the database if it's not/empty**"
+        "  -s, --speedtest [sivel|libre]    install Ookla's or the specified CLI even if another is already installed**"
+        "  -x, --verbose                    show the commands being run"
+        "  -v, --version                    display the version of the mod and exit"
+        "  -h, --help                       display this help message and exit"
         ""
         "  *for when not updating Pi-hole nor switching repos"
+        "  **and exit if these are the only args given"
         ""
         "Examples:"
         "  sudo bash /opt/pihole/speedtestmod/mod.sh -ubo"
@@ -247,9 +249,12 @@ main() {
     local database=false
     local verbose=false
     local chk_dep=true
+    local select_test=false
+    local selected_test=""
     local -i dashes=0
-    local -r short_opts=-uboirtndvxch
-    local -r long_opts=update,backup,online,install,reinstall,testing,uninstall,database,version,verbose,continuous,help
+    local -i standalone=0
+    local -r short_opts=-uboirtnds:vxch
+    local -r long_opts=update,backup,online,install,reinstall,testing,uninstall,database,speedtest:,version,verbose,continuous,help
     local -r parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@")
     declare -a POSITIONAL EXTRA_ARGS
     eval set -- "${parsed_opts}"
@@ -265,6 +270,14 @@ main() {
         -t | --testing) stable=false ;;
         -n | --uninstall) uninstall=true ;;
         -d | --database) database=true ;;
+        -s | --speedtest)
+            select_test=true
+
+            if [[ "$2" != -* ]]; then
+                selected_test="$2"
+                shift
+            fi
+            ;;
         -v | --version)
             getVersion $MOD_DIR
             cleanup=false
@@ -298,7 +311,7 @@ main() {
         esac
     done
 
-    readonly update backup online install reinstall stable uninstall database verbose chk_dep cleanup
+    readonly update backup online install reinstall stable uninstall database verbose chk_dep cleanup select_test selected_test
     trap '[ "$?" -eq "0" ] && commit || abort' EXIT
     printf "%s\n\nRunning the Mod Script by @ipitio...\n" "$(date)"
     ! $verbose || set -x
@@ -325,7 +338,19 @@ main() {
         fi
     fi
 
-    if ! $database || [[ "$num_args" -gt 1 ]]; then
+    if $select_test; then
+        case $selected_test in
+        sivel) swivelSpeed ;;
+        libre) libreSpeed ;;
+        *) ooklaSpeed ;;
+        esac
+    fi
+
+    for arg in $database $select_test; do
+        ! $arg || (( standalone+=1 ))
+    done
+
+    if [[ "$num_args" -eq 0 || "$num_args" -gt "$standalone" ]]; then
         pushd ~ >/dev/null || exit 1
         pihole -v || :
 
