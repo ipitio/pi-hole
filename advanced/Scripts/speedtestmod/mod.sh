@@ -435,8 +435,8 @@ main() {
                     local -r installed_admin_ver=$(getVersion "web")
                     if [[ "$installed_core_ver" == *.* && "$installed_admin_ver" == *.* ]]; then
                         echo "Finding Latest Compatible Versions..."
-                        mod_core_ver=$(git ls-remote "https://github.com/ipitio/pi-hole" | grep "$installed_core_ver" | awk '{print $2;}' | cut -d '/' -f 3 | sort -Vr | head -n1)
-                        mod_admin_ver=$(git ls-remote "https://github.com/ipitio/AdminLTE" | grep "$installed_admin_ver" | awk '{print $2;}' | cut -d '/' -f 3 | sort -Vr | head -n1)
+                        mod_core_ver=$(git ls-remote "https://github.com/arevindh/pi-hole" | grep "$installed_core_ver" | awk '{print $2;}' | cut -d '/' -f 3 | sort -Vr | head -n1)
+                        mod_admin_ver=$(git ls-remote "https://github.com/arevindh/AdminLTE" | grep "$installed_admin_ver" | awk '{print $2;}' | cut -d '/' -f 3 | sort -Vr | head -n1)
                     fi
                 fi
             elif [[ -d /run/systemd/system ]]; then
