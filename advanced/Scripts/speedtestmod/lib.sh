@@ -22,7 +22,7 @@ readonly PKG_MANAGER
 getVersion() {
     local found_version=""
 
-    if [[ -d "$1" ]]; then
+    if [[ -d "$1" && -d "$1/.git" ]]; then
         pushd "$1" &>/dev/null || exit 1
         found_version=$(git status --porcelain=2 -b | grep branch.oid | awk '{print $3;}')
         [[ $found_version != *"("* ]] || found_version=$(git rev-parse HEAD 2>/dev/null)
