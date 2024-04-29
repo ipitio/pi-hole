@@ -6,13 +6,6 @@
 # shellcheck disable=SC2015
 #
 
-# shellcheck disable=SC2034
-SKIP_INSTALL=true
-# shellcheck disable=SC1091
-source "$CORE_DIR/automated install/basic-install.sh"
-# shellcheck disable=SC1090,SC1091
-[[ -f "$OPT_DIR/speedtestmod/lib.sh" ]] && source "$OPT_DIR/speedtestmod/lib.sh" || source <(curl -sSLN https://github.com/ipitio/pi-hole/raw/ipitio/advanced/Scripts/speedtestmod/lib.sh)
-
 declare -r HTML_DIR="/var/www/html"
 declare -r CORE_DIR="/etc/.pihole"
 declare -r OPT_DIR="/opt/pihole"
@@ -27,6 +20,12 @@ st_ver=""
 mod_core_ver=""
 mod_admin_ver=""
 cleanup=true
+# shellcheck disable=SC2034
+SKIP_INSTALL=true
+# shellcheck disable=SC1091
+source "$CORE_DIR/automated install/basic-install.sh"
+# shellcheck disable=SC1090,SC1091
+[[ -f "$OPT_DIR/speedtestmod/lib.sh" ]] && source "$OPT_DIR/speedtestmod/lib.sh" || source <(curl -sSLN https://github.com/ipitio/pi-hole/raw/ipitio/advanced/Scripts/speedtestmod/lib.sh)
 
 #######################################
 # Display the help message
