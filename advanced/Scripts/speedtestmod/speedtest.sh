@@ -6,6 +6,9 @@
 # shellcheck disable=SC2015
 #
 
+# shellcheck disable=SC1091
+source /opt/pihole/speedtestmod/lib.sh
+
 declare -r OUT_FILE=/tmp/speedtest.log
 declare -r CREATE_TABLE="create table if not exists speedtest (
 id integer primary key autoincrement,
@@ -25,9 +28,32 @@ declare SERVER_ID
 START=$(date -u --rfc-3339='seconds')
 SERVER_ID=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2)
 readonly START SERVER_ID
+declare -i run_status=0
 
-# shellcheck disable=SC1091
-source /opt/pihole/speedtestmod/lib.sh
+#######################################
+# Display the help message
+# Globals:
+#   None
+# Arguments:
+#   None
+# Outputs:
+#   The help message
+#######################################
+help() {
+    local -r help_text=(
+        "Usage: $0 [options]"
+        ""
+        "Run the speedtest"
+        ""
+        "Options:"
+        "  -a, --attempts=<number>  Number of attempts (default: 3)"
+        "  -x, --verbose            Show the commands being run"
+        "  -h, --help               Display this help message"
+    )
+
+    printf "%s\n" "${help_text[@]}"
+    exit 1
+}
 
 #######################################
 # Run the speedtest
@@ -115,7 +141,7 @@ run() {
                     [[ -n "$server_dist" ]] || server_dist=$(jq -r '.server.d' <<<"$res")
                 fi
             else # if jq -e '.[].server' /tmp/speedtest_results &>/dev/null; then # librespeed
-                server_name=$(jq -r '.[].server.name' <<<"$res" | sed 's/(\([^0-9]*\))/\1/')
+                server_name=$(jq -r '.[].server.name' <<<"$res")
                 download=$(jq -r '.[].download' <<<"$res")
                 upload=$(jq -r '.[].upload' <<<"$res")
                 isp="Unknown"
@@ -149,32 +175,17 @@ run() {
 }
 
 #######################################
-# Display the help message
-# Globals:
-#   None
-# Arguments:
-#   None
-# Outputs:
-#   The help message
-#######################################
-help() {
-    echo "Usage: $0 [attempts]"
-    echo "  attempts: Number of attempts to run the speedtest, cycling through the packages (default: 3)"
-    exit 1
-}
-
-#######################################
-# Main function
+# Start the runner
 # Globals:
 #   PKG_MANAGER
 # Arguments:
 #   None
 # Outputs:
-#   The speedtest results
+#   The speedtest status
 #######################################
 main() {
-    local -r short_opts=-xh
-    local -r long_opts=verbose,help
+    local -r short_opts=-a:xh
+    local -r long_opts=attempts:,verbose,help
     local -r parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@")
     local POSITIONAL=()
     local attempts="3"
@@ -183,6 +194,10 @@ main() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
+        -a | --attempts)
+            attempts="$2"
+            shift
+            ;;
         -x | --verbose) verbose=true ;;
         -h | --help) help ;;
         *) POSITIONAL+=("$1") ;;
@@ -191,17 +206,11 @@ main() {
     done
 
     set -- "${POSITIONAL[@]}"
-
-    if [[ "$1" != "--" ]]; then
-        [[ "$1" =~ ^[0-9]+$ ]] && attempts="$1" || help
-    fi
-
+    [[ "$attempts" =~ ^[0-9]+$ ]] || attempts="3"
     ! $verbose || set -x
     run $attempts
     run_status=$?
 }
-
-declare -i run_status=0
 
 if [[ $EUID != 0 ]]; then
     sudo "$0" "$@"
