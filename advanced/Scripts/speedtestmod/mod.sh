@@ -68,6 +68,7 @@ help() {
     )
 
     printf "%s\n" "${help_text[@]}"
+    cleanup=false
     exit 0
 }
 
@@ -286,6 +287,7 @@ main() {
             ;;
         -v | --version)
             getVersion $MOD_DIR
+            cleanup=false
             exit 0
             ;;
         -x | --verbose) verbose=true ;;
