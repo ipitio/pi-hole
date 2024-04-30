@@ -237,7 +237,8 @@ main() {
 
     local -r short_opts=-ubortnds::vxch
     local -r long_opts=update,backup,online,reinstall,testing,uninstall,database,speedtest::,version,verbose,continuous,help
-    local -r parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@")
+    local parsed_opts
+    parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@")
 
     if [ $? -ne 0 ]; then
         help
@@ -246,6 +247,7 @@ main() {
     fi
 
     eval set -- "${parsed_opts}"
+    unset parsed_opts
     declare -a POSITIONAL EXTRA_ARGS
     local -i num_args=$#
     local -i dashes=0
