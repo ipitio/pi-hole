@@ -281,43 +281,34 @@ swivelSpeed() {
 #   The source for the speedtest CLI and the package
 #######################################
 ooklaSpeed() {
-    if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* ]]; then
-        if [[ ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]]; then
-            echo "Adding speedtest source for RPM..."
-            curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash
-        fi
-
-        yum list speedtest | grep -q "Available Packages" && $PKG_MANAGER install -y speedtest || :
-    elif [[ "$PKG_MANAGER" == *"apt-get"* ]]; then
-        if [[ ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]]; then
-            echo "Adding speedtest source for DEB..."
-            if [[ -e /etc/os-release ]]; then
-                # shellcheck disable=SC1091
-                source /etc/os-release
-                local -r base="ubuntu debian"
-                local os=${ID}
-                local dist=${VERSION_CODENAME}
-                # shellcheck disable=SC2076
-                if [[ -n "${ID_LIKE:-}" && "${base//\"/}" =~ "${ID_LIKE//\"/}" && "${os}" != "ubuntu" ]]; then
-                    os=${ID_LIKE%% *}
-                    [[ -z "${UBUNTU_CODENAME:-}" ]] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
-                    dist=${UBUNTU_CODENAME}
-                    [[ -z "$dist" ]] && dist=${VERSION_CODENAME}
-                fi
-                wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
-                chmod +x /tmp/script.deb.sh
-                os=$os dist=$dist /tmp/script.deb.sh
-                rm -f /tmp/script.deb.sh
-            else
-                curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
+    if [[ "$PKG_MANAGER" == *"yum"* || "$PKG_MANAGER" == *"dnf"* && ! -f /etc/yum.repos.d/ookla_speedtest-cli.repo ]]; then
+        echo "Adding speedtest source for RPM..."
+        curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | sudo bash
+    elif [[ "$PKG_MANAGER" == *"apt-get"* && ! -f /etc/apt/sources.list.d/ookla_speedtest-cli.list ]]; then
+        echo "Adding speedtest source for DEB..."
+        if [[ -e /etc/os-release ]]; then
+            # shellcheck disable=SC1091
+            source /etc/os-release
+            local -r base="ubuntu debian"
+            local os=${ID}
+            local dist=${VERSION_CODENAME}
+            # shellcheck disable=SC2076
+            if [[ -n "${ID_LIKE:-}" && "${base//\"/}" =~ "${ID_LIKE//\"/}" && "${os}" != "ubuntu" ]]; then
+                os=${ID_LIKE%% *}
+                [[ -z "${UBUNTU_CODENAME:-}" ]] && UBUNTU_CODENAME=$(/usr/bin/lsb_release -cs)
+                dist=${UBUNTU_CODENAME}
+                [[ -z "$dist" ]] && dist=${VERSION_CODENAME}
             fi
-
-            sed -i 's/g]/g allow-insecure=yes trusted=yes]/' /etc/apt/sources.list.d/ookla_speedtest-cli.list
-            apt-get update
+            wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
+            chmod +x /tmp/script.deb.sh
+            os=$os dist=$dist /tmp/script.deb.sh
+            rm -f /tmp/script.deb.sh
+        else
+            curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
         fi
-    else
-        echo "Unsupported package manager!"
-        exit 1
+
+        sed -i 's/g]/g allow-insecure=yes trusted=yes]/' /etc/apt/sources.list.d/ookla_speedtest-cli.list
+        apt-get update -y &>/dev/null
     fi
 
     swivelSpeed speedtest speedtest-cli
