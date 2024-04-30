@@ -260,12 +260,30 @@ main() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-        -u | --update) update=true; do_main=true ;;
-        -b | --backup) backup=true; do_main=true ;;
-        -o | --online) online=true; do_main=true ;;
-        -r | --reinstall) reinstall=true; do_main=true ;;
-        -t | --testing) stable=false; do_main=true ;;
-        -n | --uninstall) uninstall=true; do_main=true ;;
+        -u | --update)
+            update=true
+            do_main=true
+            ;;
+        -b | --backup)
+            backup=true
+            do_main=true
+            ;;
+        -o | --online)
+            online=true
+            do_main=true
+            ;;
+        -r | --reinstall)
+            reinstall=true
+            do_main=true
+            ;;
+        -t | --testing)
+            stable=false
+            do_main=true
+            ;;
+        -n | --uninstall)
+            uninstall=true
+            do_main=true
+            ;;
         -d | --database) database=true ;;
         -s | --speedtest)
             select_test=true
@@ -275,7 +293,10 @@ main() {
             ;;
         -v | --version) getVersion $MOD_DIR ;;
         -x | --verbose) verbose=true ;;
-        -c | --continuous) chk_dep=false; do_main=true ;;
+        -c | --continuous)
+            chk_dep=false
+            do_main=true
+            ;;
         -h | --help) help ;;
         --) dashes=1 ;;
         *) [[ $dashes -eq 0 ]] && POSITIONAL+=("$1") || EXTRA_ARGS+=("$1") ;;
