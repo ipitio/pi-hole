@@ -253,7 +253,7 @@ main() {
     local -r parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@")
     declare -a POSITIONAL EXTRA_ARGS
     eval set -- "${parsed_opts}"
-    local -i num_args=$#
+    local -i num_args=$# &>/dev/null || { help; cleanup=false; exit 0; }
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
