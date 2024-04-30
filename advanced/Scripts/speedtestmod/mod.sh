@@ -353,7 +353,46 @@ main() {
     fi
 
     if $do_main; then
+        if [[ ! -f /usr/local/bin/pihole ]]; then
+            if [[ ! -f /etc/pihole/setupVars.conf ]]; then
+                cat <<EOF >/etc/pihole/setupVars.conf
+WEBPASSWORD={{ pihole_admin_password | hash('sha256') | hash('sha256') }}
+PIHOLE_INTERFACE=eth0
+IPV4_ADDRESS=192.168.x.y/24
+IPV6_ADDRESS=fd00::2
+QUERY_LOGGING=true
+INSTALL_WEB_INTERFACE=true
+LIGHTTPD_ENABLED=false
+INSTALL_WEB_SERVER=false
+DNSMASQ_LISTENING=single
+PIHOLE_DNS_1=8.8.8.8
+PIHOLE_DNS_2=4.4.4.4
+PIHOLE_DNS_3=2001:4860:4860:0:0:0:0:8888
+PIHOLE_DNS_4=2001:4860:4860:0:0:0:0:8844
+DNS_FQDN_REQUIRED=true
+DNS_BOGUS_PRIV=true
+DNSSEC=false
+TEMPERATUREUNIT=C
+WEBUIBOXEDLAYOUT=traditional
+API_EXCLUDE_DOMAINS=
+API_EXCLUDE_CLIENTS=
+API_QUERY_LOG_SHOW=all
+API_PRIVACY_MODE=false
+BLOCKING_ENABLED=true
+REV_SERVER=true
+REV_SERVER_CIDR=192.168.x.0/24
+REV_SERVER_TARGET=192.168.x.z
+REV_SERVER_DOMAIN=your.domain
+CACHE_SIZE=10000
+EOF
+            fi
+
+            echo "Installing Pi-hole..."
+            curl -sSL https://install.pi-hole.net | sudo bash /dev/stdin --unattended
+        fi
+
         pushd ~ >/dev/null || exit 1
+        pihole updatechecker
         pihole -v || :
 
         if [[ -f $CURR_WP ]] && grep -q SpeedTest "$CURR_WP"; then
@@ -373,7 +412,7 @@ main() {
                 done
             fi
 
-            if $update || $uninstall; then
+            if $update || $uninstall || $online; then
                 echo "Restoring Pi-hole$($online && echo " Online..." || echo "...")"
                 pihole -a -s -1
 
@@ -386,7 +425,6 @@ main() {
                 fi
 
                 readonly core_ver admin_ver
-
                 ! $online && restore $HTML_DIR/admin || download $HTML_DIR admin https://github.com/pi-hole/AdminLTE "$admin_ver"
                 ! $online && restore $CORE_DIR || download /etc .pihole https://github.com/pi-hole/pi-hole "$core_ver"
                 [[ ! -d $MOD_DIR ]] || rm -rf $MOD_DIR
@@ -406,11 +444,6 @@ main() {
             purge
         else
             if $chk_dep; then
-                if [[ ! -f /usr/local/bin/pihole ]]; then
-                    echo "Installing Pi-hole..."
-                    curl -sSL https://install.pi-hole.net | sudo bash
-                fi
-
                 echo "Checking Dependencies..."
                 local -r php_version=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
                 local -r pkgs=(bc nano sqlite3 jq tar tmux wget "php$php_version-sqlite3")
