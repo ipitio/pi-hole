@@ -268,7 +268,13 @@ swivelSpeed() {
     /usr/bin/yum) "$PKG_MANAGER" install -y --allowerasing "$candidate" &>/dev/null ;;
     esac
 
-    ! notInstalled "$candidate" && return 0 || return 1
+    if ! notInstalled "$candidate"; then
+        /usr/bin/speedtest --version || return 1
+        return 0
+    fi
+
+    echo "Installation of $candidate Failed!"
+    return 1
 }
 
 #######################################
