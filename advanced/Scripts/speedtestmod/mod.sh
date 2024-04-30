@@ -235,6 +235,21 @@ main() {
     trap 'abort' INT TERM ERR
     shopt -s dotglob
 
+    local -r short_opts=-ubortnds::vxch
+    local -r long_opts=update,backup,online,reinstall,testing,uninstall,database,speedtest::,version,verbose,continuous,help
+    local -r parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@")
+
+    if [ $? -ne 0 ]; then
+        help
+        cleanup=false
+        exit 0
+    fi
+
+    eval set -- "${parsed_opts}"
+    declare -a POSITIONAL EXTRA_ARGS
+    local -i num_args=$#
+    local -i dashes=0
+    local -i standalone=0
     local update=false
     local backup=false
     local online=false
@@ -246,14 +261,6 @@ main() {
     local chk_dep=true
     local select_test=false
     local selected_test=""
-    local -i dashes=0
-    local -i standalone=0
-    local -r short_opts=-ubortnds::vxch
-    local -r long_opts=update,backup,online,reinstall,testing,uninstall,database,speedtest::,version,verbose,continuous,help
-    local -r parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@")
-    declare -a POSITIONAL EXTRA_ARGS
-    eval set -- "${parsed_opts}"
-    local -i num_args=$# &>/dev/null || { help; cleanup=false; exit 0; }
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
