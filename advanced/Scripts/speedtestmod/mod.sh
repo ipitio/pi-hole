@@ -273,7 +273,7 @@ main() {
         -d | --database) database=true ;;
         -s | --speedtest)
             select_test=true
-            [[ -n "$2" ]] && selected_test=$2 && ((++num_args))
+            [[ -n "$2" ]] && selected_test=$2 && ((--num_args))
             if [[ -n "$selected_test" && ! "$selected_test" =~ sivel|libre ]]; then
                 help
                 cleanup=false
