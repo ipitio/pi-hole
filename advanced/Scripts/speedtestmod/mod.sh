@@ -320,6 +320,7 @@ main() {
     trap '[ "$?" -eq "0" ] && commit || abort' EXIT
     trap 'abort' INT TERM ERR
     printf "%s\n\nRunning the Mod Script by @ipitio...\n" "$(date)"
+    ! $do_main && ! $database && ! $select_test && do_main=true || :
     ! $verbose || set -x
 
     if $database; then
