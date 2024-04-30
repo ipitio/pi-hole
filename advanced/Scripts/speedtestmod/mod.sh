@@ -233,9 +233,6 @@ commit() {
 #   The installation managed
 #######################################
 main() {
-    set -Eeuo pipefail
-    shopt -s dotglob
-
     local -r short_opts=-ubortnds::vxch
     local -r long_opts=update,backup,online,reinstall,testing,uninstall,database,speedtest::,version,verbose,continuous,help
     local parsed_opts
@@ -243,7 +240,6 @@ main() {
     eval set -- "${parsed_opts}"
 
     declare -a POSITIONAL EXTRA_ARGS
-    local -i num_args=$#
     local -i dashes=0
     local update=false
     local backup=false
@@ -287,8 +283,7 @@ main() {
         -d | --database) database=true ;;
         -s | --speedtest)
             select_test=true
-            [[ -n "$2" ]] && selected_test=$2 && ((--num_args))
-            [[ -z "$selected_test" || "$selected_test" =~ sivel|libre ]] || help
+            [[ -n "$2" && ! "$2" =~ sivel|libre ]] && help || selected_test=$2
             shift
             ;;
         -v | --version) getVersion $MOD_DIR ;;
@@ -319,6 +314,8 @@ main() {
     readonly update backup online reinstall stable uninstall database verbose chk_dep cleanup select_test selected_test
     trap '[ "$?" -eq "0" ] && commit || abort' EXIT
     trap 'abort' INT TERM ERR
+    set -Eeuo pipefail
+    shopt -s dotglob
     printf "%s\n\nRunning the Mod Script by @ipitio...\n" "$(date)"
     ! $do_main && ! $database && ! $select_test && do_main=true || :
     ! $verbose || set -x
