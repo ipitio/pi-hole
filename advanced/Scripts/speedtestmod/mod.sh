@@ -61,7 +61,7 @@ help() {
         "  -h, --help                       display this help message and exit"
         ""
         "Examples:"
-        "  sudo bash /opt/pihole/speedtestmod/mod.sh -d -s libre"
+        "  sudo bash /opt/pihole/speedtestmod/mod.sh -d -slibre"
         "  sudo bash /opt/pihole/speedtestmod/mod.sh --uninstall"
         "  curl -sSL https://github.com/arevindh/pihole-speedtest/raw/master/mod | sudo bash"
         "  curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/mod.sh | sudo bash -s -- -bo"
