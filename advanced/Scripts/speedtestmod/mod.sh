@@ -354,6 +354,7 @@ main() {
 
     if $do_main; then
         if [[ ! -f /usr/local/bin/pihole ]]; then
+        # https://discourse.pi-hole.net/t/pi-hole-as-part-of-a-post-installation-script/3523/15
             if [[ ! -f /etc/pihole/setupVars.conf ]]; then
                 cat <<EOF >/etc/pihole/setupVars.conf
 WEBPASSWORD={{ pihole_admin_password | hash('sha256') | hash('sha256') }}
@@ -412,31 +413,29 @@ EOF
                 done
             fi
 
-            if $update || $uninstall || $online; then
-                echo "Restoring Pi-hole$($online && echo " Online..." || echo "...")"
-                pihole -a -s -1
+            echo "Restoring Pi-hole$($online && echo " Online..." || echo "...")"
+            pihole -a -s -1
 
-                local core_ver=""
-                local admin_ver=""
+            local core_ver=""
+            local admin_ver=""
 
-                if [[ -f $MOD_DIR/cnf ]]; then
-                    core_ver=$(getCnf $MOD_DIR/cnf org-$CORE_DIR)
-                    admin_ver=$(getCnf $MOD_DIR/cnf org-$HTML_DIR/admin)
-                fi
-
-                readonly core_ver admin_ver
-                ! $online && restore $HTML_DIR/admin || download $HTML_DIR admin https://github.com/pi-hole/AdminLTE "$admin_ver"
-                ! $online && restore $CORE_DIR || download /etc .pihole https://github.com/pi-hole/pi-hole "$core_ver"
-                [[ ! -d $MOD_DIR ]] || rm -rf $MOD_DIR
-                swapScripts
-
-                for repo in $CORE_DIR $HTML_DIR/admin; do
-                    pushd "$repo" &>/dev/null || exit 1
-                    git tag -l | xargs git tag -d >/dev/null 2>&1
-                    git fetch --tags -f -q
-                    popd &>/dev/null
-                done
+            if [[ -f $MOD_DIR/cnf ]]; then
+                core_ver=$(getCnf $MOD_DIR/cnf org-$CORE_DIR)
+                admin_ver=$(getCnf $MOD_DIR/cnf org-$HTML_DIR/admin)
             fi
+
+            readonly core_ver admin_ver
+            ! $online && restore $HTML_DIR/admin || download $HTML_DIR admin https://github.com/pi-hole/AdminLTE "$admin_ver"
+            ! $online && restore $CORE_DIR || download /etc .pihole https://github.com/pi-hole/pi-hole "$core_ver"
+            [[ ! -d $MOD_DIR ]] || rm -rf $MOD_DIR
+            swapScripts
+
+            for repo in $CORE_DIR $HTML_DIR/admin; do
+                pushd "$repo" &>/dev/null || exit 1
+                git tag -l | xargs git tag -d >/dev/null 2>&1
+                git fetch --tags -f -q
+                popd &>/dev/null
+            done
         fi
 
         if $uninstall; then
