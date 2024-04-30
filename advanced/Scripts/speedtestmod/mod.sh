@@ -44,20 +44,19 @@ help() {
         "(Re)install the latest release of the Speedtest Mod and/or the following options:"
         ""
         "Standalone:"
-        "  -x, --verbose                    show the commands being run"
         "  -d, --database,  db              flush/restore the database if it's not/empty"
         "  -s, --speedtest[=<sivel|libre>]  install Ookla's or the specified CLI even if another is already installed"
+        "  -x, --verbose                    show the commands being run"
         "  -v, --version                    display the version of the mod and exit"
         "  -h, --help                       display this help message and exit"
         ""
         "Restoration:"
+        "  -n, --uninstall, un              purge the mod, keeping the speedtest package, logs, and database"
         "  -b, --backup                     backup Pi-hole for faster offline restore"
         "  -o, --online                     force online restore of Pi-hole"
-        "  -n, --uninstall, un              purge the mod, keeping the speedtest package, logs, and database"
         ""
         "Installation:"
         "  -u, --update,    up              also update Pi-hole"
-        "  -c, --continuous                 skip check for missing dependencies"
         "  -r, --reinstall                  keep current version of the mod, if installed"
         "  -t, --testing                    install the beta version of the mod"
         ""
@@ -233,8 +232,8 @@ commit() {
 #   The installation managed
 #######################################
 main() {
-    local -r short_opts=-ubortnds::vxch
-    local -r long_opts=update,backup,online,reinstall,testing,uninstall,database,speedtest::,version,verbose,continuous,help
+    local -r short_opts=-ubortnds::vxh
+    local -r long_opts=update,backup,online,reinstall,testing,uninstall,database,speedtest::,version,verbose,help
     local parsed_opts
     parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@") || help
     eval set -- "${parsed_opts}"
@@ -249,7 +248,6 @@ main() {
     local uninstall=false
     local database=false
     local verbose=false
-    local chk_dep=true
     local select_test=false
     local selected_test=""
     local do_main=false
@@ -288,10 +286,6 @@ main() {
             ;;
         -v | --version) getVersion $MOD_DIR ;;
         -x | --verbose) verbose=true ;;
-        -c | --continuous)
-            chk_dep=false
-            do_main=true
-            ;;
         -h | --help) help ;;
         --) dashes=1 ;;
         *) [[ $dashes -eq 0 ]] && POSITIONAL+=("$1") || EXTRA_ARGS+=("$1") ;;
@@ -311,7 +305,7 @@ main() {
         esac
     done
 
-    readonly update backup online reinstall stable uninstall database verbose chk_dep cleanup select_test selected_test
+    readonly update backup online reinstall stable uninstall database verbose cleanup select_test selected_test
     trap '[ "$?" -eq "0" ] && commit || abort' EXIT
     trap 'abort' INT TERM ERR
     set -Eeuo pipefail
@@ -354,7 +348,7 @@ main() {
 
     if $do_main; then
         if [[ ! -f /usr/local/bin/pihole ]]; then
-        # https://discourse.pi-hole.net/t/pi-hole-as-part-of-a-post-installation-script/3523/15
+            # https://discourse.pi-hole.net/t/pi-hole-as-part-of-a-post-installation-script/3523/15
             if [[ ! -f /etc/pihole/setupVars.conf ]]; then
                 cat <<EOF >/etc/pihole/setupVars.conf
 WEBPASSWORD={{ pihole_admin_password | hash('sha256') | hash('sha256') }}
@@ -413,11 +407,10 @@ EOF
                 done
             fi
 
-            echo "Restoring Pi-hole$($online && echo " Online..." || echo "...")"
-            pihole -a -s -1
-
             local core_ver=""
             local admin_ver=""
+            echo "Restoring Pi-hole$($online && echo " Online..." || echo "...")"
+            pihole -a -s -1
 
             if [[ -f $MOD_DIR/cnf ]]; then
                 core_ver=$(getCnf $MOD_DIR/cnf org-$CORE_DIR)
@@ -442,25 +435,23 @@ EOF
             echo "Purging Mod..."
             purge
         else
-            if $chk_dep; then
-                echo "Checking Dependencies..."
-                local -r php_version=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
-                local -r pkgs=(bc nano sqlite3 jq tar tmux wget "php$php_version-sqlite3")
-                local missingpkgs=()
+            echo "Checking Dependencies..."
+            local -r php_version=$(php -v | head -n 1 | awk '{print $2}' | cut -d "." -f 1,2)
+            local -r pkgs=(bc nano sqlite3 jq tar tmux wget "php$php_version-sqlite3")
+            local missingpkgs=()
 
-                for pkg in "${pkgs[@]}"; do
-                    ! notInstalled "$pkg" || missingpkgs+=("$pkg")
-                done
+            for pkg in "${pkgs[@]}"; do
+                ! notInstalled "$pkg" || missingpkgs+=("$pkg")
+            done
 
-                readonly missingpkgs
-                if [[ ${#missingpkgs[@]} -gt 0 ]]; then
-                    echo "Installing Missing Dependencies..."
-                    if ! $PKG_MANAGER install -y "${missingpkgs[@]}" &>/dev/null; then
-                        [[ "$PKG_MANAGER" == *"apt-get"* ]] || exit 1
-                        echo "And Updating Package Cache..."
-                        $PKG_MANAGER update -y &>/dev/null
-                        $PKG_MANAGER install -y "${missingpkgs[@]}" &>/dev/null
-                    fi
+            readonly missingpkgs
+            if [[ ${#missingpkgs[@]} -gt 0 ]]; then
+                echo "Installing Missing Dependencies..."
+                if ! $PKG_MANAGER install -y "${missingpkgs[@]}" &>/dev/null; then
+                    [[ "$PKG_MANAGER" == *"apt-get"* ]] || exit 1
+                    echo "And Updating Package Cache..."
+                    $PKG_MANAGER update -y &>/dev/null
+                    $PKG_MANAGER install -y "${missingpkgs[@]}" &>/dev/null
                 fi
             fi
 
