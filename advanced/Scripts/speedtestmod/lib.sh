@@ -40,13 +40,7 @@ getVersion() {
         local versions
         versions=$(pihole -v | grep "$1")
         found_version=$(cut -d ' ' -f 6 <<<"$versions")
-
-        if [[ "$found_version" != *.* ]]; then
-            local found_branch
-            found_branch="$(git status --porcelain=2 -b | grep branch.head | awk '{print $3;}')"
-            [[ $found_branch != *"("* ]] || found_branch=$(git show-ref --heads | grep "$(git rev-parse HEAD)" | awk '{print $2;}' | cut -d '/' -f 3)
-            [[ "$found_version" != "$found_branch" ]] || found_version=$(cut -d ' ' -f 7 <<<"$versions")
-        fi
+        [[ "$found_version" == *.* || ${#found_version} -ge 40 ]] || found_version=$(cut -d ' ' -f 7 <<<"$versions")
     fi
 
     echo "$found_version"
