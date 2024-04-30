@@ -69,6 +69,7 @@ help() {
     )
 
     printf "%s\n" "${help_text[@]}"
+    exit 0
 }
 
 #######################################
@@ -206,6 +207,7 @@ commit() {
             git clean -ffdx
             popd &>/dev/null
         done
+
         printf "Done!\n\n%s\n" "$(date)"
     fi
 }
@@ -232,22 +234,14 @@ commit() {
 #######################################
 main() {
     set -Eeuo pipefail
-    trap 'abort' INT TERM ERR
     shopt -s dotglob
 
     local -r short_opts=-ubortnds::vxch
     local -r long_opts=update,backup,online,reinstall,testing,uninstall,database,speedtest::,version,verbose,continuous,help
     local parsed_opts
-    parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@")
-
-    if [ $? -ne 0 ]; then
-        help
-        cleanup=false
-        exit 0
-    fi
-
+    parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@") || help
     eval set -- "${parsed_opts}"
-    unset parsed_opts
+
     declare -a POSITIONAL EXTRA_ARGS
     local -i num_args=$#
     local -i dashes=0
@@ -276,25 +270,13 @@ main() {
         -s | --speedtest)
             select_test=true
             [[ -n "$2" ]] && selected_test=$2 && ((--num_args))
-            if [[ -n "$selected_test" && ! "$selected_test" =~ sivel|libre ]]; then
-                help
-                cleanup=false
-                exit 0
-            fi
+            [[ -z "$selected_test" || "$selected_test" =~ sivel|libre ]] || help
             shift
             ;;
-        -v | --version)
-            getVersion $MOD_DIR
-            cleanup=false
-            exit 0
-            ;;
+        -v | --version) getVersion $MOD_DIR ;;
         -x | --verbose) verbose=true ;;
         -c | --continuous) chk_dep=false ;;
-        -h | --help)
-            help
-            cleanup=false
-            exit 0
-            ;;
+        -h | --help) help ;;
         --) dashes=1 ;;
         *) [[ $dashes -eq 0 ]] && POSITIONAL+=("$1") || EXTRA_ARGS+=("$1") ;;
         esac
@@ -309,16 +291,13 @@ main() {
         up) update=true ;;
         un) uninstall=true ;;
         db) database=true ;;
-        *)
-            help
-            cleanup=false
-            exit 0
-            ;;
+        *) help ;;
         esac
     done
 
     readonly update backup online reinstall stable uninstall database verbose chk_dep cleanup select_test selected_test
     trap '[ "$?" -eq "0" ] && commit || abort' EXIT
+    trap 'abort' INT TERM ERR
     printf "%s\n\nRunning the Mod Script by @ipitio...\n" "$(date)"
     ! $verbose || set -x
 
