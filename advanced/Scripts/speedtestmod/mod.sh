@@ -245,7 +245,6 @@ main() {
     declare -a POSITIONAL EXTRA_ARGS
     local -i num_args=$#
     local -i dashes=0
-    local -i standalone=0
     local update=false
     local backup=false
     local online=false
@@ -257,15 +256,16 @@ main() {
     local chk_dep=true
     local select_test=false
     local selected_test=""
+    local do_main=false
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-        -u | --update) update=true ;;
-        -b | --backup) backup=true ;;
-        -o | --online) online=true ;;
-        -r | --reinstall) reinstall=true ;;
-        -t | --testing) stable=false ;;
-        -n | --uninstall) uninstall=true ;;
+        -u | --update) update=true; do_main=true ;;
+        -b | --backup) backup=true; do_main=true ;;
+        -o | --online) online=true; do_main=true ;;
+        -r | --reinstall) reinstall=true; do_main=true ;;
+        -t | --testing) stable=false; do_main=true ;;
+        -n | --uninstall) uninstall=true; do_main=true ;;
         -d | --database) database=true ;;
         -s | --speedtest)
             select_test=true
@@ -275,7 +275,7 @@ main() {
             ;;
         -v | --version) getVersion $MOD_DIR ;;
         -x | --verbose) verbose=true ;;
-        -c | --continuous) chk_dep=false ;;
+        -c | --continuous) chk_dep=false; do_main=true ;;
         -h | --help) help ;;
         --) dashes=1 ;;
         *) [[ $dashes -eq 0 ]] && POSITIONAL+=("$1") || EXTRA_ARGS+=("$1") ;;
@@ -333,11 +333,7 @@ main() {
         set -Eeo pipefail
     fi
 
-    for arg in $database $select_test; do
-        ! $arg || ((++standalone))
-    done
-
-    if [[ "$num_args" -eq 0 || "$num_args" -gt "$standalone" ]]; then
+    if $do_main; then
         pushd ~ >/dev/null || exit 1
         pihole -v || :
 
