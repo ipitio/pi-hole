@@ -241,7 +241,14 @@ libreSpeed() {
     mv -f out/* /usr/bin/speedtest
     popd &>/dev/null || return 1
     chmod +x /usr/bin/speedtest
-    [[ -x /usr/bin/speedtest ]] && return 0 || return 1
+
+    if [[ -x /usr/bin/speedtest ]]; then
+        echo "Installed LibreSpeed."
+        return 0
+    fi
+
+    echo "Installation of $candidate Failed!"
+    return 1
 }
 
 #######################################
@@ -269,6 +276,7 @@ swivelSpeed() {
     esac
 
     if ! notInstalled "$candidate"; then
+        printf "Installed "
         /usr/bin/speedtest --version || return 1
         return 0
     fi

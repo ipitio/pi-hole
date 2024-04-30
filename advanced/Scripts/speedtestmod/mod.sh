@@ -43,6 +43,16 @@ help() {
         "  or: curl -sSLN //link/to/mod.sh | sudo bash [-s -- options]"
         "(Re)install the latest release of the Speedtest Mod and/or the following options:"
         ""
+        "Installation:"
+        "  -u, --update,    up              also update Pi-hole"
+        "  -r, --reinstall                  keep current version of the mod, if installed"
+        "  -t, --testing                    install the beta version of the mod"
+        ""
+        "Restoration:"
+        "  -n, --uninstall, un              purge the mod, keeping the speedtest package, logs, and database"
+        "  -b, --backup                     backup Pi-hole for faster offline restore"
+        "  -o, --online                     force online restore of Pi-hole"
+        ""
         "Standalone:"
         "  -d, --database,  db              flush/restore the database if it's not/empty"
         "  -s, --speedtest[=<sivel|libre>]  install Ookla's or the specified CLI even if another is already installed"
@@ -50,20 +60,10 @@ help() {
         "  -v, --version                    display the version of the mod and exit"
         "  -h, --help                       display this help message and exit"
         ""
-        "Restoration:"
-        "  -n, --uninstall, un              purge the mod, keeping the speedtest package, logs, and database"
-        "  -b, --backup                     backup Pi-hole for faster offline restore"
-        "  -o, --online                     force online restore of Pi-hole"
-        ""
-        "Installation:"
-        "  -u, --update,    up              also update Pi-hole"
-        "  -r, --reinstall                  keep current version of the mod, if installed"
-        "  -t, --testing                    install the beta version of the mod"
-        ""
         "Examples:"
         "  sudo bash /opt/pihole/speedtestmod/mod.sh -d -s libre"
         "  sudo bash /opt/pihole/speedtestmod/mod.sh --uninstall"
-        "  curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/mod.sh | sudo bash"
+        "  curl -sSL https://github.com/arevindh/pihole-speedtest/raw/master/mod | sudo bash"
         "  curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/mod.sh | sudo bash -s -- -bo"
     )
 
@@ -284,7 +284,10 @@ main() {
             [[ -n "$2" && ! "$2" =~ sivel|libre ]] && help || selected_test=$2
             shift
             ;;
-        -v | --version) getVersion $MOD_DIR ;;
+        -v | --version)
+            getVersion $MOD_DIR
+            exit 0
+            ;;
         -x | --verbose) verbose=true ;;
         -h | --help) help ;;
         --) dashes=1 ;;
