@@ -261,11 +261,11 @@ swivelSpeed() {
 
     case "$PKG_MANAGER" in
     /usr/bin/apt-get)
-        ! isAvailable "$candidate" && echo "And Updating Package Cache..." && $PKG_MANAGER update -y || :
-        "$PKG_MANAGER" install -y "$candidate" "$target"-
+        ! isAvailable "$candidate" && echo "And Updating Package Cache..." && $PKG_MANAGER update -y &>/dev/null || :
+        "$PKG_MANAGER" install -y "$candidate" "$target"- &>/dev/null
         ;;
-    /usr/bin/dnf) "$PKG_MANAGER" install -y --allowerasing "$candidate" ;;
-    /usr/bin/yum) "$PKG_MANAGER" install -y --allowerasing "$candidate" ;;
+    /usr/bin/dnf) "$PKG_MANAGER" install -y --allowerasing "$candidate" &>/dev/null ;;
+    /usr/bin/yum) "$PKG_MANAGER" install -y --allowerasing "$candidate" &>/dev/null ;;
     esac
 
     ! notInstalled "$candidate"
