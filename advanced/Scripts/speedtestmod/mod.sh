@@ -41,10 +41,11 @@ help() {
         "The Mod Script"
         "Usage: sudo bash /path/to/mod.sh [options]"
         "  or: curl -sSLN //link/to/mod.sh | sudo bash [-s -- options]"
-        "(Re)install the latest release of the Speedtest Mod, updating Pi-hole if necessary, and/or the following options:"
+        "(Re)install the latest release of the Speedtest Mod and/or the following options:"
         ""
         "Standalone:"
-        "  -d, --database                   flush/restore the database if it's not/empty"
+        "  -x, --verbose                    show the commands being run"
+        "  -d, --database,  db              flush/restore the database if it's not/empty"
         "  -s, --speedtest[=<sivel|libre>]  install Ookla's or the specified CLI even if another is already installed"
         "  -v, --version                    display the version of the mod and exit"
         "  -h, --help                       display this help message and exit"
@@ -52,14 +53,13 @@ help() {
         "Restoration:"
         "  -b, --backup                     backup Pi-hole for faster offline restore"
         "  -o, --online                     force online restore of Pi-hole"
-        "  -n, --uninstall                  force restore and skip update and install, keeping the database"
+        "  -n, --uninstall, un              purge the mod, keeping the speedtest package, logs, and database"
         ""
-        "Advanced:"
-        "  -x, --verbose                    show the commands being run"
-        "  -t, --testing                    install the beta version of the mod"
-        "  -r, --reinstall                  keep current version of the mod, if installed"
-        "  -i, --install                    skip restore and update of Pi-hole"
+        "Installation:"
+        "  -u, --update,    up              also update Pi-hole"
         "  -c, --continuous                 skip check for missing dependencies"
+        "  -r, --reinstall                  keep current version of the mod, if installed"
+        "  -t, --testing                    install the beta version of the mod"
         ""
         "Examples:"
         "  sudo bash /opt/pihole/speedtestmod/mod.sh -d -s libre"
@@ -235,9 +235,9 @@ main() {
     trap 'abort' INT TERM ERR
     shopt -s dotglob
 
+    local update=false
     local backup=false
     local online=false
-    local install=false
     local reinstall=false
     local stable=true
     local uninstall=false
@@ -248,8 +248,8 @@ main() {
     local selected_test=""
     local -i dashes=0
     local -i standalone=0
-    local -r short_opts=-boirtnds::vxch
-    local -r long_opts=backup,online,install,reinstall,testing,uninstall,database,speedtest::,version,verbose,continuous,help
+    local -r short_opts=-ubortnds::vxch
+    local -r long_opts=update,backup,online,reinstall,testing,uninstall,database,speedtest::,version,verbose,continuous,help
     local -r parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@")
     declare -a POSITIONAL EXTRA_ARGS
     eval set -- "${parsed_opts}"
@@ -257,9 +257,9 @@ main() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
+        -u | --update) update=true ;;
         -b | --backup) backup=true ;;
         -o | --online) online=true ;;
-        -i | --install) install=true ;;
         -r | --reinstall) reinstall=true ;;
         -t | --testing) stable=false ;;
         -n | --uninstall) uninstall=true ;;
@@ -297,7 +297,7 @@ main() {
     # backward compatibility
     for arg in "$@"; do
         case $arg in
-        up) : ;;
+        up) update=true ;;
         un) uninstall=true ;;
         db) database=true ;;
         *)
@@ -308,7 +308,7 @@ main() {
         esac
     done
 
-    readonly backup online install reinstall stable uninstall database verbose chk_dep cleanup select_test selected_test
+    readonly update backup online reinstall stable uninstall database verbose chk_dep cleanup select_test selected_test
     trap '[ "$?" -eq "0" ] && commit || abort' EXIT
     printf "%s\n\nRunning the Mod Script by @ipitio...\n" "$(date)"
     ! $verbose || set -x
@@ -370,7 +370,7 @@ main() {
                 done
             fi
 
-            if ! $install || $uninstall; then
+            if $update || $uninstall; then
                 echo "Restoring Pi-hole$($online && echo " Online..." || echo "...")"
                 pihole -a -s -1
 
@@ -429,14 +429,14 @@ main() {
                 fi
             fi
 
-            if $install; then
+            if ! $update; then
                 if ! $reinstall; then
                     local -r installed_core_ver=$(getVersion "Pi-hole")
                     local -r installed_admin_ver=$(getVersion "web")
                     if [[ "$installed_core_ver" == *.* && "$installed_admin_ver" == *.* ]]; then
                         echo "Finding Latest Compatible Versions..."
-                        mod_core_ver=$(git ls-remote "https://github.com/ipitio/pi-hole" | grep "$installed_core_ver" | awk '{print $2;}' | cut -d '/' -f 3 | sort -Vr | head -n1)
-                        mod_admin_ver=$(git ls-remote "https://github.com/ipitio/AdminLTE" | grep "$installed_admin_ver" | awk '{print $2;}' | cut -d '/' -f 3 | sort -Vr | head -n1)
+                        mod_core_ver=$(git ls-remote "https://github.com/ipitio/pi-hole" | grep -q "$installed_core_ver" && git ls-remote "https://github.com/ipitio/pi-hole" | grep "$installed_core_ver" | awk '{print $2;}' | cut -d '/' -f 3 | sort -Vr | head -n1 || echo "")
+                        mod_admin_ver=$(git ls-remote "https://github.com/ipitio/AdminLTE" | grep -q "$installed_admin_ver" && git ls-remote "https://github.com/ipitio/AdminLTE" | grep "$installed_admin_ver" | awk '{print $2;}' | cut -d '/' -f 3 | sort -Vr | head -n1 || echo "")
                     fi
                 fi
             elif [[ -d /run/systemd/system ]]; then
