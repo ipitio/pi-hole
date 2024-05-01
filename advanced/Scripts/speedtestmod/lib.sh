@@ -243,7 +243,7 @@ libreSpeed() {
     chmod +x /usr/bin/speedtest
 
     if [[ -x /usr/bin/speedtest ]]; then
-        echo "Installed LibreSpeed."
+        echo "Installed LibreSpeed"
         return 0
     fi
 
@@ -277,7 +277,9 @@ swivelSpeed() {
 
     if ! notInstalled "$candidate"; then
         printf "Installed "
-        /usr/bin/speedtest --version || return 1
+        local version=
+        version=$(/usr/bin/speedtest --version) || return 1
+        echo "${version%%$'\n'*}"
         return 0
     fi
 

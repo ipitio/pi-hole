@@ -6,6 +6,10 @@
 # shellcheck disable=SC2015
 #
 
+declare -r MOD_REPO="ipitio"
+declare -r MOD_BRANCH="master"
+declare -r CORE_BRANCH="ipitio"
+declare -r ADMIN_BRANCH="master"
 declare -r HTML_DIR="/var/www/html"
 declare -r CORE_DIR="/etc/.pihole"
 declare -r OPT_DIR="/opt/pihole"
@@ -16,16 +20,16 @@ declare -r CURR_DB="$ETC_DIR/speedtest.db"
 declare -r LAST_DB="$CURR_DB.old"
 declare -r DB_TABLE="speedtest"
 declare -i aborted=0
+declare CLEANUP=false
 st_ver=""
 mod_core_ver=""
 mod_admin_ver=""
-cleanup=true
 # shellcheck disable=SC2034
 SKIP_INSTALL=true
 # shellcheck disable=SC1091
 source "$CORE_DIR/automated install/basic-install.sh"
 # shellcheck disable=SC1090,SC1091
-[[ -f "$OPT_DIR/speedtestmod/lib.sh" ]] && source "$OPT_DIR/speedtestmod/lib.sh" || source <(curl -sSLN https://github.com/ipitio/pi-hole/raw/ipitio/advanced/Scripts/speedtestmod/lib.sh)
+[[ -f "$OPT_DIR/speedtestmod/lib.sh" ]] && source "$OPT_DIR/speedtestmod/lib.sh" || source <(curl -sSLN https://github.com/"$MOD_REPO"/pi-hole/raw/"$CORE_BRANCH"/advanced/Scripts/speedtestmod/lib.sh)
 
 #######################################
 # Display the help message
@@ -41,7 +45,7 @@ help() {
         "The Mod Script"
         "Usage: sudo bash /path/to/mod.sh [options]"
         "  or: curl -sSLN //link/to/mod.sh | sudo bash [-s -- options]"
-        "(Re)install the latest release of the Speedtest Mod and/or the following options:"
+        "(Re)install Speedtest Mod and/or the following options:"
         ""
         "Installation:"
         "  -u, --update,    up              also update Pi-hole"
@@ -55,7 +59,7 @@ help() {
         ""
         "Standalone:"
         "  -d, --database,  db              flush/restore the database if it's not/empty"
-        "  -s, --speedtest[=<sivel|libre>]  install Ookla's or the specified CLI even if another is already installed"
+        "  -s, --speedtest[=<sivel|libre>]  install Ookla's or the specified CLI immediately, as opposed to mediately"
         "  -x, --verbose                    show the commands being run"
         "  -v, --version                    display the version of the mod and exit"
         "  -h, --help                       display this help message and exit"
@@ -63,13 +67,11 @@ help() {
         "Examples:"
         "  sudo bash /opt/pihole/speedtestmod/mod.sh -d -slibre"
         "  sudo bash /opt/pihole/speedtestmod/mod.sh --uninstall"
-        "  curl -sSL https://github.com/arevindh/pihole-speedtest/raw/master/mod | sudo bash"
-        "  curl -sSLN https://github.com/arevindh/pi-hole/raw/master/advanced/Scripts/speedtestmod/mod.sh | sudo bash -s -- -bo"
+        "  curl -sSL https://github.com/$MOD_REPO/pihole-speedtest/raw/master/mod | sudo bash"
+        "  curl -sSLN https://github.com/$MOD_REPO/pi-hole/raw/$CORE_BRANCH/advanced/Scripts/speedtestmod/mod.sh | sudo bash -s -- -bo"
     )
 
     printf "%s\n" "${help_text[@]}"
-    cleanup=false
-    exit 0
 }
 
 #######################################
@@ -158,7 +160,7 @@ purge() {
 #   CURR_DB
 #   LAST_DB
 #   ETC_DIR
-#   cleanup
+#   CLEANUP
 #   aborted
 # Arguments:
 #   None
@@ -166,7 +168,7 @@ purge() {
 #   The changes reverted
 # shellcheck disable=SC2317 ###########
 abort() {
-    if $cleanup && [[ $aborted -eq 0 ]]; then
+    if $CLEANUP && [[ $aborted -eq 0 ]]; then
         echo "Process Aborting..."
         aborted=1
 
@@ -193,14 +195,14 @@ abort() {
 # Globals:
 #   CORE_DIR
 #   HTML_DIR
-#   cleanup
+#   CLEANUP
 # Arguments:
 #   None
 # Outputs:
 #   The repositories cleaned up
 # shellcheck disable=SC2317 ###########
 commit() {
-    if $cleanup; then
+    if $CLEANUP; then
         for dir in $CORE_DIR $HTML_DIR/admin; do
             [[ ! -d "$dir" ]] && continue || pushd "$dir" &>/dev/null || exit 1
             ! git remote -v | grep -q "old" || git remote remove old
@@ -226,17 +228,24 @@ commit() {
 #   st_ver
 #   mod_core_ver
 #   mod_admin_ver
-#   cleanup
+#   CLEANUP
 # Arguments:
 #   $@: The options for managing the installation
 # Outputs:
 #   The installation managed
 #######################################
 main() {
+    set -u
+
     local -r short_opts=-ubortnds::vxh
     local -r long_opts=update,backup,online,reinstall,testing,uninstall,database,speedtest::,version,verbose,help
     local parsed_opts
-    parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@") || help
+
+    if ! parsed_opts=$(getopt --options ${short_opts} --longoptions ${long_opts} --name "$0" -- "$@"); then
+        help
+        return 1
+    fi
+
     eval set -- "${parsed_opts}"
 
     declare -a POSITIONAL EXTRA_ARGS
@@ -282,16 +291,24 @@ main() {
         -d | --database) database=true ;;
         -s | --speedtest)
             select_test=true
-            [[ -n "$2" && ! "$2" =~ sivel|libre ]] && help || selected_test=$2
+
+            if [[ -n "$2" && ! "$2" =~ sivel|libre ]]; then
+                help
+                return 1
+            fi
+
+            selected_test=$2
             shift
             ;;
         -v | --version)
             getVersion $MOD_DIR
-            cleanup=false
-            exit 0
+            return 0
             ;;
         -x | --verbose) verbose=true ;;
-        -h | --help) help ;;
+        -h | --help)
+            help
+            return 0
+            ;;
         --) dashes=1 ;;
         *) [[ $dashes -eq 0 ]] && POSITIONAL+=("$1") || EXTRA_ARGS+=("$1") ;;
         esac
@@ -306,18 +323,31 @@ main() {
         up) update=true ;;
         un) uninstall=true ;;
         db) database=true ;;
-        *) help ;;
+        *)
+            help
+            return 1
+            ;;
         esac
     done
 
-    readonly update backup online reinstall stable uninstall database verbose cleanup select_test selected_test
+    CLEANUP=true
+    ! $do_main && ! $database && ! $select_test && do_main=true || :
+    readonly update backup online reinstall stable uninstall database verbose CLEANUP select_test selected_test do_main
+    printf "%s\n\nRunning the Mod Script by @ipitio...\n" "$(date)"
+    ! $verbose || set -x
+
+    if $select_test; then
+        case $selected_test in
+        sivel) swivelSpeed ;;
+        libre) libreSpeed ;;
+        *) ooklaSpeed ;;
+        esac
+    fi
+
+    set -Eeo pipefail
     trap '[ "$?" -eq "0" ] && commit || abort' EXIT
     trap 'abort' INT TERM ERR
-    set -Eeuo pipefail
     shopt -s dotglob
-    printf "%s\n\nRunning the Mod Script by @ipitio...\n" "$(date)"
-    ! $do_main && ! $database && ! $select_test && do_main=true || :
-    ! $verbose || set -x
 
     if $database; then
         if [[ -f $CURR_DB ]] && ! isEmpty $CURR_DB; then
@@ -339,16 +369,6 @@ main() {
                 \cp -af /var/log/pihole/speedtest.log $ETC_DIR/speedtest.log
             fi
         fi
-    fi
-
-    if $select_test; then
-        set +Eeo pipefail # don't exit on error, not critical
-        case $selected_test in
-        sivel) swivelSpeed ;;
-        libre) libreSpeed ;;
-        *) ooklaSpeed ;;
-        esac
-        set -Eeo pipefail
     fi
 
     if $do_main; then
@@ -466,8 +486,10 @@ EOF
                     local -r installed_admin_ver=$(getVersion "web")
                     if [[ "$installed_core_ver" == *.* && "$installed_admin_ver" == *.* ]]; then
                         echo "Finding Latest Compatible Versions..."
-                        mod_core_ver=$(git ls-remote "https://github.com/ipitio/pi-hole" | grep -q "$installed_core_ver" && git ls-remote "https://github.com/ipitio/pi-hole" | grep "$installed_core_ver" | awk '{print $2;}' | cut -d '/' -f 3 | sort -Vr | head -n1 || echo "")
-                        mod_admin_ver=$(git ls-remote "https://github.com/ipitio/AdminLTE" | grep -q "$installed_admin_ver" && git ls-remote "https://github.com/ipitio/AdminLTE" | grep "$installed_admin_ver" | awk '{print $2;}' | cut -d '/' -f 3 | sort -Vr | head -n1 || echo "")
+                        local -r remote_core_ver=$(git ls-remote "https://github.com/$MOD_REPO/pi-hole")
+                        local -r remote_admin_ver=$(git ls-remote "https://github.com/$MOD_REPO/AdminLTE")
+                        mod_core_ver=$(grep -q "$installed_core_ver" <<<"$remote_core_ver" && grep "$installed_core_ver" <<<"$remote_core_ver" | awk '{print $2;}' | cut -d '/' -f 3 | sort -Vr | head -n1 || echo "")
+                        mod_admin_ver=$(grep -q "$installed_admin_ver" <<<"$remote_admin_ver" && grep "$installed_admin_ver" <<<"$remote_admin_ver" | awk '{print $2;}' | cut -d '/' -f 3 | sort -Vr | head -n1 || echo "")
                     fi
                 fi
             elif [[ -d /run/systemd/system ]]; then
@@ -479,12 +501,12 @@ EOF
 
             if $backup; then
                 echo "Creating Backup..."
-                download /etc .pihole.mod https://github.com/ipitio/pi-hole "$mod_core_ver" ipitio $stable
-                download $HTML_DIR admin.mod https://github.com/ipitio/AdminLTE "$mod_admin_ver" master $stable
+                download /etc .pihole.mod https://github.com/"$MOD_REPO"/pi-hole "$mod_core_ver" "$CORE_BRANCH" $stable
+                download $HTML_DIR admin.mod https://github.com/"$MOD_REPO"/AdminLTE "$mod_admin_ver" "$ADMIN_BRANCH" $stable
             fi
 
             $reinstall && echo "Reinstalling Mod..." || echo "Installing Mod..."
-            download /etc pihole-speedtest https://github.com/arevindh/pihole-speedtest "$st_ver" master $stable
+            download /etc pihole-speedtest https://github.com/"$MOD_REPO"/pihole-speedtest "$st_ver" "$MOD_BRANCH" $stable
             [[ -f $MOD_DIR/cnf ]] || touch $MOD_DIR/cnf
             setCnf mod-$MOD_DIR "$(getVersion $MOD_DIR)" $MOD_DIR/cnf $reinstall
             local stock_tag
@@ -506,11 +528,11 @@ EOF
                 fi
             done
 
-            $backup || download /etc .pihole https://github.com/ipitio/pi-hole "$mod_core_ver" ipitio $stable
+            $backup || download /etc .pihole https://github.com/"$MOD_REPO"/pi-hole "$mod_core_ver" "$CORE_BRANCH" $stable
             swapScripts
             \cp -af $CORE_DIR/advanced/Scripts/speedtestmod/. $OPT_DIR/speedtestmod/
             pihole -a -s
-            $backup || download $HTML_DIR admin https://github.com/ipitio/AdminLTE "$mod_admin_ver" master $stable
+            $backup || download $HTML_DIR admin https://github.com/"$MOD_REPO"/AdminLTE "$mod_admin_ver" "$ADMIN_BRANCH" $stable
             setCnf mod-$CORE_DIR "$(getVersion $CORE_DIR)" $MOD_DIR/cnf $reinstall
             setCnf mod-$HTML_DIR/admin "$(getVersion $HTML_DIR/admin)" $MOD_DIR/cnf $reinstall
         fi
@@ -531,5 +553,5 @@ fi
 rm -f /tmp/pimod.log
 touch /tmp/pimod.log
 main "$@" 2>&1 | tee -a /tmp/pimod.log
-$cleanup && mv -f /tmp/pimod.log /var/log/pihole/mod.log || rm -f /tmp/pimod.log
+$CLEANUP && mv -f /tmp/pimod.log /var/log/pihole/mod.log || rm -f /tmp/pimod.log
 exit $aborted
