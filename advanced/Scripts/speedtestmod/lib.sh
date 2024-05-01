@@ -215,7 +215,7 @@ getCnf() {
 #   0 if the installation was successful, 1 if it was not
 #######################################
 libreSpeed() {
-    echo "Installing LibreSpeed..."
+    echo "Installing librespeed-cli..."
     $PKG_MANAGER remove -y speedtest-cli speedtest >/dev/null 2>&1
 
     if notInstalled golang; then
@@ -243,7 +243,7 @@ libreSpeed() {
     chmod +x /usr/bin/speedtest
 
     if [[ -x /usr/bin/speedtest ]]; then
-        echo "Installed LibreSpeed"
+        echo "Installed librespeed-cli"
         return 0
     fi
 
