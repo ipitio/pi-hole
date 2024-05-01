@@ -28,7 +28,9 @@ declare SERVER_ID
 START=$(date -u --rfc-3339='seconds')
 SERVER_ID=$(grep 'SPEEDTEST_SERVER' "/etc/pihole/setupVars.conf" | cut -d '=' -f2)
 readonly START SERVER_ID
-declare -i run_status=0
+declare run_status
+run_status=$(mktemp)
+echo "0" >"$run_status"
 
 #######################################
 # Display the help message
@@ -209,7 +211,7 @@ main() {
     [[ "$attempts" =~ ^[0-9]+$ ]] || attempts="3"
     ! $verbose || set -x
     run $attempts
-    run_status=$?
+    echo "$?" >"$run_status"
 }
 
 if [[ $EUID != 0 ]]; then
@@ -221,4 +223,6 @@ rm -f "$OUT_FILE"
 touch "$OUT_FILE"
 main "$@" 2>&1 | tee -a "$OUT_FILE"
 mv -f "$OUT_FILE" /var/log/pihole/speedtest-run.log || rm -f "$OUT_FILE"
-exit $run_status
+exit_code=$(<"$run_status")
+rm -f "$run_status"
+[[ "$exit_code" -eq 1 ]] && exit 1 || exit 0

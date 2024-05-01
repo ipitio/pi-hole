@@ -19,11 +19,12 @@ declare -r CURR_WP="$OPT_DIR/webpage.sh"
 declare -r CURR_DB="$ETC_DIR/speedtest.db"
 declare -r LAST_DB="$CURR_DB.old"
 declare -r DB_TABLE="speedtest"
-declare -i aborted=0
-cleanup=false
-st_ver=""
-mod_core_ver=""
-mod_admin_ver=""
+declare cleanup
+declare aborted
+cleanup=$(mktemp)
+aborted=$(mktemp)
+echo "false" >"$cleanup"
+echo "false" >"$aborted"
 # shellcheck disable=SC2034
 SKIP_INSTALL=true
 # shellcheck disable=SC1091
@@ -168,9 +169,9 @@ purge() {
 #   The changes reverted
 # shellcheck disable=SC2317 ###########
 abort() {
-    if $cleanup && [[ $aborted -eq 0 ]]; then
+    if grep -q true "$cleanup" && grep -q false "$aborted"; then
         echo "Process Aborting..."
-        aborted=1
+        echo "true" >"$aborted"
 
         if [[ -d "$CORE_DIR"/.git/refs/remotes/old ]]; then
             download /etc .pihole "" Pi-hole
@@ -202,7 +203,7 @@ abort() {
 #   The repositories cleaned up
 # shellcheck disable=SC2317 ###########
 commit() {
-    if $cleanup; then
+    if grep -q true "$cleanup"; then
         for dir in $CORE_DIR $HTML_DIR/admin; do
             [[ ! -d "$dir" ]] && continue || pushd "$dir" &>/dev/null || exit 1
             ! git remote -v | grep -q "old" || git remote remove old
@@ -261,6 +262,9 @@ main() {
     local select_test=false
     local selected_test=""
     local do_main=false
+    local st_ver=""
+    local mod_core_ver=""
+    local mod_admin_ver=""
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -330,8 +334,7 @@ main() {
         esac
     done
 
-    cleanup=true
-    echo "Cleanup after args: $cleanup"
+    echo "true" >"$cleanup"
     ! $do_main && ! $database && ! $select_test && do_main=true || :
     readonly update backup online reinstall stable uninstall database verbose select_test selected_test do_main
     printf "%s\n\nRunning the Mod Script by @ipitio...\n" "$(date)"
@@ -553,8 +556,9 @@ fi
 
 rm -f /tmp/pimod.log
 touch /tmp/pimod.log
-echo "Cleanup before main: $cleanup"
 main "$@" 2>&1 | tee -a /tmp/pimod.log
-echo "Cleanup after main: $cleanup"
-! $cleanup || mv -f /tmp/pimod.log /var/log/pihole/mod.log # && rm -f /tmp/pimod.log
-exit $aborted
+grep -q false "$cleanup" || mv -f /tmp/pimod.log /var/log/pihole/mod.log # && rm -f /tmp/pimod.log
+return_status=$(<"$aborted")
+rm -f "$cleanup"
+rm -f "$aborted"
+[[ "$return_status" == "true" ]] && exit 1 || exit 0
