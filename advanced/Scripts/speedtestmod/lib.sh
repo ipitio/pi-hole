@@ -317,10 +317,10 @@ ooklaSpeed() {
             fi
             wget -O /tmp/script.deb.sh https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh >/dev/null 2>&1
             chmod +x /tmp/script.deb.sh
-            os=$os dist=$dist /tmp/script.deb.sh
+            os=$os dist=$dist /tmp/script.deb.sh >/dev/null 2>&1
             rm -f /tmp/script.deb.sh
         else
-            curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
+            curl -sSLN https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash >/dev/null 2>&1
         fi
 
         sed -i 's/g]/g allow-insecure=yes trusted=yes]/' /etc/apt/sources.list.d/ookla_speedtest-cli.list

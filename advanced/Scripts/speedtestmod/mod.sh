@@ -49,25 +49,25 @@ help() {
         ""
         "Installation:"
         "  -u, --update,    up              also update Pi-hole"
-        "  -r, --reinstall                  keep current version of the mod, if installed"
-        "  -t, --testing                    install the beta version of the mod"
+        "  -r, --reinstall                  repair currently installed version of the Mod"
+        "  -t, --testing                    try unstable changes"
         ""
         "Restoration:"
-        "  -n, --uninstall, un              purge the mod, keeping the speedtest package, logs, and database"
+        "  -n, --uninstall, un              purge the Mod, keeping the speedtest package, logs, and database"
         "  -b, --backup                     backup Pi-hole for faster offline restore"
         "  -o, --online                     force online restore of Pi-hole"
         ""
         "Standalone:"
         "  -d, --database,  db              flush/restore the database if it's not/empty"
-        "  -s, --speedtest[=<sivel|libre>]  install Ookla's or the specified CLI immediately, as opposed to mediately"
+        "  -s, --speedtest[=<sivel|libre>]  install Ookla's or the specified CLI immediately"
         "  -x, --verbose                    show the commands being run"
-        "  -v, --version                    display the version of the mod and exit"
+        "  -v, --version                    display the installed version of the Mod and exit"
         "  -h, --help                       display this help message and exit"
         ""
         "Examples:"
         "  sudo bash /opt/pihole/speedtestmod/mod.sh -d -slibre"
         "  sudo bash /opt/pihole/speedtestmod/mod.sh --uninstall"
-        "  curl -sSL https://github.com/$MOD_REPO/pihole-speedtest/raw/master/mod | sudo bash"
+        "  curl -sSL https://github.com/$MOD_REPO/pihole-speedtest/raw/$CORE_BRANCH/mod | sudo bash"
         "  curl -sSLN https://github.com/$MOD_REPO/pi-hole/raw/$CORE_BRANCH/advanced/Scripts/speedtestmod/mod.sh | sudo bash -s -- -bo"
     )
 
@@ -553,5 +553,5 @@ fi
 rm -f /tmp/pimod.log
 touch /tmp/pimod.log
 main "$@" 2>&1 | tee -a /tmp/pimod.log
-$CLEANUP && mv -f /tmp/pimod.log /var/log/pihole/mod.log || rm -f /tmp/pimod.log
+! $CLEANUP || mv -f /tmp/pimod.log /var/log/pihole/mod.log # && rm -f /tmp/pimod.log
 exit $aborted
