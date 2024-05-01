@@ -20,7 +20,7 @@ declare -r CURR_DB="$ETC_DIR/speedtest.db"
 declare -r LAST_DB="$CURR_DB.old"
 declare -r DB_TABLE="speedtest"
 declare -i aborted=0
-CLEANUP=false
+cleanup=false
 st_ver=""
 mod_core_ver=""
 mod_admin_ver=""
@@ -160,7 +160,7 @@ purge() {
 #   CURR_DB
 #   LAST_DB
 #   ETC_DIR
-#   CLEANUP
+#   cleanup
 #   aborted
 # Arguments:
 #   None
@@ -168,7 +168,7 @@ purge() {
 #   The changes reverted
 # shellcheck disable=SC2317 ###########
 abort() {
-    if $CLEANUP && [[ $aborted -eq 0 ]]; then
+    if $cleanup && [[ $aborted -eq 0 ]]; then
         echo "Process Aborting..."
         aborted=1
 
@@ -195,14 +195,14 @@ abort() {
 # Globals:
 #   CORE_DIR
 #   HTML_DIR
-#   CLEANUP
+#   cleanup
 # Arguments:
 #   None
 # Outputs:
 #   The repositories cleaned up
 # shellcheck disable=SC2317 ###########
 commit() {
-    if $CLEANUP; then
+    if $cleanup; then
         for dir in $CORE_DIR $HTML_DIR/admin; do
             [[ ! -d "$dir" ]] && continue || pushd "$dir" &>/dev/null || exit 1
             ! git remote -v | grep -q "old" || git remote remove old
@@ -228,7 +228,7 @@ commit() {
 #   st_ver
 #   mod_core_ver
 #   mod_admin_ver
-#   CLEANUP
+#   cleanup
 # Arguments:
 #   $@: The options for managing the installation
 # Outputs:
@@ -330,9 +330,9 @@ main() {
         esac
     done
 
-    CLEANUP=true
+    cleanup=true
     ! $do_main && ! $database && ! $select_test && do_main=true || :
-    readonly update backup online reinstall stable uninstall database verbose CLEANUP select_test selected_test do_main
+    readonly update backup online reinstall stable uninstall database verbose select_test selected_test do_main
     printf "%s\n\nRunning the Mod Script by @ipitio...\n" "$(date)"
     ! $verbose || set -x
 
@@ -553,5 +553,5 @@ fi
 rm -f /tmp/pimod.log
 touch /tmp/pimod.log
 main "$@" 2>&1 | tee -a /tmp/pimod.log
-! $CLEANUP || mv -f /tmp/pimod.log /var/log/pihole/mod.log # && rm -f /tmp/pimod.log
+! $cleanup || mv -f /tmp/pimod.log /var/log/pihole/mod.log # && rm -f /tmp/pimod.log
 exit $aborted
