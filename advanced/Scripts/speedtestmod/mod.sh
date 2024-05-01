@@ -331,6 +331,7 @@ main() {
     done
 
     cleanup=true
+    echo "Cleanup after args: $cleanup"
     ! $do_main && ! $database && ! $select_test && do_main=true || :
     readonly update backup online reinstall stable uninstall database verbose select_test selected_test do_main
     printf "%s\n\nRunning the Mod Script by @ipitio...\n" "$(date)"
@@ -552,6 +553,8 @@ fi
 
 rm -f /tmp/pimod.log
 touch /tmp/pimod.log
+echo "Cleanup before main: $cleanup"
 main "$@" 2>&1 | tee -a /tmp/pimod.log
+echo "Cleanup after main: $cleanup"
 ! $cleanup || mv -f /tmp/pimod.log /var/log/pihole/mod.log # && rm -f /tmp/pimod.log
 exit $aborted
