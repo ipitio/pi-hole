@@ -46,6 +46,7 @@ help() {
         "The Mod Script"
         "Usage: sudo bash /path/to/mod.sh [options]"
         "  or: curl -sSLN //link/to/mod.sh | sudo bash [-s -- options]"
+        "  or: pihole -a -sm [options]"
         "(Re)install Speedtest Mod and/or the following options:"
         ""
         "Installation:"
@@ -66,8 +67,8 @@ help() {
         "  -h, --help                       display this help message and exit"
         ""
         "Examples:"
-        "  sudo bash /opt/pihole/speedtestmod/mod.sh -d -slibre"
-        "  sudo bash /opt/pihole/speedtestmod/mod.sh --uninstall"
+        "  pihole -a -sm -d -slibre"
+        "  sudo bash /opt/pihole/speedtestmod/mod.sh --update"
         "  curl -sSL https://github.com/$MOD_REPO/pihole-speedtest/raw/$CORE_BRANCH/mod | sudo bash"
         "  curl -sSLN https://github.com/$MOD_REPO/pi-hole/raw/$CORE_BRANCH/advanced/Scripts/speedtestmod/mod.sh | sudo bash -s -- -bo"
     )
@@ -226,9 +227,6 @@ commit() {
 #   CURR_DB
 #   LAST_DB
 #   ETC_DIR
-#   st_ver
-#   mod_core_ver
-#   mod_admin_ver
 #   cleanup
 # Arguments:
 #   $@: The options for managing the installation
@@ -477,7 +475,7 @@ EOF
             if [[ ${#missingpkgs[@]} -gt 0 ]]; then
                 echo "Installing Missing Dependencies..."
                 if ! $PKG_MANAGER install -y "${missingpkgs[@]}" &>/dev/null; then
-                    [[ "$PKG_MANAGER" == *"apt-get"* ]] || exit 1
+                    [[ "$PKG_MANAGER" ==  *"apt"* ]] || exit 1
                     echo "And Updating Package Cache..."
                     $PKG_MANAGER update -y &>/dev/null
                     $PKG_MANAGER install -y "${missingpkgs[@]}" &>/dev/null

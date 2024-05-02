@@ -54,8 +54,8 @@ Options:
   -i, interface                   Specify dnsmasq's interface listening behavior
   -s, speedtest                   Set speedtest interval, add 0 to disable
   -sd                             Set speedtest display range
-  -sm [options]                   Run the Mod Script
-  -sn [options]                   Run the Test Script
+  -sm [options]                   Run the Mod Script in the background (tmux a -t pimod)
+  -sn [options]                   Run the Test Script in the background (tmux a -t pimodtest)
   -ss                             Set custom server
   -st                             Set default speedtest chart type (line, bar)
   -l, privacylevel                Set privacy level (0 = lowest, 3 = highest)
