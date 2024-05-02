@@ -555,7 +555,7 @@ fi
 rm -f /tmp/pimod.log
 touch /tmp/pimod.log
 main "$@" 2>&1 | tee -a /tmp/pimod.log
-grep -q false "$cleanup" || mv -f /tmp/pimod.log /var/log/pihole/mod.log # && rm -f /tmp/pimod.log
+grep -q false "$cleanup" || mv -f /tmp/pimod.log /var/log/pihole/mod.log && rm -f /tmp/pimod.log
 return_status=$(<"$aborted")
 rm -f "$cleanup"
 rm -f "$aborted"
