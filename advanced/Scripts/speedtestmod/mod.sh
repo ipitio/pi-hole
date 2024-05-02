@@ -475,7 +475,7 @@ EOF
             if [[ ${#missingpkgs[@]} -gt 0 ]]; then
                 echo "Installing Missing Dependencies..."
                 if ! $PKG_MANAGER install -y "${missingpkgs[@]}" &>/dev/null; then
-                    [[ "$PKG_MANAGER" ==  *"apt"* ]] || exit 1
+                    [[ "$PKG_MANAGER" == *"apt"* ]] || exit 1
                     echo "And Updating Package Cache..."
                     $PKG_MANAGER update -y &>/dev/null
                     $PKG_MANAGER install -y "${missingpkgs[@]}" &>/dev/null
